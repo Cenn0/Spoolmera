@@ -75,7 +75,6 @@ export class HistoryComponent {
 }
 @Component({
   standalone: true,
-  imports: [RouterLink],
   templateUrl: './integrations.html'
 })
 export class IntegrationsComponent implements OnInit {
