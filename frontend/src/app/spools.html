@@ -1,6 +1,6 @@
 <section class="page-head">
   <div><span class="eyebrow">PHYSICAL INVENTORY</span><h1>Your <em>spools.</em></h1><p>Track each roll individually, from sealed to empty.</p></div>
-  <div class="heading-actions"><button class="btn ghost" type="button" (click)="dialogs.open({kind:'csv'})">Import CSV</button><a class="btn ghost" href="/api/export/inventory.csv" download>Export CSV</a><button class="btn primary" type="button" (click)="dialogs.open({kind:'spool'})">+ Add spool</button></div>
+  <div class="heading-actions"><button class="btn ghost" type="button" (click)="dialogs.open({kind:'csv'})">Import CSV</button><a class="btn ghost" href="/api/export/inventory.csv" download>Export CSV</a><button class="btn primary" type="button" (click)="dialogs.open({kind:data.products().length?'spool':'product'})">+ Add spool</button></div>
 </section>
 <section class="panel data-panel">
   <div class="toolbar">

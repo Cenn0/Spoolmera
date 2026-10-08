@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, effect, inject, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, effect, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DialogRequest, DialogService, NoticeService } from './dialog.service';
 import { InventoryService, apiError } from './inventory.service';
@@ -93,8 +93,10 @@ export class DialogsComponent {
     }
   }
 
-  @HostListener('document:keydown.escape')
-  onEscape(): void { if (this.dialogs.active()) this.close(); }
+  onCancel(event: Event): void {
+    if (this.busy()) event.preventDefault();
+    else this.close();
+  }
   close(): void { if (!this.busy()) this.dialogs.close(); }
   private async loadHistory(id:number):Promise<void> {
     try { this.history.set(await this.data.movementsFor(id)); }
@@ -178,9 +180,17 @@ export class DialogsComponent {
   async importCsv():Promise<void>{
     if(!this.csvFile||!this.csvPreview()||!this.importCheck())return;
     const file=this.csvFile;
-    await this.run(async()=>{
+    if(this.busy())return;
+    this.busy.set(true);
+    this.error.set('');
+    try {
       const result=await this.data.importCsv(file);
+      this.dialogs.close();
       this.notices.show('Imported '+result.products_created+' products and '+result.spools_created+' spools. Existing UUIDs were skipped.');
-    },'Inventory import completed.');
+    } catch(error) {
+      this.error.set('Import failed: '+apiError(error));
+    } finally {
+      this.busy.set(false);
+    }
   }
 }

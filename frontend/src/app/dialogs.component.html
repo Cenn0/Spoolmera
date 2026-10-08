@@ -1,5 +1,5 @@
 @if (dialogs.active(); as active) {
-<dialog #dialog class="modal" (close)="close()" (cancel)="close()" aria-labelledby="modal-title">
+<dialog #dialog class="modal" (close)="close()" (cancel)="onCancel($event)" aria-labelledby="modal-title">
   <header class="modal-header"><div><span class="eyebrow">MATERIAL WORKSPACE</span><h2 id="modal-title">{{heading}}</h2></div><button class="close-button" type="button" (click)="close()" aria-label="Close dialog" [disabled]="busy()">×</button></header>
   @if (error()) {<div class="form-error" role="alert">{{error()}}</div>}
   @if (active.kind==='product') {
