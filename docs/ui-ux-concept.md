@@ -1,6 +1,6 @@
 # Angular UI/UX concept — Material Workspace
 
-> Status: Approved implementation baseline for the Angular migration.
+> Status: Implementation baseline for the Angular migration.
 >
 > User-facing interface language: **English**. The repository remains Apache-2.0 licensed.
 
