@@ -1,6 +1,7 @@
 import { Component, ElementRef, effect, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DialogRequest, DialogService, NoticeService } from './dialog.service';
+import { AuthService } from './auth.service';
 import { InventoryService, apiError } from './inventory.service';
 import { CsvPreview, Movement, ProductInput, SpoolInput, dateText, grams, stockPercent } from './models';
 
@@ -19,6 +20,7 @@ function blankSpool(): SpoolInput {
 })
 export class DialogsComponent {
   readonly dialogs=inject(DialogService);
+  readonly auth=inject(AuthService);
   readonly data=inject(InventoryService);
   readonly notices=inject(NoticeService);
   readonly grams=grams;

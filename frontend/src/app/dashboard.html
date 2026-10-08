@@ -4,7 +4,7 @@
     <h1>Every spool <em>at a glance.</em></h1>
     <p>Know what is on the shelf, what is running low, and what changed.</p>
   </div>
-  <button class="btn ghost" type="button" (click)="dialogs.open({kind:'product'})">+ New filament</button>
+  @if(auth.canEdit()){<button class="btn ghost" type="button" (click)="dialogs.open({kind:'product'})">+ New filament</button>}
 </section>
 
 <div class="metrics">
@@ -21,7 +21,7 @@
       @if (!data.ready() && data.loading()) {
         <div class="placeholder">Loading inventory…</div>
       } @else if (!data.spools().length) {
-        <div class="empty-state"><span class="empty-symbol">◎</span><h3>Your workspace is ready</h3><p>Create a filament product, then register its first physical spool.</p><button class="btn primary" type="button" (click)="dialogs.open({kind:'product'})">Add your first filament</button></div>
+        <div class="empty-state"><span class="empty-symbol">◎</span><h3>Your workspace is ready</h3><p>Create a filament product, then register its first physical spool.</p>@if(auth.canEdit()){<button class="btn primary" type="button" (click)="dialogs.open({kind:'product'})">Add your first filament</button>}</div>
       } @else if (!low().length) {
         <div class="empty-state slim"><span class="empty-symbol good">✓</span><h3>All stocked up</h3><p>No active spools are below the 200 g threshold.</p></div>
       } @else {

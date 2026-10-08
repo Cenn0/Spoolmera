@@ -1,6 +1,6 @@
 <section class="page-head">
   <div><span class="eyebrow">FILAMENT CATALOG</span><h1>Your <em>materials.</em></h1><p>Reusable filament products, colors and specifications.</p></div>
-  <button class="btn primary" type="button" (click)="dialogs.open({kind:'product'})">+ Add filament</button>
+  @if(auth.canEdit()){<button class="btn primary" type="button" (click)="dialogs.open({kind:'product'})">+ Add filament</button>}
 </section>
 <section class="panel data-panel">
   <div class="toolbar"><label class="search-field"><span aria-hidden="true">⌕</span><input id="product-search" type="search" placeholder="Search brand, product, material…" [value]="query()" (input)="query.set($any($event.target).value)" aria-label="Search products"></label></div>
@@ -12,7 +12,7 @@
         <td><span class="item-name"><span class="swatch" [style.background-color]="product.color_hex"></span><span><strong>{{product.brand}} · {{product.name}}</strong><small>{{product.color_name}}</small></span></span></td>
         <td><span class="material-chip">{{product.material}}</span> <small class="subdued">{{product.diameter_mm}} mm</small></td>
         <td>{{product.color_name}}</td><td>{{product.spool_count}}</td><td><strong>{{grams(product.total_remaining_g)}}</strong></td>
-        <td><div class="table-actions"><button type="button" (click)="dialogs.open({kind:'spool',productId:product.id})">+ Spool</button><button type="button" (click)="dialogs.open({kind:'product',id:product.id})">Edit</button></div></td>
+        <td><div class="table-actions">@if(auth.canEdit()){<button type="button" (click)="dialogs.open({kind:'spool',productId:product.id})">+ Spool</button><button type="button" (click)="dialogs.open({kind:'product',id:product.id})">Edit</button>}</div></td>
       </tr>
     } @empty {<tr><td colspan="6"><div class="placeholder">{{data.products().length?'No matching products.':'No filament products yet.'}}</div></td></tr>}
     </tbody></table></div>
@@ -21,7 +21,7 @@
       <article class="mobile-spool">
         <div class="mobile-spool-head"><span class="item-name"><span class="swatch" [style.background-color]="product.color_hex"></span><span><strong>{{product.brand}} · {{product.name}}</strong><small>{{product.material}} · {{product.color_name}}</small></span></span></div>
         <div class="mobile-stock">{{product.spool_count}} rolls · {{grams(product.total_remaining_g)}} available · {{product.diameter_mm}} mm</div>
-        <div class="mobile-actions"><button class="btn primary" type="button" (click)="dialogs.open({kind:'spool',productId:product.id})">+ Spool</button><button class="btn ghost" type="button" (click)="dialogs.open({kind:'product',id:product.id})">Edit</button></div>
+        <div class="mobile-actions">@if(auth.canEdit()){<button class="btn primary" type="button" (click)="dialogs.open({kind:'spool',productId:product.id})">+ Spool</button><button class="btn ghost" type="button" (click)="dialogs.open({kind:'product',id:product.id})">Edit</button>}</div>
       </article>
     } @empty {<div class="placeholder">No matching filament products.</div>}
   </div>

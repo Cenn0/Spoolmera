@@ -1,0 +1,52 @@
+import { Component, inject, output, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { AuthService } from './auth.service';
+import { apiError } from './inventory.service';
+
+@Component({
+  selector:'fm-login', standalone:true, imports:[FormsModule],
+  template: `
+    <main class="login-screen">
+      <section class="login-card">
+        <div class="login-brand"><span class="brand-mark"><span></span></span>
+          <strong>FILAMENT <small>MANAGER</small></strong></div>
+        <span class="eyebrow">SELF-HOSTED MATERIAL WORKSPACE</span>
+        <h1>{{auth.needsSetup()?'Create the first administrator':'Welcome back.'}}</h1>
+        <p class="helper">{{auth.needsSetup()
+          ?'Initial setup requires the bootstrap token configured on your server.'
+          :'Sign in to access your spool inventory and printer connections.'}}</p>
+        @if(error()) {<div class="form-error" role="alert">{{error()}}</div>}
+        <form #loginForm="ngForm" (ngSubmit)="submit()">
+          <label>Username<input type="text" name="username" [(ngModel)]="username" required maxlength="60" autocomplete="username" autofocus></label>
+          <label>Password<input type="password" name="password" [(ngModel)]="password" required
+            [minlength]="auth.needsSetup()?14:1" maxlength="128" [autocomplete]="auth.needsSetup()?'new-password':'current-password'"></label>
+          @if(auth.needsSetup()){
+            <label>Bootstrap token<input type="password" name="token" [(ngModel)]="bootstrapToken" required
+              autocomplete="off" placeholder="From FILAMENT_BOOTSTRAP_TOKEN"></label>
+          }
+          <button class="btn primary" type="submit" [disabled]="busy()||loginForm.invalid">
+            {{busy()?'Working…':auth.needsSetup()?'Create administrator':'Sign in'}}
+          </button>
+        </form>
+        <p class="login-footnote">Credentials and inventory remain on your self-hosted server.</p>
+      </section>
+    </main>
+  `
+})
+export class LoginComponent {
+  readonly auth=inject(AuthService);
+  readonly authenticated=output<void>();
+  readonly busy=signal(false);
+  readonly error=signal('');
+  username='';password='';bootstrapToken='';
+  async submit():Promise<void> {
+    if(this.busy())return;
+    this.busy.set(true);this.error.set('');
+    try{
+      if(this.auth.needsSetup())await this.auth.setup(this.username,this.password,this.bootstrapToken);
+      else await this.auth.login(this.username,this.password);
+      this.password='';this.bootstrapToken='';this.authenticated.emit();
+    }catch(error){this.error.set(apiError(error));}
+    finally{this.busy.set(false);}
+  }
+}

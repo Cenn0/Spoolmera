@@ -42,6 +42,63 @@ CREATE TABLE IF NOT EXISTS movements (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_movements_spool ON movements(spool_id, id DESC);
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY,
+    username TEXT NOT NULL COLLATE NOCASE UNIQUE,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('admin', 'editor', 'viewer')),
+    enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0,1)),
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS auth_sessions (
+    token_hash TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    csrf_token TEXT NOT NULL,
+    expires_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_auth_sessions_expiry ON auth_sessions(expires_at);
+CREATE TABLE IF NOT EXISTS auth_failures (
+    subject TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_auth_failures ON auth_failures(subject, created_at);
+CREATE TABLE IF NOT EXISTS printers (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    kind TEXT NOT NULL CHECK(kind IN ('moonraker','octoprint')),
+    base_url TEXT NOT NULL,
+    token_env TEXT NOT NULL DEFAULT '',
+    enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0,1)),
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS print_jobs (
+    id INTEGER PRIMARY KEY,
+    printer_id INTEGER NOT NULL REFERENCES printers(id) ON DELETE RESTRICT,
+    spool_id INTEGER NOT NULL REFERENCES spools(id) ON DELETE RESTRICT,
+    file_name TEXT NOT NULL,
+    estimated_g INTEGER NOT NULL CHECK(estimated_g BETWEEN 1 AND 100000),
+    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','printing','completed','needs_review','cancelled')),
+    external_job_id TEXT,
+    observed_printing INTEGER NOT NULL DEFAULT 0 CHECK(observed_printing IN (0,1)),
+    movement_id INTEGER REFERENCES movements(id),
+    note TEXT NOT NULL DEFAULT '',
+    created_by INTEGER REFERENCES users(id),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_print_jobs_status ON print_jobs(status,printer_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_print_jobs_one_active
+ ON print_jobs(printer_id,file_name) WHERE status IN ('pending','printing');
+CREATE UNIQUE INDEX IF NOT EXISTS idx_print_jobs_external
+ ON print_jobs(printer_id,external_job_id) WHERE external_job_id IS NOT NULL;
+CREATE TABLE IF NOT EXISTS audit_events (
+    id INTEGER PRIMARY KEY,
+    actor_id INTEGER REFERENCES users(id),
+    action TEXT NOT NULL,
+    entity TEXT NOT NULL,
+    entity_id INTEGER,
+    created_at TEXT NOT NULL
+);
 """
 
 
@@ -96,7 +153,16 @@ def initialize_database(path: str | Path) -> None:
                 connection.execute(
                     f"CREATE UNIQUE INDEX IF NOT EXISTS idx_{table}_uid ON {table}(uid)"
                 )
-            connection.execute("PRAGMA user_version = 2")
+            movement_columns = {row["name"] for row in connection.execute("PRAGMA table_info(movements)")}
+            if "print_job_id" not in movement_columns:
+                connection.execute(
+                    "ALTER TABLE movements ADD COLUMN print_job_id INTEGER REFERENCES print_jobs(id)"
+                )
+            connection.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_movements_print_job "
+                "ON movements(print_job_id) WHERE print_job_id IS NOT NULL"
+            )
+            connection.execute("PRAGMA user_version = 3")
             connection.execute("COMMIT")
         except BaseException:
             if connection.in_transaction:

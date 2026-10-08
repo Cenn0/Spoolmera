@@ -3,11 +3,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from tests.support import authenticate
 
 
 @pytest.fixture
 def client(tmp_path):
     with TestClient(create_app(tmp_path / "inventory.sqlite3")) as test_client:
+        authenticate(test_client)
         yield test_client
 
 
