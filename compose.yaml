@@ -4,6 +4,9 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:8765:8765"
+    env_file:
+      - path: .env
+        required: false
     environment:
       FILAMENT_DB_PATH: /data/filaments.sqlite3
     volumes:
