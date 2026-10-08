@@ -38,3 +38,11 @@ def test_inspection_never_changes_stock(tmp_path):
         assert result.json()["plates"][0]["materials"][1] == {"tool":1,"estimated_g":3}
         assert client.get("/api/jobs").json() == []
         assert client.get("/api/spools").json() == []
+
+
+def test_invalid_tool_quantities_fail_safely_without_execution():
+    import pytest
+    with pytest.raises(ValueError):
+        gcode_tool_estimates(b"; filament used [g] = 1..2")
+    with pytest.raises(ValueError):
+        gcode_tool_estimates(b"; filament used [g] = 0.2")
