@@ -2,8 +2,8 @@
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
-const state = { overview: {}, products: [], spools: [], movements: [] };
-const numberFormatter = new Intl.NumberFormat("de-DE");
+const state = { overview: {}, products: [], spools: [], movements: [], csvBytes: null };
+const numberFormatter = new Intl.NumberFormat("en-US");
 let toastTimeout;
 
 function escapeHtml(value) {
@@ -18,7 +18,7 @@ function safeColor(value) {
 function formatGrams(value) {
   const grams = Number(value) || 0;
   if (Math.abs(grams) >= 1000) {
-    return new Intl.NumberFormat("de-DE", { maximumFractionDigits: 2 }).format(grams / 1000) + " kg";
+    return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(grams / 1000) + " kg";
   }
   return numberFormatter.format(grams) + " g";
 }
@@ -26,7 +26,7 @@ function formatGrams(value) {
 function formatDate(value) {
   if (!value) return "–";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "–" : date.toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
+  return Number.isNaN(date.getTime()) ? "–" : date.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
 }
 
 function spoolName(spool) {
@@ -74,12 +74,12 @@ async function refresh() {
     state.movements = movements;
     render();
   } catch (error) {
-    showToast("Bestandsdaten konnten nicht geladen werden: " + error.message, true);
+    showToast("Unable to load inventory data: " + error.message, true);
   }
 }
 
 function setView(viewName) {
-  const titles = { dashboard: "Übersicht", spools: "Rollen", products: "Filamente", history: "Verlauf" };
+  const titles = { dashboard: "Overview", spools: "Spools", products: "Filaments", history: "History", integrations: "Integrations" };
   if (!Object.hasOwn(titles, viewName)) return;
   $$(".view").forEach(section => {
     const visible = section.id === "view-" + viewName;
@@ -98,7 +98,7 @@ function setView(viewName) {
 }
 
 function statusBadge(status) {
-  const labels = { sealed: "Ungeöffnet", opened: "Angebrochen", empty: "Leer" };
+  const labels = { sealed: "Sealed", opened: "Opened", empty: "Empty" };
   const safeStatus = Object.hasOwn(labels, status) ? status : "empty";
   return '<span class="status-tag ' + safeStatus + '">' + labels[safeStatus] + "</span>";
 }
@@ -134,10 +134,10 @@ function renderCompactSpools() {
     '<div class="compact-copy"><strong>', escapeHtml(spoolName(spool)), '</strong><small>',
     escapeHtml(spool.material), ' · ', escapeHtml(spool.color_name), '</small></div>',
     '<div class="compact-stock"><b>', escapeHtml(formatGrams(spool.remaining_g)), '</b>',
-    '<small>von ', escapeHtml(formatGrams(spool.initial_g)), '</small>', progress(spool), '</div>',
-    '<button type="button" class="compact-open" aria-label="Rolle verwalten" title="Rolle verwalten" data-action="edit-spool" data-id="',
+    '<small>of ', escapeHtml(formatGrams(spool.initial_g)), '</small>', progress(spool), '</div>',
+    '<button type="button" class="compact-open" aria-label="Manage spool" title="Manage spool" data-action="edit-spool" data-id="',
     spool.id, '">↗</button></div>'
-  ].join("")).join("") : '<div class="empty-state">Noch keine Rollen erfasst.<br>Lege zuerst ein Filament an und erfasse eine Rolle.</div>';
+  ].join("")).join("") : '<div class="empty-state">No spools recorded yet.<br>Add a filament product and then a physical spool.</div>';
 }
 
 function renderDistribution() {
@@ -164,16 +164,16 @@ function renderDistribution() {
     return segment;
   });
   $("#material-chart").style.background = segments.length ? "conic-gradient(" + segments.join(", ") + ")" : "#e9eeeb";
-  $("#material-chart").setAttribute("aria-label", total ? "Materialbestand insgesamt " + total + " Gramm" : "Kein Material erfasst");
+  $("#material-chart").setAttribute("aria-label", total ? "Total material inventory: " + total + " grams" : "No filament recorded");
   $("#material-legend").innerHTML = data.length ? data.map((item, index) => [
     '<div class="legend-row"><span class="legend-dot" style="background:', palette[index], '"></span>',
     '<span class="legend-label">', escapeHtml(item.label), '</span>',
     '<span class="legend-value">', Math.round(item.weight * 100 / total), '%</span></div>'
-  ].join("")).join("") : '<div class="empty-state">Noch kein Bestand.</div>';
+  ].join("")).join("") : '<div class="empty-state">No inventory yet.</div>';
 }
 
 function movementRow(movement, fallbackSpool) {
-  const labels = { initial: "Rolle erfasst", consume: "Verbrauch gebucht", adjust: "Bestand korrigiert" };
+  const labels = { initial: "Spool registered", consume: "Consumption recorded", adjust: "Stock adjusted" };
   const icons = { initial: "+", consume: "−", adjust: "±" };
   const kind = Object.hasOwn(labels, movement.kind) ? movement.kind : "adjust";
   const brand = movement.brand || (fallbackSpool && fallbackSpool.brand) || "";
@@ -183,14 +183,14 @@ function movementRow(movement, fallbackSpool) {
   return [
     '<div class="timeline-entry"><span class="timeline-icon ', kind, '">', icons[kind], '</span>',
     '<div class="timeline-copy"><strong>', escapeHtml(labels[kind]), ' · ', escapeHtml(brand),
-    ' ', escapeHtml(productName), '</strong><p>', escapeHtml(movement.note || "Ohne Notiz"),
+    ' ', escapeHtml(productName), '</strong><p>', escapeHtml(movement.note || "No note"),
     '</p></div><div class="timeline-trailing"><b>', deltaText, '</b><small>',
     escapeHtml(formatDate(movement.created_at)), '</small></div></div>'
   ].join("");
 }
 
 function renderHistory() {
-  const empty = '<div class="empty-state">Noch keine Bestandsbewegungen vorhanden.</div>';
+  const empty = '<div class="empty-state">No inventory movements yet.</div>';
   $("#dashboard-history").innerHTML = state.movements.length
     ? state.movements.slice(0, 4).map(item => movementRow(item)).join("") : empty;
   $("#full-history").innerHTML = state.movements.length
@@ -201,42 +201,43 @@ function updateMaterialFilter() {
   const select = $("#spool-material-filter");
   const previous = select.value;
   const materials = Array.from(new Set(state.products.map(product => product.material))).sort();
-  select.innerHTML = '<option value="">Alle Materialien</option>' +
+  select.innerHTML = '<option value="">All materials</option>' +
     materials.map(material => '<option value="' + escapeHtml(material) + '">' + escapeHtml(material) + '</option>').join("");
   select.value = materials.includes(previous) ? previous : "";
 }
 
 function renderSpools() {
-  const query = $("#spool-search").value.trim().toLocaleLowerCase("de-DE");
+  const query = $("#spool-search").value.trim().toLocaleLowerCase("en-US");
   const material = $("#spool-material-filter").value;
   const status = $("#spool-status-filter").value;
   const visible = state.spools.filter(spool => {
     const haystack = [spool.brand, spool.product_name, spool.material, spool.color_name, spool.location, spool.notes]
-      .join(" ").toLocaleLowerCase("de-DE");
+      .join(" ").toLocaleLowerCase("en-US");
     return (!query || haystack.includes(query)) && (!material || spool.material === material) &&
       (!status || spool.status === status);
   });
-  $("#spool-results").textContent = visible.length + " von " + state.spools.length + " Rollen";
+  $("#spool-results").textContent = visible.length + " of " + state.spools.length + " spools";
   $("#spool-table-body").innerHTML = visible.length ? visible.map(spool => [
     '<tr><td>', productTitle(spool.brand, spool.product_name, spool.color_name, spool.color_hex),
     '</td><td><span class="material-tag">', escapeHtml(spool.material), '</span></td>',
     '<td><div class="stock-cell"><span>', escapeHtml(formatGrams(spool.remaining_g)),
-    '</span><small>von ', escapeHtml(formatGrams(spool.initial_g)), '</small>', progress(spool),
+    '</span><small>of ', escapeHtml(formatGrams(spool.initial_g)), '</small>', progress(spool),
     '</div></td><td>', statusBadge(spool.status), '</td><td>', escapeHtml(spool.location || "–"),
     '</td><td class="right-align"><div class="action-group">',
     spool.remaining_g > 0 ? '<button type="button" class="table-action" data-action="consume" data-id="' +
-    spool.id + '">Verbrauch</button>' : "",
+    spool.id + '">Record use</button>' : "",
+    '<button type="button" class="table-action" data-action="label" data-uid="', escapeHtml(spool.uid), '">QR label</button>',
     '<button type="button" class="table-action" data-action="edit-spool" data-id="', spool.id,
     '">Details ↗</button></div></td></tr>'
-  ].join("")).join("") : '<tr><td colspan="6" class="table-empty">Keine passenden Rollen gefunden.</td></tr>';
+  ].join("")).join("") : '<tr><td colspan="6" class="table-empty">No matching spools found.</td></tr>';
 }
 
 function renderProducts() {
-  const query = $("#product-search").value.trim().toLocaleLowerCase("de-DE");
+  const query = $("#product-search").value.trim().toLocaleLowerCase("en-US");
   const visible = state.products.filter(product => [
     product.brand, product.name, product.material, product.color_name
-  ].join(" ").toLocaleLowerCase("de-DE").includes(query));
-  $("#product-results").textContent = visible.length + " Filamente";
+  ].join(" ").toLocaleLowerCase("en-US").includes(query));
+  $("#product-results").textContent = visible.length + " filaments";
   $("#product-table-body").innerHTML = visible.length ? visible.map(product => [
     '<tr><td>', productTitle(product.brand, product.name, product.color_name, product.color_hex),
     '</td><td><span class="material-tag">', escapeHtml(product.material), '</span><small> · ',
@@ -244,10 +245,10 @@ function renderProducts() {
     '</td><td>', product.spool_count, '</td><td>', escapeHtml(formatGrams(product.total_remaining_g)),
     '</td><td class="right-align"><div class="action-group">',
     '<button type="button" class="table-action" data-action="new-product-spool" data-id="',
-    product.id, '">+ Rolle</button>',
+    product.id, '">+ Spool</button>',
     '<button type="button" class="table-action" data-action="edit-product" data-id="',
     product.id, '">Bearbeiten</button></div></td></tr>'
-  ].join("")).join("") : '<tr><td colspan="6" class="table-empty">Keine Filamente gefunden. Lege dein erstes Filament an.</td></tr>';
+  ].join("")).join("") : '<tr><td colspan="6" class="table-empty">No filaments yet. Add your first filament.</td></tr>';
 }
 
 function render() {
@@ -264,7 +265,7 @@ function openProductDialog(id) {
   const form = $("#product-form");
   form.reset();
   const product = state.products.find(item => item.id === id);
-  $("#product-dialog-title").textContent = product ? "Filament bearbeiten" : "Filament anlegen";
+  $("#product-dialog-title").textContent = product ? "Edit filament" : "Add filament";
   if (product) {
     ["id", "brand", "name", "material", "color_name", "color_hex", "diameter_mm", "notes"]
       .forEach(name => { form.elements.namedItem(name).value = product[name] ?? ""; });
@@ -278,7 +279,7 @@ function openProductDialog(id) {
 
 function openSpoolDialog(productId) {
   if (!state.products.length) {
-    showToast("Lege zuerst ein Filamentprodukt an.");
+    showToast("Create a filament product first.");
     openProductDialog();
     return;
   }
@@ -298,24 +299,24 @@ function setMovementKind() {
   const amount = $("#movement-grams");
   amount.min = correction ? "-100000" : "1";
   amount.value = "";
-  $("#movement-dialog-title").textContent = correction ? "Bestand korrigieren" : "Verbrauch buchen";
-  $("#movement-amount-label").textContent = correction ? "Bestandsänderung in g (+ oder −)" : "Verbrauchte Menge (g)";
-  $("#movement-note-label").textContent = correction ? "Grund der Korrektur (Pflichtfeld)" : "Notiz (optional)";
+  $("#movement-dialog-title").textContent = correction ? "Adjust stock" : "Record consumption";
+  $("#movement-amount-label").textContent = correction ? "Stock change in g (+ or −)" : "Consumed weight (g)";
+  $("#movement-note-label").textContent = correction ? "Reason for adjustment (required)" : "Note (optional)";
   $("#movement-note").required = correction;
-  $("#movement-note").placeholder = correction ? "z. B. Nach dem Wiegen berichtigt" : "z. B. Halterung gedruckt";
+  $("#movement-note").placeholder = correction ? "z. B. Nach dem Wiegen berichtigt" : "e.g. printed a bracket";
   $("#movement-helper").textContent = correction
-    ? "Eine negative Menge reduziert den Bestand, eine positive Menge erhöht ihn bis maximal zum Startbestand."
-    : "Die verbrauchte Menge wird vom Restbestand abgezogen.";
+    ? "A negative amount reduces stock; a positive amount raises it up to the original weight."
+    : "The consumed amount is deducted from remaining stock.";
 }
 
 function openMovementDialog(id, kind = "consume") {
   const spool = state.spools.find(item => item.id === id);
-  if (!spool) return showToast("Rolle nicht gefunden.", true);
+  if (!spool) return showToast("Spool not found.", true);
   const form = $("#movement-form");
   form.reset();
   form.elements.namedItem("spool_id").value = id;
   $("#movement-kind").value = kind;
-  $("#movement-spool-label").textContent = spoolName(spool) + " · aktuell " + formatGrams(spool.remaining_g);
+  $("#movement-spool-label").textContent = spoolName(spool) + " · remaining " + formatGrams(spool.remaining_g);
   setMovementKind();
   $("#movement-dialog").showModal();
   $("#movement-grams").focus();
@@ -323,7 +324,7 @@ function openMovementDialog(id, kind = "consume") {
 
 async function openEditSpoolDialog(id) {
   const spool = state.spools.find(item => item.id === id);
-  if (!spool) return showToast("Rolle nicht gefunden.", true);
+  if (!spool) return showToast("Spool not found.", true);
   const form = $("#edit-spool-form");
   form.reset();
   form.elements.namedItem("spool_id").value = id;
@@ -331,10 +332,11 @@ async function openEditSpoolDialog(id) {
   form.elements.namedItem("notes").value = spool.notes;
   form.elements.namedItem("opened").checked = spool.opened;
   $("#edit-spool-subtitle").textContent = spoolName(spool) + " · " + spool.color_name;
+  $("#spool-label-link").href = "/labels/" + encodeURIComponent(spool.uid);
   $("#spool-detail-summary").innerHTML = [
-    '<div><small>RESTBESTAND</small><strong>', escapeHtml(formatGrams(spool.remaining_g)),
-    '</strong></div><div><small>STARTBESTAND</small><strong>',
-    escapeHtml(formatGrams(spool.initial_g)), '</strong></div><div><small>ZUSTAND</small>',
+    '<div><small>REMAINING</small><strong>', escapeHtml(formatGrams(spool.remaining_g)),
+    '</strong></div><div><small>ORIGINAL WEIGHT</small><strong>',
+    escapeHtml(formatGrams(spool.initial_g)), '</strong></div><div><small>STATUS</small>',
     statusBadge(spool.status), '</div>'
   ].join("");
   try {
@@ -365,7 +367,7 @@ async function submitProduct(event) {
     const result = await payloadRequest(id ? "PUT" : "POST", id ? "/api/products/" + id : "/api/products", body);
     $("#product-dialog").close();
     await refresh();
-    showToast(id ? "Filament aktualisiert." : "Filament angelegt.");
+    showToast(id ? "Filament updated." : "Filament added.");
     if (!id) openSpoolDialog(result.id);
   } catch (error) {
     showToast(error.message, true);
@@ -391,7 +393,7 @@ async function submitSpool(event) {
     await payloadRequest("POST", "/api/spools", body);
     $("#spool-dialog").close();
     await refresh();
-    showToast("Rolle wurde erfasst.");
+    showToast("Spool created.");
   } catch (error) {
     showToast(error.message, true);
   } finally {
@@ -413,7 +415,7 @@ async function submitMovement(event) {
     const result = await payloadRequest("POST", "/api/spools/" + id + "/movements", body);
     $("#movement-dialog").close();
     await refresh();
-    showToast("Buchung gespeichert. Restbestand: " + formatGrams(result.remaining_g));
+    showToast("Movement saved. Remaining: " + formatGrams(result.remaining_g));
   } catch (error) {
     showToast(error.message, true);
   } finally {
@@ -435,7 +437,7 @@ async function submitSpoolDetails(event) {
     await payloadRequest("PATCH", "/api/spools/" + id, body);
     $("#edit-spool-dialog").close();
     await refresh();
-    showToast("Rollendaten gespeichert.");
+    showToast("Spool details saved.");
   } catch (error) {
     showToast(error.message, true);
   } finally {
@@ -445,15 +447,94 @@ async function submitSpoolDetails(event) {
 
 async function archiveSpool() {
   const id = Number($("#edit-spool-form").elements.namedItem("spool_id").value);
-  if (!window.confirm("Rolle wirklich archivieren? Ihre Buchungshistorie bleibt erhalten.")) return;
+  if (!window.confirm("Archive this spool? Its movement history will be retained.")) return;
   try {
     await payloadRequest("POST", "/api/spools/" + id + "/archive");
     $("#edit-spool-dialog").close();
     await refresh();
-    showToast("Rolle archiviert.");
+    showToast("Spool archived.");
   } catch (error) {
     showToast(error.message, true);
   }
+}
+
+function openCSVDialog() {
+  const form = $("#csv-form");
+  form.reset();
+  state.csvBytes = null;
+  $("#csv-import-submit").disabled = true;
+  $("#csv-preview").textContent = "Select a CSV inventory v1 file. Existing spool and product UUIDs will not be overwritten.";
+  $("#csv-dialog").showModal();
+}
+
+async function previewCSV() {
+  const input = $("#csv-file");
+  const file = input.files && input.files[0];
+  state.csvBytes = null;
+  $("#csv-import-submit").disabled = true;
+  if (!file) {
+    $("#csv-preview").textContent = "No file selected.";
+    return;
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    $("#csv-preview").textContent = "The file exceeds the 2 MiB import limit.";
+    return;
+  }
+  $("#csv-preview").textContent = "Validating CSV …";
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const result = await api("/api/import/inventory.csv?dry_run=true", {
+      method: "POST", headers: { "Content-Type": "text/csv" }, body: bytes
+    });
+    // Discard a stale response if the user has selected a different file.
+    if (input.files[0] !== file) return;
+    state.csvBytes = bytes;
+    $("#csv-preview").textContent =
+      "Preview: " + result.products_created + " new filament products, " +
+      result.spools_created + " new spools. Skipped: " +
+      result.products_skipped + " known products, " +
+      result.spools_skipped + " known spools. Existing inventory will not be overwritten.";
+    $("#csv-import-submit").disabled = false;
+  } catch (error) {
+    $("#csv-preview").textContent = "Import validation failed: " + error.message;
+    showToast("CSV validation failed: " + error.message, true);
+  }
+}
+
+async function submitCSV(event) {
+  event.preventDefault();
+  if (!state.csvBytes) return;
+  if (!window.confirm("Import the previewed inventory? Existing records are never overwritten.")) return;
+  const form = event.currentTarget;
+  setSubmitting(form, true);
+  try {
+    const result = await api("/api/import/inventory.csv?dry_run=false", {
+      method: "POST", headers: { "Content-Type": "text/csv" }, body: state.csvBytes
+    });
+    $("#csv-dialog").close();
+    state.csvBytes = null;
+    await refresh();
+    showToast("Imported " + result.products_created + " products and " +
+      result.spools_created + " spools. Existing items skipped.");
+    setView("spools");
+  } catch (error) {
+    showToast("Import failed: " + error.message, true);
+  } finally {
+    setSubmitting(form, false);
+  }
+}
+
+async function openScannedSpool() {
+  const uid = new URLSearchParams(window.location.search).get("spool");
+  if (!uid) return;
+  history.replaceState(null, "", window.location.pathname);
+  const spool = state.spools.find(item => item.uid === uid);
+  if (!spool) {
+    showToast("This spool is unavailable or archived.", true);
+    return;
+  }
+  setView("spools");
+  await openEditSpoolDialog(spool.id);
 }
 
 function bindEvents() {
@@ -472,6 +553,8 @@ function bindEvents() {
     if (!action) return;
     const id = Number(action.dataset.id);
     switch (action.dataset.action) {
+      case "import-csv": openCSVDialog(); break;
+      case "label": window.open("/labels/" + encodeURIComponent(action.dataset.uid), "_blank", "noopener"); break;
       case "new-product": openProductDialog(); break;
       case "edit-product": openProductDialog(id); break;
       case "new-spool": openSpoolDialog(); break;
@@ -485,6 +568,8 @@ function bindEvents() {
   $("#spool-material-filter").addEventListener("change", renderSpools);
   $("#spool-status-filter").addEventListener("change", renderSpools);
   $("#product-search").addEventListener("input", renderProducts);
+  $("#csv-file").addEventListener("change", previewCSV);
+  $("#csv-form").addEventListener("submit", submitCSV);
   $("#movement-kind").addEventListener("change", setMovementKind);
   $("#product-form").addEventListener("submit", submitProduct);
   $("#spool-form").addEventListener("submit", submitSpool);
@@ -502,7 +587,7 @@ function initialize() {
   $("#current-year").textContent = new Date().getFullYear();
   bindEvents();
   setView("dashboard");
-  refresh();
+  refresh().then(openScannedSpool);
 }
 
 document.addEventListener("DOMContentLoaded", initialize);
