@@ -70,3 +70,51 @@ def test_isolated_worker_requires_token(monkeypatch, tmp_path):
         assert client.get("/profiles").status_code == 401
         assert client.get("/profiles", headers={"X-Worker-Token": "wrong"}).status_code == 401
         assert client.get("/profiles", headers={"X-Worker-Token": os.environ["FILAMENT_SLICER_WORKER_TOKEN"]}).json() == {"profiles": ["approved"]}
+
+def test_restart_recovers_unacknowledged_start_without_retry(tmp_path):
+    """A crash between physical execution and response must not trigger replay."""
+    path = tmp_path / "restart.sqlite3"
+    with TestClient(create_app(path)) as client:
+        authenticate(client)
+        product = client.post("/api/products", json={
+            "brand": "Example", "name": "PLA", "material": "PLA", "color_name": "Green"
+        }).json()["id"]
+        spool = client.post("/api/spools", json={"product_id": product, "initial_g": 1000}).json()["id"]
+        printer = client.post("/api/printers", json={
+            "name": "Printer", "kind": "moonraker", "base_url": "http://192.168.50.20:7125"
+        }).json()["id"]
+        job = client.post("/api/jobs", json={
+            "printer_id":printer,"spool_id":spool,"file_name":"restart.gcode","estimated_g":10
+        }).json()["id"]
+        actor = client.get("/api/auth/me").json()["id"]
+        intent = reserve_command(path, printer, job, "start", actor)
+        with session(path) as db:
+            assert db.execute("SELECT state FROM printer_commands WHERE id=?", (intent,)).fetchone()[0] == "sending"
+    initialize_database(path)
+    with session(path) as db:
+        assert db.execute("SELECT state FROM printer_commands WHERE id=?", (intent,)).fetchone()[0] == "unknown"
+    with pytest.raises(Exception) as exc:
+        reserve_command(path, printer, job, "start", actor)
+    assert getattr(exc.value, "status_code", None) == 409
+
+
+def test_schema_upgrade_never_overwrites_existing_accounting_status(tmp_path):
+    """Schema v5 must not rederive an independently set accounting state on restart."""
+    path = tmp_path / "accounting.sqlite3"
+    with TestClient(create_app(path)) as client:
+        authenticate(client)
+        product = client.post("/api/products", json={
+            "brand": "Example", "name": "PLA", "material": "PLA", "color_name": "Green"
+        }).json()["id"]
+        spool = client.post("/api/spools", json={"product_id": product, "initial_g": 1000}).json()["id"]
+        printer = client.post("/api/printers", json={
+            "name": "Printer", "kind": "moonraker", "base_url": "http://192.168.50.20:7125"
+        }).json()["id"]
+        job = client.post("/api/jobs", json={
+            "printer_id":printer,"spool_id":spool,"file_name":"accounting.gcode","estimated_g":10
+        }).json()["id"]
+        with session(path, write=True) as db:
+            db.execute("UPDATE print_jobs SET accounting_status='needs_review' WHERE id=?", (job,))
+    initialize_database(path)
+    with session(path) as db:
+        assert db.execute("SELECT accounting_status FROM print_jobs WHERE id=?", (job,)).fetchone()[0] == "needs_review"

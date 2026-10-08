@@ -105,3 +105,5 @@ run either script against an existing user instance.
 The test suite additionally checks schema v5 migration, online SQLite backups, durable printer command replay protection, worker token isolation, polling leases, role-restricted API routes, backend/Angular API contracts and stable cursor pagination. CI compiles Python, builds Angular, verifies generated API models and exercises browser and Docker persistence tests. The opt-in slicer image is built independently from the default runtime.
 
 No automated tests certify a printer model, its firmware or safe physical G-code. Test a real machine while supervised before enabling write controls. The application is free/open source experimental software without a warranty.
+
+The architecture suite also verifies that interrupted physical start commands change to an unknown, non-retryable state on restart and that repeated v5 initializations do not overwrite independent accounting decisions.
