@@ -16,7 +16,7 @@ def create_product(client):
         "/api/products",
         json={
             "brand": "Bambu Lab", "name": "Basic", "material": "pla",
-            "color_name": "Schwarz", "color_hex": "#141414", "diameter_mm": 1.75,
+            "color_name": "Black", "color_hex": "#141414", "diameter_mm": 1.75,
         },
     )
     assert response.status_code == 201, response.text
@@ -45,12 +45,12 @@ def test_create_product_spool_and_initial_history(client):
     product = client.get("/api/products").json()[0]
     assert product["material"] == "PLA"
     assert product["id"] == product_id
-    spool_id = create_spool(client, product_id=product_id, location="Regal A")
+    spool_id = create_spool(client, product_id=product_id, location="Shelf A")
     spool = client.get("/api/spools").json()[0]
     assert spool["id"] == spool_id
     assert spool["status"] == "sealed"
     assert spool["remaining_g"] == 1000
-    assert spool["location"] == "Regal A"
+    assert spool["location"] == "Shelf A"
     movements = client.get(f"/api/spools/{spool_id}/movements").json()
     assert len(movements) == 1
     assert movements[0]["kind"] == "initial"
@@ -60,7 +60,7 @@ def test_create_product_spool_and_initial_history(client):
 def test_consumption_is_atomic_and_is_audited(client):
     spool_id = create_spool(client)
     response = client.post(f"/api/spools/{spool_id}/movements", json={
-        "kind": "consume", "grams": 325, "note": "Druckauftrag",
+        "kind": "consume", "grams": 325, "note": "Print job",
     })
     assert response.status_code == 201
     assert response.json()["remaining_g"] == 675
@@ -87,10 +87,10 @@ def test_adjustment_requires_reason_and_respects_capacity(client):
     endpoint = f"/api/spools/{spool_id}/movements"
     assert client.post(endpoint, json={"kind": "adjust", "grams": 25}).status_code == 422
     assert client.post(endpoint, json={
-        "kind": "adjust", "grams": 701, "note": "Fehlwiegung",
+        "kind": "adjust", "grams": 701, "note": "Incorrect weighing",
     }).status_code == 409
     result = client.post(endpoint, json={
-        "kind": "adjust", "grams": -50, "note": "Nachgewogen",
+        "kind": "adjust", "grams": -50, "note": "Reweighed",
     })
     assert result.status_code == 201
     assert result.json()["remaining_g"] == 250
@@ -102,12 +102,12 @@ def test_products_can_be_edited_without_losing_spools(client):
     create_spool(client, product_id=product_id)
     response = client.put(f"/api/products/{product_id}", json={
         "brand": "Bambu Lab", "name": "Matte", "material": "PLA",
-        "color_name": "Grau", "color_hex": "#999999", "diameter_mm": 1.75,
+        "color_name": "Gray", "color_hex": "#999999", "diameter_mm": 1.75,
     })
     assert response.status_code == 200
     spool = client.get("/api/spools").json()[0]
     assert spool["product_name"] == "Matte"
-    assert spool["color_name"] == "Grau"
+    assert spool["color_name"] == "Gray"
 
 
 def test_archiving_removes_spool_from_active_stock_but_keeps_history(client):
@@ -131,7 +131,7 @@ def test_reject_invalid_input_and_missing_references(client):
         "brand": "X", "name": "Y", "material": "PLA",
         "color_name": "Z", "color_hex": "#AAZZZZ",
     }).status_code == 422
-    assert client.patch("/api/spools/99999", json={"location": "Regal"}).status_code == 404
+    assert client.patch("/api/spools/99999", json={"location": "Shelf"}).status_code == 404
 
 
 def test_overview_counts_and_low_stock(client):
@@ -170,8 +170,8 @@ def test_opened_spool_cannot_be_marked_as_sealed_after_consumption(client):
 def test_spool_metadata_and_recent_movement_queries(client):
     spool_id = create_spool(client)
     assert client.patch(f"/api/spools/{spool_id}", json={
-        "location": "Trockenschrank", "notes": "Trocken lagern", "opened": True,
+        "location": "Dry cabinet", "notes": "Keep dry", "opened": True,
     }).status_code == 200
-    assert client.get("/api/spools").json()[0]["location"] == "Trockenschrank"
+    assert client.get("/api/spools").json()[0]["location"] == "Dry cabinet"
     assert len(client.get("/api/movements?limit=1").json()) == 1
     assert client.get("/api/movements?limit=201").status_code == 422
