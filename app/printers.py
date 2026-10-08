@@ -227,6 +227,10 @@ def upload_controller_file(printer, filename: str, content: bytes) -> int:
 
 
 def register_printer_routes(app: FastAPI, db_path: Path) -> None:
+    @app.get("/api/printers/capabilities")
+    def printer_capabilities():
+        return {"write_enabled": control_enabled(), "max_upload_bytes": 16 * 1024 * 1024}
+
     @app.get("/api/printers")
     def printers():
         with session(db_path) as db:

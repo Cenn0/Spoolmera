@@ -409,7 +409,7 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
 
 
     @app.post("/api/jobs/{job_id}/upload")
-    async def upload_to_printer(job_id: int, request: Request):
+    async def upload_to_printer(job_id: int, request: Request, file_name: str = Query(min_length=3, max_length=180)):
         require_control()
         if request.headers.get("content-type", "").split(";")[0].strip().lower() not in {
             "application/octet-stream", "text/plain", "text/x.gcode"
@@ -425,6 +425,8 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
             raise HTTPException(status_code=404, detail="Enabled printer job not found.")
         if job["status"] != "pending":
             raise HTTPException(status_code=409, detail="Only pending jobs can receive a file.")
+        if file_name != job["file_name"]:
+            raise HTTPException(status_code=422, detail="Uploaded filename does not match the mapped job.")
         if not SAFE_UPLOAD_NAME.fullmatch(job["file_name"]):
             raise HTTPException(status_code=422, detail="Upload requires a flat ASCII G-code filename.")
         chunks = []

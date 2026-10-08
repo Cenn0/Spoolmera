@@ -7,16 +7,55 @@ export interface Printer {
   id:number; name:string; kind:'moonraker'|'octoprint'; base_url:string;
   token_env:string; enabled:number; created_at:string;
 }
+export interface JobMaterial {
+  tool:number; spool_id:number;estimated_g:number;movement_id:number|null;
+  spool_uid:string;brand:string;product_name:string;
+}
+export interface CloudReceipt {
+  source:string;event_id:string;job_id:number;disposition:string;received_at:string;
+}
+export interface SliceProfiles {enabled:boolean;profiles:string[];}
+export interface PrinterCapabilities {write_enabled:boolean;max_upload_bytes:number;}
 export interface PrintJob {
   id:number; printer_id:number;printer_name:string;spool_id:number;spool_uid:string;
   brand:string;product_name:string;file_name:string;estimated_g:number;
   status:'pending'|'printing'|'completed'|'needs_review'|'cancelled';
   movement_id:number|null;note:string;external_job_id:string|null;created_at:string;
+  materials:JobMaterial[];
 }
 export interface PrinterInput {name:string;kind:string;base_url:string;token_env:string;enabled:boolean;}
 @Injectable({providedIn:'root'})
 export class WorkspaceService {
   private readonly http=inject(HttpClient);
+  printerCapabilities():Promise<PrinterCapabilities>{
+    return firstValueFrom(this.http.get<PrinterCapabilities>('/api/printers/capabilities'));
+  }
+  cloudEvents():Promise<CloudReceipt[]> {
+    return firstValueFrom(this.http.get<CloudReceipt[]>('/api/cloud/events'));
+  }
+  slicerProfiles():Promise<SliceProfiles>{
+    return firstValueFrom(this.http.get<SliceProfiles>('/api/slicing/profiles'));
+  }
+  async sliceStl(file:File,profile:string):Promise<{content:Blob;estimated:string|null}>{
+    const response=await firstValueFrom(this.http.post('/api/slicing/slice?profile='+encodeURIComponent(profile),
+      file,{observe:'response',responseType:'blob',
+            headers:new HttpHeaders({'Content-Type':'application/octet-stream'})}));
+    return {content:response.body || new Blob(),estimated:response.headers.get('X-Estimated-Grams')};
+  }
+  async uploadJob(jobId:number,file:File):Promise<void>{
+    await firstValueFrom(this.http.post('/api/jobs/'+jobId+'/upload?file_name='+encodeURIComponent(file.name),
+      file,{headers:new HttpHeaders({'Content-Type':'application/octet-stream'})}));
+  }
+  startJob(jobId:number):Promise<void>{
+    return firstValueFrom(this.http.post<void>('/api/jobs/'+jobId+'/start',{}));
+  }
+  controlPrinter(printerId:number,action:'pause'|'resume'|'cancel'):Promise<void>{
+    return firstValueFrom(this.http.post<void>('/api/printers/'+printerId+'/control',{action}));
+  }
+  createMultiJob(body:{printer_id:number;file_name:string;note:string;
+    materials:{tool:number;spool_id:number;estimated_g:number}[]}):Promise<{id:number}>{
+    return firstValueFrom(this.http.post<{id:number}>('/api/jobs/multi',body));
+  }
   printers():Promise<Printer[]> {return firstValueFrom(this.http.get<Printer[]>('/api/printers'));}
   jobs():Promise<PrintJob[]> {return firstValueFrom(this.http.get<PrintJob[]>('/api/jobs'));}
   users():Promise<ManagedUser[]> {return firstValueFrom(this.http.get<ManagedUser[]>('/api/auth/users'));}

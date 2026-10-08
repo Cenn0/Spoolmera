@@ -1,5 +1,5 @@
 <section class="page-head"><div><span class="eyebrow">DEVICE CONNECTIONS</span><h1>Connected <em>printers.</em></h1>
-  <p>Read-only local OctoPrint and Moonraker integrations with explicit network allowlists.</p></div></section>
+  <p>Local OctoPrint and Moonraker integrations. Physical commands and uploads require explicit operator opt-in.</p></div></section>
 @if(error()){<p class="form-error" role="alert">{{error()}}</p>}
 @if(auth.isAdmin()){
 <section class="panel workflow-panel">
@@ -11,7 +11,7 @@
       <label>API URL (private IP + port)<input name="base_url" [(ngModel)]="model.base_url" required placeholder="http://192.168.1.20:7125"></label>
       <label>Token environment variable<input name="token_env" [(ngModel)]="model.token_env" placeholder="FILAMENT_PRINTER_TOKEN_WORKSHOP"></label>
     </div>
-    <p class="helper">Add the exact private IP to FILAMENT_PRINTER_ALLOWED_IPS in Docker first. For OctoPrint configure a read-only key as an environment variable. Credentials are never stored in SQLite. Untrusted networks are blocked.</p>
+    <p class="helper">Add the exact private IP to FILAMENT_PRINTER_ALLOWED_IPS in Docker first. For OctoPrint configure an API key as an environment variable; printer control requires the appropriate controller permissions. Credentials are never stored in SQLite. Untrusted networks are blocked.</p>
     <button class="btn primary" type="submit" [disabled]="busy()||printerForm.invalid">Add printer</button>
   </form>
 </section>
@@ -25,9 +25,15 @@
         <span class="status" [class.opened]="p.enabled">{{p.enabled?'Enabled':'Disabled'}}</span>
         @if(auth.isAdmin()){
           <div class="workflow-buttons"><button type="button" class="btn ghost" [disabled]="busy()||!p.enabled" (click)="probe(p)">Test connection</button>
+            @if(capabilities().write_enabled && p.enabled){
+              <button type="button" class="btn ghost" [disabled]="busy()" (click)="control(p,'pause')">Pause</button>
+              <button type="button" class="btn ghost" [disabled]="busy()" (click)="control(p,'resume')">Resume</button>
+              <button type="button" class="btn ghost" [disabled]="busy()" (click)="control(p,'cancel')">Cancel print</button>
+            }
             <button type="button" class="btn ghost" [disabled]="busy()" (click)="toggle(p)">{{p.enabled?'Disable':'Enable'}}</button></div>
         }
       </article>
     } @empty {<div class="placeholder">No printers configured.</div>}
   </div>
 </section>
+<p class="helper">Write operations are {{capabilities().write_enabled ? "enabled" : "disabled"}} by the server operator. Cancellation stops the physical job and leaves uncertain filament consumption for manual review.</p>
