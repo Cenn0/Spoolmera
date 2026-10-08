@@ -30,7 +30,7 @@ Cancellation of physical printing flags currently observed active jobs for manua
 
 ## Automatic STL slicing (administrator only)
 
-Optional Docker installation on Debian bookworm includes the distro's packaged PrusaSlicer CLI (bookworm package 2.5.0). **It is not part of the default image**, and its INI profile compatibility depends on that packaged version.
+Optional Docker installation on Debian trixie includes the distro's packaged PrusaSlicer CLI (trixie package 2.9.2). **It is not part of the default image**, and its INI profile compatibility depends on that packaged version.
 
 1. Create the operator-owned `slicer-profiles/` directory adjacent to Compose files. Add `<profile>.ini` files exported for the installed PrusaSlicer version. These are not web-uploadable, and must be reviewed for printer geometry, nozzle, temperature and material parameters.
 2. Set `FILAMENT_SLICER_ENABLED=1` in the `.env` file.
