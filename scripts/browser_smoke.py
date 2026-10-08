@@ -110,6 +110,7 @@ def run() -> None:
         page.locator('input[name="fileName"]').fill("two-tools.gcode")
         page.locator('input[name="estimatedG"]').fill("20")
         page.get_by_role("button", name="Add another material/tool").click()
+        expect(page.locator('input[name="materialWeight0"]')).to_be_visible()
         page.locator('input[name="materialWeight0"]').fill("5")
         page.get_by_role("button", name="Register print job").click()
         expect(page.locator(".workflow-list")).to_contain_text("two-tools.gcode")

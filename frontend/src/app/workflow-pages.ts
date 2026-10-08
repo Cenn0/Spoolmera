@@ -15,7 +15,7 @@ export class JobsComponent implements OnInit {
   printerId=0;spoolId=0;fileName='';estimatedG:number|null=null;upload:File|null=null;note='';
   readonly slicer=signal<SliceProfiles>({enabled:false,profiles:[]});
   readonly capabilities=signal<PrinterCapabilities>({write_enabled:false,max_upload_bytes:0});
-  extraMaterials:{tool:number;spool_id:number;estimated_g:number|null}[]=[];
+  readonly extraMaterials=signal<{tool:number;spool_id:number;estimated_g:number|null}[]>([]);
   stlFile:File|null=null; sliceProfile='';
   async ngOnInit(){await this.refresh();}
   async refresh(){
@@ -37,13 +37,17 @@ export class JobsComponent implements OnInit {
     this.upload=f;if(f)this.fileName=f.name;
   }
   addMaterial():void {
-    const tool=this.extraMaterials.length+1;
-    if(tool<=15 && this.extraMaterials.length<7){
-      this.extraMaterials.push({tool,spool_id:this.data.spools().find(s=>s.remaining_g>0)?.id || 0,
-                                estimated_g:null});
+    const materials=this.extraMaterials();
+    const tool=materials.length+1;
+    if(tool<=15 && materials.length<7){
+      this.extraMaterials.set([...materials, {tool,
+        spool_id:this.data.spools().find(s=>s.remaining_g>0)?.id || 0,
+        estimated_g:null}]);
     }
   }
-  removeMaterial(index:number):void {this.extraMaterials.splice(index,1);}
+  removeMaterial(index:number):void {
+    this.extraMaterials.update(items=>items.filter((_,i)=>i!==index));
+  }
   chooseStl(event:Event):void {
     this.stlFile=(event.target as HTMLInputElement).files?.[0] || null;
   }
@@ -92,13 +96,13 @@ export class JobsComponent implements OnInit {
     if(this.busy()||!this.auth.canEdit())return;
     this.busy.set(true);this.error.set('');
     try {
-      if(this.extraMaterials.length){
+      if(this.extraMaterials().length){
         if(this.upload)throw new Error('For multi-material jobs, enter the filename and explicit weights without importing G-code metadata.');
-        if(!this.estimatedG || this.estimatedG<=0 || this.extraMaterials.some(m=>!m.estimated_g || m.estimated_g<=0))
+        if(!this.estimatedG || this.estimatedG<=0 || this.extraMaterials().some(m=>!m.estimated_g || m.estimated_g<=0))
           throw new Error('Every mapped tool requires a positive estimated weight.');
         await this.api.createMultiJob({printer_id:this.printerId,file_name:this.fileName,note:this.note,
           materials:[{tool:0,spool_id:this.spoolId,estimated_g:this.estimatedG},
-            ...this.extraMaterials.map(m=>({tool:Number(m.tool),spool_id:m.spool_id,
+            ...this.extraMaterials().map(m=>({tool:Number(m.tool),spool_id:m.spool_id,
                                             estimated_g:Number(m.estimated_g)}))]});
       }else if(this.upload){
         await this.api.importJob(this.upload,this.printerId,this.spoolId,this.estimatedG);
@@ -108,7 +112,7 @@ export class JobsComponent implements OnInit {
           estimated_g:this.estimatedG,note:this.note});
       }
       this.notice.show('Print-job mapping registered. Transfer a file separately if needed.');
-      this.fileName='';this.upload=null;this.estimatedG=null;this.note='';this.extraMaterials=[];
+      this.fileName='';this.upload=null;this.estimatedG=null;this.note='';this.extraMaterials.set([]);
       await this.refresh();
     }catch(error){this.error.set(apiError(error));}
     finally{this.busy.set(false);}

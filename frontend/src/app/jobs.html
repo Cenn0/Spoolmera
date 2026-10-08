@@ -22,9 +22,9 @@
       <label>Estimated filament (g)<input name="estimatedG" type="number" [(ngModel)]="estimatedG" min="1" max="100000" step="1" placeholder="Use G-code metadata when blank"></label>
       <label>Note (manual mapping only)<input name="note" [(ngModel)]="note" maxlength="300" placeholder="Optional reference"></label>
     </div>
-    @if(extraMaterials.length){
+    @if(extraMaterials().length){
       <div class="workflow-list">
-        @for(m of extraMaterials;track $index){
+        @for(m of extraMaterials();track $index){
           <div class="workflow-row">
             <label>Tool <input [name]="'tool'+$index" type="number" [(ngModel)]="m.tool" min="1" max="15" required></label>
             <label>Physical spool <select [name]="'materialSpool'+$index" [(ngModel)]="m.spool_id" required>
