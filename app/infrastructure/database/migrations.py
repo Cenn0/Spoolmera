@@ -3,7 +3,7 @@ import sqlite3
 from uuid import uuid4
 from datetime import datetime, timezone
 
-CURRENT_SCHEMA_VERSION = 5
+CURRENT_SCHEMA_VERSION = 6
 
 def migrate_v2_v4(connection: sqlite3.Connection) -> None:
     """Preserve legacy IDs and write an idempotent material mapping upgrade."""
@@ -112,3 +112,38 @@ def recover_interrupted_commands(db: sqlite3.Connection) -> None:
     db.execute("""UPDATE printer_commands SET state='unknown',updated_at=?
                   WHERE state='sending'""",
                (datetime.now(timezone.utc).isoformat(timespec="seconds"),))
+
+
+def migrate_v6(db: sqlite3.Connection) -> None:
+    """Add optional material properties, physical weighing and drying history."""
+    for name, ddl in (
+        ("density_g_cm3", "REAL CHECK(density_g_cm3 > 0 AND density_g_cm3 <= 10)"),
+        ("nozzle_min_c", "INTEGER CHECK(nozzle_min_c BETWEEN 0 AND 400)"),
+        ("nozzle_max_c", "INTEGER CHECK(nozzle_max_c BETWEEN 0 AND 400)"),
+        ("bed_min_c", "INTEGER CHECK(bed_min_c BETWEEN 0 AND 200)"),
+        ("bed_max_c", "INTEGER CHECK(bed_max_c BETWEEN 0 AND 200)"),
+        ("gtin", "TEXT NOT NULL DEFAULT ''"),
+        ("manufacturer_sku", "TEXT NOT NULL DEFAULT ''"),
+        ("slicer_preset", "TEXT NOT NULL DEFAULT ''"),
+        ("low_stock_threshold_g", "INTEGER NOT NULL DEFAULT 200 CHECK(low_stock_threshold_g BETWEEN 0 AND 100000)"),
+    ):
+        _ensure_column(db, "products", name, ddl)
+    for name, ddl in (
+        ("tare_g", "INTEGER NOT NULL DEFAULT 0 CHECK(tare_g BETWEEN 0 AND 100000)"),
+        ("purchase_price_cents", "INTEGER CHECK(purchase_price_cents BETWEEN 0 AND 100000000)"),
+        ("purchase_currency", "TEXT NOT NULL DEFAULT 'EUR'"),
+        ("purchased_on", "TEXT"),
+        ("batch", "TEXT NOT NULL DEFAULT ''"),
+    ):
+        _ensure_column(db, "spools", name, ddl)
+    db.execute("""CREATE TABLE IF NOT EXISTS drying_records (
+        id INTEGER PRIMARY KEY,
+        spool_id INTEGER NOT NULL REFERENCES spools(id) ON DELETE RESTRICT,
+        temperature_c INTEGER NOT NULL CHECK(temperature_c BETWEEN 1 AND 150),
+        duration_minutes INTEGER NOT NULL CHECK(duration_minutes BETWEEN 1 AND 10080),
+        dried_at TEXT NOT NULL,
+        note TEXT NOT NULL DEFAULT '',
+        actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TEXT NOT NULL
+    )""")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_drying_spool ON drying_records(spool_id, dried_at DESC)")
