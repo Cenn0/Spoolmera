@@ -92,7 +92,7 @@ See [CSV schema and limits](docs/csv-format.md).
 
 ### Printer connections, job import, slicing and stock accounting
 
-The **Printers** screen (admin-only editing) supports read-only **Moonraker/Klipper** and **OctoPrint** controllers. The server refuses to connect unless each exact private IP is listed in `FILAMENT_PRINTER_ALLOWED_IPS`; public IPs, hostnames, redirects, proxy forwarding and arbitrary remote URLs are rejected.
+The **Printers** screen (admin-only configuration) supports **Moonraker/Klipper** and **OctoPrint** controller polling, with optional administrator-only commands and file transfers. The server refuses to connect unless each exact private IP is listed in `FILAMENT_PRINTER_ALLOWED_IPS`; public IPs, hostnames, redirects, proxy forwarding and arbitrary remote URLs are rejected.
 
 Place any controller API key in an environment variable such as `FILAMENT_PRINTER_TOKEN_WORKSHOP` in the operator's private `.env` file, then enter that **variable name** in the printer form. The key itself is never stored in SQLite. OctoPrint requires an API key; some trusted-LAN Moonraker installations may be reachable without one. Prefer restricted printer credentials and firewall rules.
 
@@ -152,12 +152,12 @@ Configuration:
 | `FILAMENT_COOKIE_SECURE` | `0` | Set `1` behind HTTPS/TLS termination |
 | `FILAMENT_PRINTER_ALLOWED_IPS` | empty | Exact, comma-separated private controller IPs |
 | `FILAMENT_PRINTER_TOKEN_*` | unset | Printer API keys referenced by environment name |
-| \`FILAMENT_PRINTER_POLL_SECONDS\` | \`30\` | Background polling cadence, min 10/max 300 |
-| \`FILAMENT_PRINTER_CONTROL_ENABLED\` | \`0\` | Enable admin-only printer commands, file upload, and print start (physical operations) |
-| \`FILAMENT_SLICER_ENABLED\` | \`0\` | Enable privileged, operator-profile-only slicer CLI |
-| \`FILAMENT_SLICER_EXECUTABLE\` | \`/usr/bin/prusa-slicer\` | Approved slicer executable path |
-| \`FILAMENT_SLICER_PROFILES_DIR\` | \`/config/slicer-profiles\` | Read-only mounted approved \`.ini\` profiles |
-| \`FILAMENT_CLOUD_HMAC_<ALIAS>\` | unset | 32+ character HMAC secret for separately operated cloud bridge |
+| `FILAMENT_PRINTER_POLL_SECONDS` | `30` | Background polling cadence, min 10/max 300 |
+| `FILAMENT_PRINTER_CONTROL_ENABLED` | `0` | Enable admin-only printer commands, file upload, and print start (physical operations) |
+| `FILAMENT_SLICER_ENABLED` | `0` | Enable privileged, operator-profile-only slicer CLI |
+| `FILAMENT_SLICER_EXECUTABLE` | `/usr/bin/prusa-slicer` | Approved slicer executable path |
+| `FILAMENT_SLICER_PROFILES_DIR` | `/config/slicer-profiles` | Read-only mounted approved `.ini` profiles |
+| `FILAMENT_CLOUD_HMAC_<ALIAS>` | unset | 32+ character HMAC secret for separately operated cloud bridge |
 
 ### Migrations and backups
 

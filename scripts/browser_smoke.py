@@ -106,6 +106,19 @@ def run() -> None:
         page.get_by_role("button", name="Register print job").click()
         expect(page.locator(".workflow-list")).to_contain_text("fixture.gcode")
 
+        # Multi-tool mapping is edited through Angular, not only through REST.
+        page.locator('input[name="fileName"]').fill("two-tools.gcode")
+        page.locator('input[name="estimatedG"]').fill("20")
+        page.get_by_role("button", name="Add another material/tool").click()
+        page.locator('input[name="materialWeight0"]').fill("5")
+        page.get_by_role("button", name="Register print job").click()
+        expect(page.locator(".workflow-list")).to_contain_text("two-tools.gcode")
+        mapped = next(job for job in page.request.get(BASE + "/api/jobs").json()
+                      if job["file_name"] == "two-tools.gcode")
+        assert sorted((item["tool"], item["estimated_g"]) for item in mapped["materials"]) == [
+            (0, 20), (1, 5),
+        ]
+
         # Passwords are exact secrets, including leading/trailing spaces.
         page.locator('.side-nav a[href="/account"]').click()
         page.locator('input[name="old"]').fill("browser-test-password-strong-2026")

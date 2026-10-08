@@ -12,7 +12,7 @@ For WAN use keep network access restricted through a VPN or properly configured 
 
 This release provides read-only adapters by default, with admin-only controller commands, file transfers, and print start when `FILAMENT_PRINTER_CONTROL_ENABLED=1` is set. No printer discovery is implemented. Printer endpoint hosts must be literal RFC1918 or ULA IPs and must be included exactly in `FILAMENT_PRINTER_ALLOWED_IPS`. The connector disables HTTP proxies and redirects, has a finite timeout and bounds the response length. Configure API keys using named `FILAMENT_PRINTER_TOKEN_*` environment variables; the database stores only the variable *name*, never the secret.
 
-Use read-only or least-privilege keys at the printer controller when available. Printer firmware APIs might grant broader control than these HTTP requests use; inspect upstream permissions before pairing.
+Use read-only or least-privilege keys for status-only connections, and narrowly scoped write permissions if available for opt-in physical actions. Printer firmware APIs may grant broader control than these HTTP requests use; inspect upstream permissions before pairing.
 
 ## G-code import
 

@@ -81,8 +81,8 @@ OctoPrint and Moonraker/Klipper adapters now include optional physical control, 
 ## Future delivery order
 
 1. Harden controller history capture, device compatibility testing and recovery from missed polling.
-2. Introduce explicit multi-extruder spool mapping and material waste estimation.
+2. Expand existing explicit multi-extruder spool mapping to slicer-derived per-tool quantities and optional waste estimates.
 3. Add authenticated, idempotent source-event ingestion with a separate durable scheduler.
-4. Evaluate printer control and automatic slicing as separate, security-reviewed features.
+4. Harden existing opt-in printer control and slicing for verified hardware profiles and more isolated execution.
 
 Printers and slicers should never be able to execute arbitrary operations on the inventory host.

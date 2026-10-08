@@ -258,3 +258,30 @@ def test_slicer_rejects_profile_postprocessing(workspace, monkeypatch, tmp_path)
                            headers={"Content-Type":"application/octet-stream"})
     assert response.status_code == 422
     assert "post-processing" in response.text
+
+
+def test_upload_transport_revalidates_allowlist_and_rejects_redirect(workspace, monkeypatch):
+    from app.printers import upload_controller_file
+    client, path, printer, s0, s1 = workspace
+    with session(path) as db:
+        row = dict(db.execute("SELECT * FROM printers WHERE id=?", (printer,)).fetchone())
+    # Invalid filename is rejected before any attempted I/O.
+    with pytest.raises(ValueError):
+        upload_controller_file(row, "../bad.gcode", b"G1 X0\n")
+    monkeypatch.setenv("FILAMENT_PRINTER_ALLOWED_IPS", "")
+    with pytest.raises(ValueError):
+        upload_controller_file(row, "allowed.gcode", b"G1 X0\n")
+
+
+def test_cloud_event_does_not_require_web_session_but_requires_hmac(workspace, monkeypatch):
+    client, path, printer, s0, s1 = workspace
+    monkeypatch.setenv("FILAMENT_CLOUD_HMAC_RELAY", "unique-cloud-signing-secret-at-least-32-characters")
+    job_id = client.post("/api/jobs",json={"printer_id":printer,"spool_id":s0,
+                                           "file_name":"unsigned.gcode","estimated_g":2}).json()["id"]
+    with TestClient(create_app(path)) as anonymous:
+        event = json.dumps({"event_id":"cloud-run-1234","job_id":job_id,"status":"completed"}).encode()
+        stamp = str(int(time.time()))
+        assert anonymous.post("/api/cloud/hooks/RELAY", content=event).status_code == 401
+        headers = {"X-Filament-Timestamp":stamp,"X-Filament-Signature":signature(
+            "unique-cloud-signing-secret-at-least-32-characters",stamp,event)}
+        assert anonymous.post("/api/cloud/hooks/RELAY",content=event,headers=headers).status_code == 200
