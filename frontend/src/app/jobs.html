@@ -12,13 +12,27 @@
       <label>Printer<select name="printer" [(ngModel)]="printerId" required>
         @for(p of printers();track p.id){@if(p.enabled){<option [ngValue]="p.id">{{p.name}} · {{p.kind}}</option>}}
       </select></label>
-      <label>Physical spool<select name="spool" [(ngModel)]="spoolId" required>
+      <label>Tool {{firstTool}} · physical spool<select name="spool" [(ngModel)]="spoolId" required><option [ngValue]="0" disabled>Choose physical spool</option>
         @for(s of data.spools();track s.id){@if(s.remaining_g>0){
           <option [ngValue]="s.id">{{s.brand}} · {{s.product_name}} · {{grams(s.remaining_g)}}</option>
         }}
       </select></label>
-      <label class="full">Import G-code metadata (optional)<input type="file" accept=".gcode,.gco,.gc" (change)="choose($event)"></label>
-      <label class="full">Filename already on printer<input name="fileName" [(ngModel)]="fileName" required maxlength="180" placeholder="e.g. bracket.gcode" [readonly]="!!upload"></label>
+      <label class="full">Inspect G-code or sliced 3MF metadata (optional)
+        <input type="file" accept=".gcode,.gco,.gc,.3mf" (change)="choose($event)">
+        <button class="btn ghost" type="button" [disabled]="busy()||!upload" (click)="inspect()">Inspect file</button>
+      </label>
+      @if(inspection(); as preview){
+        <div class="full">
+          @if(preview.plates.length){
+            <label>Plate<select name="plateIndex" [(ngModel)]="plateIndex">
+              @for(p of preview.plates;track p.plate){<option [ngValue]="$index">Plate {{p.plate}}</option>}
+            </select></label>
+            <p class="helper">Slicer estimates by tool: @for (m of preview.plates[plateIndex].materials;track m.tool){ T{{m.tool}}: {{m.estimated_g}} g; }</p>
+            <button class="btn ghost" type="button" (click)="applyInspection()">Apply estimates to mapping</button>
+          }@else{<p class="helper">No unambiguous weights; provide manual estimates.</p>}
+        </div>
+      }
+      <label class="full">G-code filename already on printer<input name="fileName" [(ngModel)]="fileName" required maxlength="180" placeholder="e.g. bracket.gcode" [readonly]="!!upload"></label>
       <label>Estimated filament (g)<input name="estimatedG" type="number" [(ngModel)]="estimatedG" min="1" max="100000" step="1" placeholder="Use G-code metadata when blank"></label>
       <label>Note (manual mapping only)<input name="note" [(ngModel)]="note" maxlength="300" placeholder="Optional reference"></label>
     </div>
@@ -27,7 +41,7 @@
         @for(m of extraMaterials();track $index){
           <div class="workflow-row">
             <label>Tool <input [name]="'tool'+$index" type="number" [(ngModel)]="m.tool" min="1" max="15" required></label>
-            <label>Physical spool <select [name]="'materialSpool'+$index" [(ngModel)]="m.spool_id" required>
+            <label>Physical spool <select [name]="'materialSpool'+$index" [(ngModel)]="m.spool_id" required><option [ngValue]="0" disabled>Choose physical spool</option>
               @for(s of data.spools();track s.id){@if(s.remaining_g>0){<option [ngValue]="s.id">{{s.brand}} · {{s.product_name}}</option>}}
             </select></label>
             <label>Estimated g <input [name]="'materialWeight'+$index" type="number" [(ngModel)]="m.estimated_g" min="1" required></label>
@@ -37,7 +51,7 @@
       </div>
     }
     <button class="btn ghost" type="button" [disabled]="extraMaterials().length>=7||!!upload" (click)="addMaterial()">Add another material/tool</button>
-    <p class="helper">The first spool is tool 0. All additional tools must have unique numbers and explicit weights. Multi-material jobs cannot use automatic weight inference from an imported G-code file. The combined amount is deducted atomically after verified completion or manual approval.</p>
+    <p class="helper">The first spool is tool {{firstTool}}. All additional tools must have unique numbers and explicit weights. Multi-material jobs cannot use automatic weight inference from an imported G-code file. The combined amount is deducted atomically after verified completion or manual approval.</p>
     <p class="helper">Importing a G-code file here registers metadata only. Uploading to a printer is a separate administrator action; it never starts automatically. Moonraker history-confirmed jobs may debit automatically; OctoPrint always requires review.</p>
     <button class="btn primary" type="submit" [disabled]="busy()||jobForm.invalid||!printerId||!spoolId">Register print job</button>
   </form>
@@ -57,8 +71,23 @@
           @if(job.start_command_state){<small>Start command: {{job.start_command_state}}</small>}
         </div>
         <span class="status" [class.opened]="job.status==='completed'" [class.sealed]="job.status==='printing'">{{job.status.replace('_',' ')}}</span>
+        @if(readiness()[job.id]; as check){
+          <div class="full">
+            <p class="helper">{{check.ready?'Stock estimate satisfied':'Insufficient unreserved material'}} · {{check.reserved?'Reserved':'Not reserved'}}.
+              Loaded slot matches are advisory and do not verify the physical feeder.</p>
+            @for(m of check.materials;track m.tool) {
+              <p class="helper">T{{m.tool}} · {{m.brand}} {{m.product_name}}: {{grams(m.estimated_g)}} required / {{grams(m.available_g)}} unreserved
+              {{m.loaded_match?'· recorded as loaded':'· slot not matched'}}.</p>
+            }
+          </div>
+        }
         @if(auth.canEdit()){
           <div class="workflow-buttons">
+            <button class="btn ghost" type="button" [disabled]="busy()" (click)="checkReadiness(job)">Check material</button>
+            @if(job.status==='pending'&&readiness()[job.id]; as check){
+              @if(check.reserved){<button class="btn ghost" type="button" [disabled]="busy()" (click)="setReservation(job,false)">Release reservation</button>}
+              @else{<button class="btn ghost" type="button" [disabled]="busy()||!check.ready" (click)="setReservation(job,true)">Reserve material</button>}
+            }
             @if(job.status==='pending'||job.status==='printing'){
               <button type="button" class="btn ghost" [disabled]="busy()" (click)="poll(job.printer_id)">Poll</button>
               @if(auth.isAdmin() && capabilities().write_enabled && job.status==='pending'){
