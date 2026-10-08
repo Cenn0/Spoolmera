@@ -189,6 +189,7 @@ def test_cloud_signature_replay_and_conservative_review(workspace, monkeypatch):
         "printer_id": printer, "spool_id": s0, "file_name": "cloud.gcode", "estimated_g": 35
     }).json()["id"]
     monkeypatch.setenv("FILAMENT_CLOUD_HMAC_FARM", "cloud-test-key-with-at-least-thirty-two-characters")
+    monkeypatch.setenv("FILAMENT_CLOUD_PRINTER_FARM", str(printer))
     data = {"event_id": "remote-run-0001", "job_id": job_id, "status": "completed"}
     body = json.dumps(data).encode()
     stamp = str(int(time.time()))
@@ -276,6 +277,7 @@ def test_upload_transport_revalidates_allowlist_and_rejects_redirect(workspace, 
 def test_cloud_event_does_not_require_web_session_but_requires_hmac(workspace, monkeypatch):
     client, path, printer, s0, s1 = workspace
     monkeypatch.setenv("FILAMENT_CLOUD_HMAC_RELAY", "unique-cloud-signing-secret-at-least-32-characters")
+    monkeypatch.setenv("FILAMENT_CLOUD_PRINTER_RELAY", str(printer))
     job_id = client.post("/api/jobs",json={"printer_id":printer,"spool_id":s0,
                                            "file_name":"unsigned.gcode","estimated_g":2}).json()["id"]
     with TestClient(create_app(path)) as anonymous:

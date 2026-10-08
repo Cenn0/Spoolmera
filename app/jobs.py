@@ -16,10 +16,13 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.auth import audit
+from app.services.accounting_service import apply_consumption
+from app.services.command_service import reserve_command, finalize_command, confirm_job_command
+from app.services.polling_service import record_poll_success, record_poll_failure
 from app.core.policies import require_editor, require_admin
 from app.database import session, utc_now
 from app.printers import (
-    moonraker_history, printer_status, require_control, upload_controller_file,
+    moonraker_history, moonraker_job, printer_status, require_control, upload_controller_file,
     write_controller, SAFE_UPLOAD_NAME
 )
 from urllib.parse import quote
@@ -156,56 +159,6 @@ def insert_multi_job(db_path: Path, payload: MultiJobInput, actor_id: int) -> in
     return job_id
 
 
-def apply_consumption(db, job, actor_id: int | None) -> bool:
-    """Atomic and retry-safe accounting across every physical spool in a job."""
-    current = db.execute("SELECT * FROM print_jobs WHERE id=?", (job["id"],)).fetchone()
-    if not current or current["status"] in ("completed", "cancelled"):
-        return False
-    mappings = db.execute(
-        "SELECT tool,spool_id,estimated_g FROM job_materials WHERE job_id=? ORDER BY tool",
-        (current["id"],),
-    ).fetchall()
-    if not mappings:
-        # Compatibility with a pre-v4 database opened by older automation.
-        mappings = [{"tool": 0, "spool_id": current["spool_id"],
-                     "estimated_g": current["estimated_g"]}]
-    amounts: dict[int, int] = {}
-    for mapping in mappings:
-        spool_id = mapping["spool_id"]
-        amounts[spool_id] = amounts.get(spool_id, 0) + mapping["estimated_g"]
-    for spool_id, required in amounts.items():
-        spool = db.execute("SELECT remaining_g,archived_at FROM spools WHERE id=?", (spool_id,)).fetchone()
-        if not spool or spool["archived_at"] or spool["remaining_g"] < required:
-            db.execute(
-                "UPDATE print_jobs SET status='needs_review',note=?,updated_at=? WHERE id=?",
-                ("Cannot safely debit: one or more mapped spools are archived or have insufficient stock.",
-                 utc_now(), current["id"]),
-            )
-            return False
-    first_movement = None
-    for spool_id, required in amounts.items():
-        spool = db.execute("SELECT remaining_g FROM spools WHERE id=?", (spool_id,)).fetchone()
-        remaining = spool["remaining_g"] - required
-        db.execute("UPDATE spools SET remaining_g=?,opened=1 WHERE id=?", (remaining, spool_id))
-        movement_id = db.execute(
-            """INSERT INTO movements(spool_id,kind,delta_g,remaining_after_g,note,created_at,print_job_id)
-               VALUES(?,'consume',?,?,?,?,?)""",
-            (spool_id, -required, remaining, "Print job #" + str(current["id"]) + " — " +
-             current["file_name"], utc_now(), current["id"]),
-        ).lastrowid
-        db.execute(
-            "UPDATE job_materials SET movement_id=? WHERE job_id=? AND spool_id=?",
-            (movement_id, current["id"], spool_id),
-        )
-        if first_movement is None:
-            first_movement = movement_id
-    db.execute(
-        "UPDATE print_jobs SET status='completed',movement_id=?,updated_at=? WHERE id=?",
-        (first_movement, utc_now(), current["id"]),
-    )
-    audit(db, actor_id, "job_consumption", "print_job", current["id"])
-    return True
-
 
 def poll_printer(db_path: Path, printer_id: int) -> dict:
     with session(db_path) as db:
@@ -235,6 +188,12 @@ def poll_printer(db_path: Path, printer_id: int) -> dict:
             matched = None
             if external_id:
                 matched = next((item for item in history if str(item.get("job_id")) == external_id), None)
+                if matched is None:
+                    # IDs survive beyond Moonraker's bounded list. Fetch the known run directly.
+                    try:
+                        matched = moonraker_job(printer, external_id)
+                    except ValueError:
+                        matched = None
             else:
                 created = datetime.fromisoformat(job["created_at"]).timestamp()
                 candidates = [item for item in history if
@@ -272,7 +231,23 @@ def poll_printer(db_path: Path, printer_id: int) -> dict:
                     continue
                 if fresh["external_job_id"] and external_id and fresh["external_job_id"] != external_id:
                     continue
+                if external_id and remote_state and printer["kind"] == "moonraker":
+                    existing_run = db.execute(
+                        "SELECT job_id FROM print_runs WHERE printer_id=? AND external_run_id=?",
+                        (printer_id, external_id),
+                    ).fetchone()
+                    if existing_run and existing_run["job_id"] not in (None, job["id"]):
+                        LOG.warning("Run identity already belongs to another job; printer=%s", printer_id)
+                        continue
+                    db.execute(
+                        """INSERT INTO print_runs(printer_id,job_id,external_run_id,state,first_seen_at,last_seen_at)
+                           VALUES(?,?,?,?,?,?)
+                           ON CONFLICT(printer_id,external_run_id)
+                           DO UPDATE SET state=excluded.state,last_seen_at=excluded.last_seen_at""",
+                        (printer_id, job["id"], external_id, remote_state, utc_now(), utc_now()),
+                    )
                 if outcome == "printing":
+                    confirm_job_command(db, job["id"])
                     db.execute(
                         "UPDATE print_jobs SET status='printing',observed_printing=1,external_job_id=?,updated_at=? WHERE id=?",
                         (external_id, utc_now(), job["id"]),
@@ -284,7 +259,7 @@ def poll_printer(db_path: Path, printer_id: int) -> dict:
                     apply_consumption(db, fresh, None)
                 else:
                     db.execute(
-                        "UPDATE print_jobs SET status='needs_review',external_job_id=?,note=?,updated_at=? WHERE id=?",
+                        "UPDATE print_jobs SET status='needs_review',accounting_status='needs_review',external_job_id=?,note=?,updated_at=? WHERE id=?",
                         (external_id, "Printer completion not proven, ambiguous history or print failed. Confirm actual material usage.",
                          utc_now(), job["id"]),
                     )
@@ -305,7 +280,9 @@ def poll_all(db_path: Path) -> None:
     for printer_id in ids:
         try:
             poll_printer(db_path, printer_id)
-        except (ValueError, OSError, sqlite3.Error):
+            record_poll_success(db_path, printer_id)
+        except (ValueError, OSError, sqlite3.Error) as exc:
+            record_poll_failure(db_path, printer_id, type(exc).__name__)
             LOG.warning("Read-only polling failed for printer %s", printer_id)
 
 
@@ -400,7 +377,7 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
             if job["status"] != "needs_review":
                 raise HTTPException(status_code=409, detail="Only jobs requiring review may be resolved.")
             if payload.action == "discard":
-                db.execute("UPDATE print_jobs SET status='cancelled',updated_at=? WHERE id=?",
+                db.execute("UPDATE print_jobs SET status='cancelled',accounting_status='discarded',updated_at=? WHERE id=?",
                            (utc_now(), job_id))
                 audit(db, request.state.user["id"], "job_discard", "print_job", job_id)
                 return {"id": job_id, "status": "cancelled"}
@@ -451,6 +428,17 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
         return {"job_id": job_id, "uploaded": True, "http_status": status,
                 "note": "File transferred only; print has not been started."}
 
+    @app.get("/api/jobs/{job_id}/commands")
+    def get_job_commands(job_id: int):
+        with session(db_path) as db:
+            if not db.execute("SELECT id FROM print_jobs WHERE id=?", (job_id,)).fetchone():
+                raise HTTPException(status_code=404, detail="Print job not found.")
+            return [dict(row) for row in db.execute(
+                """SELECT id,action,state,http_status,detail,created_at,updated_at
+                   FROM printer_commands WHERE job_id=? ORDER BY created_at DESC""",
+                (job_id,),
+            ).fetchall()]
+
     @app.post("/api/jobs/{job_id}/start", dependencies=[Depends(require_admin)])
     def start_printer_job(job_id: int, request: Request):
         require_control()
@@ -466,9 +454,16 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
             raise HTTPException(status_code=409, detail="Only pending jobs can be started.")
         try:
             state = printer_status(job)["state"].lower()
-            ready = {"standby", "complete", "cancelled"} if job["kind"] == "moonraker" else {"operational"}
-            if state not in ready:
-                raise HTTPException(status_code=409, detail="Printer is not in a known idle state.")
+        except ValueError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        ready = {"standby", "complete", "cancelled"} if job["kind"] == "moonraker" else {"operational"}
+        if state not in ready:
+            raise HTTPException(status_code=409, detail="Printer is not in a known idle state.")
+        # Persist before the physical side effect; a failed response is NOT proof
+        # that the printer rejected the command. Never retry an unknown start.
+        command_id = reserve_command(db_path, job["printer_id"], job_id, "start",
+                                     request.state.user["id"])
+        try:
             if job["kind"] == "moonraker":
                 route = "/printer/print/start?filename=" + quote(job["file_name"], safe="/")
                 status = write_controller(job, route)
@@ -476,12 +471,14 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
                 route = "/api/files/local/" + quote(job["file_name"], safe="/")
                 status = write_controller(job, route, body=b'{"command":"select","print":true}',
                                           content_type="application/json")
-        except ValueError as exc:
-            raise HTTPException(status_code=502, detail=str(exc)) from exc
-        with session(db_path, write=True) as db:
-            audit(db, request.state.user["id"], "job_print_start", "print_job", job_id)
-        return {"job_id": job_id, "started": True, "http_status": status,
-                "note": "Tracking waits for independently observed controller state."}
+        except BaseException as exc:
+            finalize_command(db_path, command_id, "unknown", detail="Confirm the physical state before retrying.")
+            if isinstance(exc, ValueError):
+                raise HTTPException(status_code=502, detail=str(exc)) from exc
+            raise
+        finalize_command(db_path, command_id, "acknowledged", http_status=status)
+        return {"job_id": job_id, "command_id": command_id, "started": True,
+                "http_status": status, "note": "Controller acknowledged the request; tracking still awaits independently observed state."}
 
     @app.post("/api/jobs/{job_id}/cancel", dependencies=[Depends(require_editor)])
     def cancel(job_id: int, request: Request):

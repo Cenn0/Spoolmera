@@ -12,7 +12,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.policies import require_editor, require_admin
 from app.database import initialize_database, session, utc_now
-from app.auth import protect
+from app.auth import protect, audit
+from app.services.accounting_service import record_manual_movement
 from app.printers import register_printer_routes
 from app.jobs import register_job_routes, poll_worker
 from app.cloud import register_cloud_routes
@@ -128,7 +129,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
         return [dict(row) for row in rows]
 
     @app.post("/api/products", status_code=201, dependencies=[Depends(require_editor)])
-    def add_product(payload: ProductInput):
+    def add_product(payload: ProductInput, request: Request):
         timestamp = utc_now()
         with session(db_path, write=True) as db:
             cursor = db.execute(
@@ -140,10 +141,11 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
                  payload.notes, timestamp, timestamp),
             )
             product_id = cursor.lastrowid
+            audit(db, request.state.user["id"], "product_create", "product", product_id)
         return {"id": product_id}
 
     @app.put("/api/products/{product_id}", dependencies=[Depends(require_editor)])
-    def update_product(product_id: int, payload: ProductInput):
+    def update_product(product_id: int, payload: ProductInput, request: Request):
         with session(db_path, write=True) as db:
             result = db.execute(
                 """UPDATE products
@@ -155,6 +157,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
             )
             if result.rowcount == 0:
                 raise HTTPException(status_code=404, detail="Filament product not found.")
+            audit(db, request.state.user["id"], "product_update", "product", product_id)
         return {"id": product_id}
 
     @app.get("/api/spools")
@@ -169,7 +172,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
         return [spool_as_dict(row) for row in rows]
 
     @app.post("/api/spools", status_code=201, dependencies=[Depends(require_editor)])
-    def add_spool(payload: SpoolInput):
+    def add_spool(payload: SpoolInput, request: Request):
         remaining = payload.initial_g if payload.remaining_g is None else payload.remaining_g
         if remaining > payload.initial_g:
             raise HTTPException(status_code=422, detail="Remaining weight cannot exceed the original spool weight.")
@@ -192,10 +195,11 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
                    VALUES (?, 'initial', ?, ?, ?, ?)""",
                 (spool_id, remaining, remaining, "Spool registered", timestamp),
             )
+            audit(db, request.state.user["id"], "spool_create", "spool", spool_id)
         return {"id": spool_id}
 
     @app.patch("/api/spools/{spool_id}", dependencies=[Depends(require_editor)])
-    def update_spool(spool_id: int, payload: SpoolUpdate):
+    def update_spool(spool_id: int, payload: SpoolUpdate, request: Request):
         changes = payload.model_dump(exclude_unset=True)
         if not changes or any(value is None for value in changes.values()):
             raise HTTPException(status_code=422, detail="At least one valid field is required.")
@@ -221,41 +225,12 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
             )
             if result.rowcount == 0:
                 raise HTTPException(status_code=404, detail="Spool not found.")
+            audit(db, request.state.user["id"], "spool_update", "spool", spool_id)
         return {"id": spool_id}
 
     @app.post("/api/spools/{spool_id}/movements", status_code=201, dependencies=[Depends(require_editor)])
-    def add_movement(spool_id: int, payload: MovementInput):
-        if payload.kind == "consume" and payload.grams <= 0:
-            raise HTTPException(status_code=422, detail="Consumption must be greater than zero.")
-        if payload.kind == "adjust" and (payload.grams == 0 or not payload.note):
-            raise HTTPException(status_code=422, detail="Adjustments require a nonzero amount and an explanation.")
-        delta = -payload.grams if payload.kind == "consume" else payload.grams
-        with session(db_path, write=True) as db:
-            spool = db.execute(
-                "SELECT initial_g, remaining_g FROM spools WHERE id=? AND archived_at IS NULL",
-                (spool_id,),
-            ).fetchone()
-            if spool is None:
-                raise HTTPException(status_code=404, detail="Spool not found.")
-            remaining = spool["remaining_g"] + delta
-            if remaining < 0 or remaining > spool["initial_g"]:
-                raise HTTPException(
-                    status_code=409,
-                    detail="Movement would exceed the allowed stock range (0 to original weight).",
-                )
-            db.execute(
-                """UPDATE spools
-                   SET remaining_g=?, opened=CASE WHEN ? < 0 THEN 1 ELSE opened END
-                   WHERE id=?""",
-                (remaining, delta, spool_id),
-            )
-            cursor = db.execute(
-                """INSERT INTO movements (spool_id, kind, delta_g, remaining_after_g, note, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                (spool_id, payload.kind, delta, remaining, payload.note, utc_now()),
-            )
-            movement_id = cursor.lastrowid
-        return {"id": movement_id, "remaining_g": remaining}
+    def add_movement(spool_id: int, payload: MovementInput, request: Request):
+        return record_manual_movement(db_path, spool_id, payload, request.state.user["id"])
 
     @app.get("/api/spools/{spool_id}/movements")
     def spool_movements(spool_id: int):
@@ -283,7 +258,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
         return [dict(row) for row in rows]
 
     @app.post("/api/spools/{spool_id}/archive", dependencies=[Depends(require_editor)])
-    def archive_spool(spool_id: int):
+    def archive_spool(spool_id: int, request: Request):
         with session(db_path, write=True) as db:
             result = db.execute(
                 "UPDATE spools SET archived_at=? WHERE id=? AND archived_at IS NULL",
@@ -291,6 +266,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
             )
             if result.rowcount == 0:
                 raise HTTPException(status_code=404, detail="Active spool not found.")
+            audit(db, request.state.user["id"], "spool_archive", "spool", spool_id)
         return {"id": spool_id, "archived": True}
 
     # Stable UUIDs identify spools, but are NOT authentication tokens.
@@ -359,7 +335,10 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
         except UnicodeDecodeError:
             raise HTTPException(status_code=422, detail="CSV must be UTF-8 encoded.") from None
         with session(db_path, write=True) as db:
-            return import_inventory(db, csv_data, dry_run=dry_run)
+            result = import_inventory(db, csv_data, dry_run=dry_run)
+            if not dry_run:
+                audit(db, request.state.user["id"], "csv_import", "inventory", None)
+            return result
 
     @app.get("/api/integrations/v1/capabilities")
     def integration_capabilities():

@@ -80,10 +80,17 @@ def register_cloud_routes(app: FastAPI, db_path: Path) -> None:
             job = db.execute("SELECT * FROM print_jobs WHERE id=?", (event.job_id,)).fetchone()
             if not job:
                 raise HTTPException(status_code=404, detail="Tracked job not found.")
+            # A valid relay signature only authorizes the printer explicitly
+            # bound to that relay; do not let one relay change another's jobs.
+            bound_printer = os.getenv("FILAMENT_CLOUD_PRINTER_" + source, "")
+            if not bound_printer.isascii() or not bound_printer.isdecimal():
+                raise HTTPException(status_code=503, detail="Cloud relay has no configured printer binding.")
+            if int(bound_printer) != job["printer_id"]:
+                raise HTTPException(status_code=403, detail="Cloud relay is not authorized for this printer.")
             disposition = "recorded"
             if event.status in {"completed", "failed", "cancelled"} and job["status"] in {"pending", "printing"}:
                 db.execute(
-                    """UPDATE print_jobs SET status='needs_review',note=?,updated_at=?
+                    """UPDATE print_jobs SET status='needs_review',accounting_status='needs_review',note=?,updated_at=?
                        WHERE id=?""",
                     ("Cloud source " + source + " reported " + event.status +
                      "; verify actual material usage before deduction.", utc_now(), event.job_id),

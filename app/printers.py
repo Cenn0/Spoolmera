@@ -22,6 +22,7 @@ from typing import Literal
 from app.core.policies import require_editor, require_admin
 from app.database import session, utc_now
 from app.auth import audit
+from app.services.command_service import reserve_command, finalize_command, clear_command
 
 TOKEN_PATTERN = re.compile(r"^FILAMENT_PRINTER_TOKEN_[A-Z0-9_]{1,50}$")
 PRIVATE_NETWORKS = tuple(ipaddress.ip_network(value) for value in (
@@ -152,11 +153,28 @@ def moonraker_history(printer) -> list[dict]:
     return jobs
 
 
+def moonraker_job(printer, job_id: str) -> dict | None:
+    """Fetch a known history UID even after the entry left the latest 25."""
+    if not job_id or len(job_id) > 120:
+        raise ValueError("Invalid remote job identity.")
+    data = fetch_json(printer, "/server/history/job?uid=" + quote(job_id, safe=""))
+    entry = response_object(response_object(data.get("result"), "result").get("job"), "job")
+    if (entry.get("job_id") != job_id or not isinstance(entry.get("filename"), str)
+            or not isinstance(entry.get("status"), str)
+            or type(entry.get("start_time")) not in (int, float)
+            or not math.isfinite(entry["start_time"])):
+        raise ValueError("Invalid Moonraker history identity.")
+    return entry
 
 
 class PrinterCommand(BaseModel):
     model_config = ConfigDict(extra="forbid")
     action: Literal["pause", "resume", "cancel"]
+
+
+class ClearCommand(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    reason: str = Field(min_length=10, max_length=500)
 
 
 SAFE_UPLOAD_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,169}\.(?:gcode|gco|gc)$", re.I)
@@ -291,6 +309,22 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
         except ValueError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
 
+    @app.get("/api/printers/{printer_id}/commands", dependencies=[Depends(require_admin)])
+    def printer_command_history(printer_id: int):
+        with session(db_path) as db:
+            if not db.execute("SELECT 1 FROM printers WHERE id=?", (printer_id,)).fetchone():
+                raise HTTPException(status_code=404, detail="Printer not found.")
+            return [dict(row) for row in db.execute(
+                """SELECT id,job_id,action,state,http_status,detail,created_at,updated_at
+                   FROM printer_commands WHERE printer_id=? ORDER BY created_at DESC LIMIT 100""",
+                (printer_id,),
+            ).fetchall()]
+
+    @app.post("/api/printers/commands/{command_id}/clear", dependencies=[Depends(require_admin)])
+    def clear_start_command(command_id: str, payload: ClearCommand, request: Request):
+        clear_command(db_path, command_id, request.state.user["id"], payload.reason)
+        return {"id": command_id, "state": "cleared"}
+
     @app.post("/api/printers/{printer_id}/control", dependencies=[Depends(require_admin)])
     def control_printer(printer_id: int, payload: PrinterCommand, request: Request):
         require_control()
@@ -300,19 +334,24 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
             ).fetchone()
         if not printer:
             raise HTTPException(status_code=404, detail="Enabled printer not found.")
+        command_id = reserve_command(db_path, printer_id, None, payload.action, request.state.user["id"])
         try:
-            # Operators explicitly request physical changes; never accept raw G-code here.
             status = issue_control(printer, payload.action)
-        except ValueError as exc:
-            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        except BaseException as exc:
+            finalize_command(db_path, command_id, "unknown", detail="Controller outcome unknown; verify physically.")
+            if isinstance(exc, ValueError):
+                raise HTTPException(status_code=502, detail=str(exc)) from exc
+            raise
+        finalize_command(db_path, command_id, "acknowledged", http_status=status)
         with session(db_path, write=True) as db:
             if payload.action == "cancel":
                 db.execute(
-                    """UPDATE print_jobs SET status='needs_review',
+                    """UPDATE print_jobs SET status='needs_review',accounting_status='needs_review',
                               note='Print cancelled at controller; verify actual consumed material.',
                               updated_at=?
                        WHERE printer_id=? AND status='printing'""",
                     (utc_now(), printer_id),
                 )
             audit(db, request.state.user["id"], "printer_" + payload.action, "printer", printer_id)
-        return {"printer_id": printer_id, "action": payload.action, "http_status": status}
+        return {"printer_id": printer_id, "command_id": command_id,
+                "action": payload.action, "http_status": status}
