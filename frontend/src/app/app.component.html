@@ -18,6 +18,7 @@
       <a routerLink="/jobs" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">▣</span> Print jobs</a>
       <a routerLink="/printers" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">▥</span> Printers</a>
       <a routerLink="/integrations" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">⌘</span> Integrations</a>
+      <a routerLink="/account" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">♧</span> My account</a>
       @if(auth.isAdmin()) {<a routerLink="/users" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">♙</span> Users</a>}
     </nav>
     <div class="sidebar-bottom">
