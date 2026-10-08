@@ -6,6 +6,7 @@ come exclusively from operator environment variables and are not persisted.
 """
 import ipaddress
 import json
+import math
 import os
 import re
 import urllib.error
@@ -105,27 +106,47 @@ def fetch_json(printer, path: str) -> dict:
     return result
 
 
+def response_object(value, label: str) -> dict:
+    if not isinstance(value, dict):
+        raise ValueError("Invalid printer response: " + label + " must be an object.")
+    return value
+
+
+def response_status(state, filename) -> dict:
+    if not isinstance(state, str) or not state.strip() or not isinstance(filename, str):
+        raise ValueError("Invalid printer state or filename.")
+    return {"state": state, "filename": filename}
+
+
 def printer_status(printer) -> dict:
     if printer["kind"] == "moonraker":
         data = fetch_json(printer, "/printer/objects/query?print_stats")
-        stats = data.get("result", {}).get("status", {}).get("print_stats", {})
-        if not isinstance(stats, dict) or "state" not in stats:
-            raise ValueError("Moonraker print_stats is not available.")
-        return {"state": str(stats["state"]), "filename": str(stats.get("filename") or "")}
+        result = response_object(data.get("result"), "result")
+        status = response_object(result.get("status"), "status")
+        stats = response_object(status.get("print_stats"), "print_stats")
+        return response_status(stats.get("state"), stats.get("filename", ""))
     data = fetch_json(printer, "/api/job")
-    info = data.get("job") or {}
-    return {
-        "state": str(data.get("state") or "Unknown"),
-        "filename": str((info.get("file") or {}).get("name") or ""),
-    }
+    info = response_object(data.get("job") if data.get("job") is not None else {}, "job")
+    file = response_object(info.get("file") if info.get("file") is not None else {}, "file")
+    # OctoPrint names only the basename; path is the relative identity for subfolders.
+    filename = file.get("path", file.get("name"))
+    return response_status(data.get("state"), filename if filename is not None else "")
 
 
 def moonraker_history(printer) -> list[dict]:
     data = fetch_json(printer, "/server/history/list?limit=25")
-    jobs = data.get("result", {}).get("jobs")
+    result = response_object(data.get("result"), "result")
+    jobs = result.get("jobs")
     if not isinstance(jobs, list):
         raise ValueError("Moonraker job history is unavailable or disabled.")
-    return [job for job in jobs if isinstance(job, dict)]
+    for job in jobs:
+        if (not isinstance(job, dict) or not isinstance(job.get("job_id"), str)
+                or not job["job_id"] or not isinstance(job.get("filename"), str)
+                or not isinstance(job.get("status"), str)
+                or type(job.get("start_time")) not in (int, float)
+                or not math.isfinite(job["start_time"])):
+            raise ValueError("Invalid Moonraker history entry.")
+    return jobs
 
 
 def register_printer_routes(app: FastAPI, db_path: Path) -> None:
@@ -161,6 +182,9 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
             old = db.execute("SELECT * FROM printers WHERE id=?", (printer_id,)).fetchone()
             if not old:
                 raise HTTPException(status_code=404, detail="Printer not found.")
+            if db.execute("SELECT 1 FROM printers WHERE name=? AND id<>?",
+                          (payload.name, printer_id)).fetchone():
+                raise HTTPException(status_code=409, detail="Printer name already exists.")
             if old["base_url"] != base or old["kind"] != payload.kind:
                 if db.execute(
                     "SELECT 1 FROM print_jobs WHERE printer_id=? AND status IN ('pending','printing') LIMIT 1",
@@ -184,3 +208,4 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
             return printer_status(printer)
         except ValueError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
+

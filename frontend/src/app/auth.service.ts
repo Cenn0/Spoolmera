@@ -1,18 +1,24 @@
 import { HttpClient, HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
+import { catchError, firstValueFrom, throwError } from 'rxjs';
 
 export interface CurrentUser { id:number; username:string; role:'admin'|'editor'|'viewer'; csrf_token:string }
 export interface ManagedUser { id:number; username:string; role:'admin'|'editor'|'viewer'; enabled:number; created_at:string }
 const csrfHeader = signal('');
 
 export const csrfInterceptor: HttpInterceptorFn = (request, next) => {
+  const auth = inject(AuthService);
+  const protectedApi = request.url.startsWith('/api/') &&
+    !/^\/api\/auth\/(login|setup|status)$/.test(request.url) && request.url !== '/api/health';
   if (request.url.startsWith('/api/') &&
       !/^\/api\/auth\/(login|setup)$/.test(request.url) &&
       !['GET','HEAD','OPTIONS'].includes(request.method) && csrfHeader()) {
-    return next(request.clone({setHeaders:{'X-CSRF-Token':csrfHeader()}}));
+    request = request.clone({setHeaders:{'X-CSRF-Token':csrfHeader()}});
   }
-  return next(request);
+  return next(request).pipe(catchError((error: unknown) => {
+    if (protectedApi && error instanceof HttpErrorResponse && error.status === 401) auth.clear();
+    return throwError(() => error);
+  }));
 };
 
 @Injectable({providedIn:'root'})
@@ -60,3 +66,4 @@ export class AuthService {
     const user=this.user();if(user)this.user.set({...user,csrf_token:result.csrf_token});
   }
 }
+
