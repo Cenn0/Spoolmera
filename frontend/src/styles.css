@@ -314,6 +314,11 @@ h1 em{font-family:Georgia,Times,serif;font-size:1.035em;font-weight:400;color:#9
 .workflow-form .btn{margin-top:18px}
 .workflow-form .helper{color:#6e8582;font-size:12px;line-height:1.7;margin:18px 0}
 .workflow-list{padding:0 26px 14px}
+.material-mapping-list{display:grid;gap:0}
+.material-mapping-list .workflow-row{justify-content:flex-start;gap:12px}
+.material-mapping-list label{display:flex;flex-direction:column;gap:7px;color:#475D5E;font-size:12px;font-weight:700;flex:1 1 165px;min-width:0}
+.material-mapping-list input,.material-mapping-list select{width:100%;min-width:0;border:1px solid #DCE4DF;border-radius:8px;padding:11px 12px;background:#FBFCFB;font-size:13px;color:var(--ink)}
+.material-mapping-list input:focus,.material-mapping-list select:focus{border-color:#57AFA3;box-shadow:0 0 0 3px #57AFA321}
 .workflow-row{padding:17px 0;border-top:1px solid #eaf0eb;display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 .workflow-main{min-width:170px;flex:1;display:flex;flex-direction:column;gap:5px}
 .workflow-main strong{font-size:13px;overflow-wrap:anywhere}
