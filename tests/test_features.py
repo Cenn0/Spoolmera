@@ -1,3 +1,4 @@
+from app.infrastructure.database.migrations import CURRENT_SCHEMA_VERSION
 """Regression tests for spool UUIDs, QR labels, CSV import/export and adapters."""
 import csv
 import io
@@ -307,7 +308,7 @@ def test_upgrade_from_v1_retains_numeric_ids_stock_and_history(tmp_path):
         first_spool_uid = db.execute("SELECT uid FROM spools WHERE id=23").fetchone()[0]
         assert str(UUID(first_product_uid)) == first_product_uid
         assert str(UUID(first_spool_uid)) == first_spool_uid
-        assert db.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert db.execute("PRAGMA user_version").fetchone()[0] == CURRENT_SCHEMA_VERSION
     initialize_database(path)
     with TestClient(create_app(path)) as migrated:
         authenticate(migrated)
