@@ -1,0 +1,17 @@
+<section class="page-head"><div><span class="eyebrow">IMMUTABLE LEDGER</span><h1>Inventory <em>history.</em></h1><p>Every registration, consumption and correction in chronological order.</p></div></section>
+<section class="panel data-panel">
+  <div class="toolbar"><label class="filter-label" for="movement-type">Movement type</label><select id="movement-type" [value]="kind()" (change)="kind.set($any($event.target).value)"><option value="">All movements</option><option value="initial">Registered</option><option value="consume">Consumption</option><option value="adjust">Adjustment</option></select></div>
+  <div class="result-count">Showing {{filtered().length}} recent movements (up to 200)</div>
+  <div class="table-wrap"><table class="data-table"><thead><tr><th>Time</th><th>Filament</th><th>Movement</th><th>Change</th><th>Remaining</th><th>Note</th></tr></thead>
+    <tbody>
+    @for (item of filtered();track item.id) {
+      <tr><td class="subdued">{{dateText(item.created_at)}}</td><td><span class="item-name"><span class="swatch small" [style.background-color]="item.color_hex || '#64748b'"></span><strong>{{item.brand}} · {{item.product_name}}</strong></span></td>
+      <td><span class="material-chip">{{item.kind}}</span></td><td><strong [class.negative]="item.delta_g<0">{{item.delta_g>0?'+':''}}{{grams(item.delta_g)}}</strong></td><td>{{grams(item.remaining_after_g)}}</td><td class="subdued">{{item.note || '—'}}</td></tr>
+    } @empty {<tr><td colspan="6"><div class="placeholder">No movements to display.</div></td></tr>}
+    </tbody></table></div>
+  <div class="mobile-cards">
+    @for (item of filtered();track item.id) {
+      <div class="activity-row"><span class="activity-icon">{{item.kind==='consume'?'−':item.kind==='adjust'?'±':'+'}}</span><div><strong>{{item.brand}} · {{item.product_name}}</strong><small>{{dateText(item.created_at)}} · {{item.note || item.kind}}</small></div><b [class.negative]="item.delta_g<0">{{item.delta_g>0?'+':''}}{{grams(item.delta_g)}}</b></div>
+    } @empty {<div class="placeholder">No movements to display.</div>}
+  </div>
+</section>

@@ -1,0 +1,39 @@
+<section class="page-head">
+  <div><span class="eyebrow">PHYSICAL INVENTORY</span><h1>Your <em>spools.</em></h1><p>Track each roll individually, from sealed to empty.</p></div>
+  <div class="heading-actions"><button class="btn ghost" type="button" (click)="dialogs.open({kind:'csv'})">Import CSV</button><a class="btn ghost" href="/api/export/inventory.csv" download>Export CSV</a><button class="btn primary" type="button" (click)="dialogs.open({kind:'spool'})">+ Add spool</button></div>
+</section>
+<section class="panel data-panel">
+  <div class="toolbar">
+    <label class="search-field"><span aria-hidden="true">⌕</span><input id="spool-search" type="search" placeholder="Search brand, color, location…" [value]="query()" (input)="query.set($any($event.target).value)" aria-label="Search spools"></label>
+    <select id="spool-material-filter" aria-label="Filter by material" [value]="material()" (change)="material.set($any($event.target).value)"><option value="">All materials</option>@for (name of materials();track name) {<option [value]="name">{{name}}</option>}</select>
+    <select id="spool-status-filter" aria-label="Filter by status" [value]="status()" (change)="status.set($any($event.target).value)"><option value="">All states</option><option value="sealed">Sealed</option><option value="opened">Opened</option><option value="empty">Empty</option></select>
+  </div>
+  <div class="result-count">{{filtered().length}} of {{data.spools().length}} spools</div>
+  <div class="table-wrap"><table class="data-table">
+    <thead><tr><th>Filament</th><th>Material</th><th>Remaining</th><th>Status</th><th>Location</th><th class="align-right">Actions</th></tr></thead>
+    <tbody id="spool-table-body">
+      @for (spool of filtered();track spool.id) {
+        <tr>
+          <td><span class="item-name"><span class="swatch" [style.background-color]="spool.color_hex"></span><span><strong>{{spool.brand}} · {{spool.product_name}}</strong><small>{{spool.color_name}}</small></span></span></td>
+          <td><span class="material-chip">{{spool.material}}</span></td>
+          <td><div class="stock-cell"><strong>{{grams(spool.remaining_g)}}</strong><small>of {{grams(spool.initial_g)}}</small><div class="progress" [class.low]="spool.remaining_g>0 && spool.remaining_g<=200"><span [style.width.%]="percent(spool)"></span></div></div></td>
+          <td><span class="status" [class]="'status '+spool.status">{{spool.status}}</span></td>
+          <td class="subdued">{{spool.location || '—'}}</td>
+          <td><div class="table-actions"><button type="button" [disabled]="spool.remaining_g===0" (click)="dialogs.open({kind:'movement',id:spool.id,mode:'consume'})">Record use</button><a [href]="'/labels/'+spool.uid" target="_blank" rel="noopener noreferrer">QR label</a><button type="button" (click)="dialogs.open({kind:'details',id:spool.id})">Details ↗</button></div></td>
+        </tr>
+      } @empty {
+        <tr><td colspan="6"><div class="placeholder">{{data.spools().length?'No spools match your filters.':'No spools yet. Add your first physical roll.'}}</div></td></tr>
+      }
+    </tbody>
+  </table></div>
+  <div class="mobile-cards">
+    @for (spool of filtered();track spool.id) {
+      <article class="mobile-spool">
+        <div class="mobile-spool-head"><span class="item-name"><span class="swatch" [style.background-color]="spool.color_hex"></span><span><strong>{{spool.brand}} · {{spool.product_name}}</strong><small>{{spool.material}} · {{spool.color_name}}</small></span></span><span class="status" [class]="'status '+spool.status">{{spool.status}}</span></div>
+        <div class="mobile-stock"><strong>{{grams(spool.remaining_g)}}</strong><span>of {{grams(spool.initial_g)}}</span><div class="progress"><span [style.width.%]="percent(spool)"></span></div></div>
+        <small class="subdued">{{spool.location || 'No location set'}}</small>
+        <div class="mobile-actions"><button class="btn primary" type="button" [disabled]="spool.remaining_g===0" (click)="dialogs.open({kind:'movement',id:spool.id})">Record use</button><a class="btn ghost" [href]="'/labels/'+spool.uid" rel="noopener noreferrer" target="_blank">QR label</a><button class="btn ghost" type="button" (click)="dialogs.open({kind:'details',id:spool.id})">Details</button></div>
+      </article>
+    } @empty {<div class="placeholder">No matching spools.</div>}
+  </div>
+</section>
