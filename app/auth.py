@@ -16,7 +16,7 @@ from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.database import session, utc_now
 
@@ -30,9 +30,14 @@ ROLE_ORDER = {"viewer": 0, "editor": 1, "admin": 2}
 
 
 class LoginForm(BaseModel):
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    model_config = ConfigDict(extra="forbid")
     username: str = Field(min_length=1, max_length=60)
     password: str = Field(min_length=1, max_length=128)
+
+    @field_validator("username", mode="before")
+    @classmethod
+    def strip_username(cls, value):
+        return value.strip() if isinstance(value, str) else value
 
 
 class SetupForm(LoginForm):
@@ -160,7 +165,8 @@ def protect(app: FastAPI, db_path: Path) -> None:
                 if path not in ("/api/auth/logout", "/api/auth/password"):
                     return JSONResponse({"detail": "Editor role required."}, status_code=403)
             if method not in {"GET", "HEAD", "OPTIONS"} and (
-                not hmac.compare_digest(request.headers.get("x-csrf-token", ""), user["csrf_token"])
+                not hmac.compare_digest(request.headers.get("x-csrf-token", "").encode("utf-8"),
+                                        user["csrf_token"].encode("utf-8"))
             ):
                 return JSONResponse({"detail": "Invalid CSRF token."}, status_code=403)
         response = await call_next(request)
@@ -178,7 +184,7 @@ def protect(app: FastAPI, db_path: Path) -> None:
     def setup(payload: SetupForm, request: Request):
         secret = os.getenv("FILAMENT_BOOTSTRAP_TOKEN", "")
         provided = request.headers.get("x-bootstrap-token", "")
-        if len(secret) < 24 or not hmac.compare_digest(secret, provided):
+        if len(secret) < 24 or not hmac.compare_digest(secret.encode("utf-8"), provided.encode("utf-8")):
             raise HTTPException(status_code=403, detail="A configured bootstrap token is required.")
         with session(db_path, write=True) as db:
             if db.execute("SELECT 1 FROM users LIMIT 1").fetchone():
@@ -305,3 +311,4 @@ def protect(app: FastAPI, db_path: Path) -> None:
             db.execute("DELETE FROM auth_sessions WHERE user_id=?", (user_id,))
             audit(db, request.state.user["id"], "user_update", "user", user_id)
         return {"id": user_id}
+
