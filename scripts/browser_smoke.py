@@ -81,7 +81,8 @@ def run() -> None:
         dialog.get_by_role("button", name="Close dialog").click()
         page.locator('.side-nav a[href="/integrations"]').click()
         expect(page.locator("fm-root")).to_contain_text("Read-only available")
-        expect(page.locator("fm-root")).to_contain_text("Not connected")
+        expect(page.locator("fm-root")).to_contain_text("Signed cloud bridge")
+        expect(page.locator("fm-root")).to_contain_text("External relay required")
 
         # Admin can provision users and register a restricted controller without
         # opening a real connection; a print job maps to an existing spool.

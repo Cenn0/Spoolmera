@@ -43,6 +43,14 @@ def slice_stl(data: bytes, name: str) -> tuple[bytes, int | None]:
         raise HTTPException(status_code=403, detail="Slicing is disabled by the operator.")
     if name not in list_profiles():
         raise HTTPException(status_code=422, detail="Unknown or unapproved slicer profile.")
+    # Operator profiles are privileged configuration, not user uploads.
+    # Reject known slicer post-processing hooks: those execute arbitrary programs.
+    profile_file = profile_root() / (name + ".ini")
+    if len(profile_file.read_bytes()) > 1024 * 1024:
+        raise HTTPException(status_code=422, detail="Approved profile exceeds 1 MiB.")
+    profile_text = profile_file.read_text(encoding="utf-8", errors="replace")
+    if re.search(r"(?im)^\s*post_process\s*=\s*\S", profile_text):
+        raise HTTPException(status_code=422, detail="Slicer post-processing commands are not allowed.")
     binary = Path(os.getenv("FILAMENT_SLICER_EXECUTABLE", "/usr/bin/prusa-slicer"))
     if not binary.is_absolute() or not binary.is_file() or not os.access(binary, os.X_OK):
         raise HTTPException(status_code=503, detail="PrusaSlicer CLI is not installed.")

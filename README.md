@@ -23,7 +23,7 @@
 - **Versioned CSV export and import** with preview, validation, transaction rollback on errors, and idempotent UUID-based matching.
 - **Read-only integration API v1** as a foundation for later printer or slicer adapters.
 
-Available in v0.4: session-based authentication, role-based multi-user accounts, read-only Moonraker/OctoPrint connections, G-code job metadata import and conservative completion-based automatic material deductions. **Not implemented:** automatic slicing, printer control/file upload, cloud adapters, multi-material mapping or SSO. See [Security and printer operation](docs/security-and-printers.md).
+Available in v0.5: session-based authentication and role-based users; local Moonraker/OctoPrint connections with **optional** printer commands, G-code upload and print start; **opt-in** PrusaSlicer CLI for STL slicing with operator-approved profiles; **HMAC-signed vendor-neutral cloud event ingestion**; and explicit multi-material tool-to-spool mapping with atomic accounting. Control and slicing are disabled by default. **Not implemented:** native vendor-specific cloud login/control, SSO/OIDC, automatic slicer tool mapping or fully isolated slicing. See [Print operations and setup](docs/operations.md) and [Security and printer operation](docs/security-and-printers.md).
 
 ## Quick start (Docker)
 
@@ -90,15 +90,15 @@ Use **Spools → Export CSV** to download an Excel-friendly UTF-8 inventory snap
 
 See [CSV schema and limits](docs/csv-format.md).
 
-### Printer connections, job import and stock accounting
+### Printer connections, job import, slicing and stock accounting
 
 The **Printers** screen (admin-only editing) supports read-only **Moonraker/Klipper** and **OctoPrint** controllers. The server refuses to connect unless each exact private IP is listed in `FILAMENT_PRINTER_ALLOWED_IPS`; public IPs, hostnames, redirects, proxy forwarding and arbitrary remote URLs are rejected.
 
 Place any controller API key in an environment variable such as `FILAMENT_PRINTER_TOKEN_WORKSHOP` in the operator's private `.env` file, then enter that **variable name** in the printer form. The key itself is never stored in SQLite. OctoPrint requires an API key; some trusted-LAN Moonraker installations may be reachable without one. Prefer restricted printer credentials and firewall rules.
 
-In **Print jobs**, select a printer and physical spool, then register either the exact filename already on the printer with an estimated gram weight, or import metadata from a local `.gcode`/`.gco`/`.gc` file (up to 16 MiB). The G-code is not stored, executed or uploaded. There is **no in-app slicer**; the existing slicing and file-transfer workflow remains external.
+In **Print jobs**, select a printer and physical spool, then register either the exact filename already on the printer with an estimated gram weight, or import metadata from a local `.gcode`/`.gco`/`.gc` file (up to 16 MiB). **Metadata import** does not store or transmit the file. An administrator can separately enable safe, explicit G-code transfer and manual printer start. Optional PrusaSlicer CLI slicing accepts an STL and produces downloadable G-code using a trusted INI profile; slicing is disabled by default. Multi-tool jobs accept explicit material mappings, which are debited atomically if verified. [Detailed operator setup](docs/operations.md).
 
-For Moonraker, enable the job history service. The application polls every 30 seconds by default. Only a unique job-history ID **first observed in progress** and later confirmed completed can automatically debit the estimated grams. The inventory balance and ledger record are committed atomically. All uncertain outcomes require deliberate confirmation or discard; OctoPrint cannot provide an equally authoritative generic completion signal through its current-job endpoint and is always review-only. This is estimated consumption, not physical weighing. One job maps to one spool.
+For Moonraker, enable the job history service. The application polls every 30 seconds by default. Only a unique job-history ID **first observed in progress** and later confirmed completed can automatically debit the estimated grams. The inventory balance and ledger record are committed atomically. All uncertain outcomes require deliberate confirmation or discard; OctoPrint cannot provide an equally authoritative generic completion signal through its current-job endpoint and is always review-only. This is estimated consumption, not physical weighing. A job maps to one or more expressly selected physical spools. Estimates include purge/waste only if the operator enters them.
 
 All inventory routes, printed labels, CSV endpoints, and read-only Integration API v1 endpoints now require login. Roles: **viewer** (read), **editor** (inventory and jobs), **admin** (users and printer configurations). [Security, limitations and implementation details](docs/security-and-printers.md).
 
@@ -152,11 +152,16 @@ Configuration:
 | `FILAMENT_COOKIE_SECURE` | `0` | Set `1` behind HTTPS/TLS termination |
 | `FILAMENT_PRINTER_ALLOWED_IPS` | empty | Exact, comma-separated private controller IPs |
 | `FILAMENT_PRINTER_TOKEN_*` | unset | Printer API keys referenced by environment name |
-| `FILAMENT_PRINTER_POLL_SECONDS` | `30` | Background polling cadence, min 10/max 300 |
+| \`FILAMENT_PRINTER_POLL_SECONDS\` | \`30\` | Background polling cadence, min 10/max 300 |
+| \`FILAMENT_PRINTER_CONTROL_ENABLED\` | \`0\` | Enable admin-only printer commands, file upload, and print start (physical operations) |
+| \`FILAMENT_SLICER_ENABLED\` | \`0\` | Enable privileged, operator-profile-only slicer CLI |
+| \`FILAMENT_SLICER_EXECUTABLE\` | \`/usr/bin/prusa-slicer\` | Approved slicer executable path |
+| \`FILAMENT_SLICER_PROFILES_DIR\` | \`/config/slicer-profiles\` | Read-only mounted approved \`.ini\` profiles |
+| \`FILAMENT_CLOUD_HMAC_<ALIAS>\` | unset | 32+ character HMAC secret for separately operated cloud bridge |
 
 ### Migrations and backups
 
-Schema v3 adds user accounts, sessions, printer configuration, jobs and job-linked ledger IDs while preserving existing inventory. The earlier v0.2 migration added UUIDs to existing products and spools in-place, keeping their numeric IDs and movement history. Before upgrading an existing installation, **take a consistent SQLite backup** (via SQLite backup API or a stopped container and its volume data). The migration is designed to be idempotent but does not replace a backup.
+Schema v4 adds multi-material tool mappings and signed cloud receipt deduplication on top of schema v3 user accounts, sessions, printer configuration, jobs and job-linked ledger IDs while preserving existing inventory. The earlier v0.2 migration added UUIDs to existing products and spools in-place, keeping their numeric IDs and movement history. Before upgrading an existing installation, **take a consistent SQLite backup** (via SQLite backup API or a stopped container and its volume data). The migration is designed to be idempotent but does not replace a backup.
 
 Back up the SQLite database and associated WAL content consistently, not by copying an open database file without a snapshot.
 
@@ -183,14 +188,17 @@ app/
   labels.py              QR payloads and physical label HTML
   integrations.py        Versioned read-only API contract
   auth.py                Cookie-session auth, CSRF, roles, user administration
-  printers.py            Restricted private-network Moonraker/OctoPrint status clients
-  jobs.py                Safe job metadata import and idempotent accounting
+  printers.py            Restricted private-network Moonraker/OctoPrint status and opt-in commands
+  slicing.py             Opt-in, approved-profile PrusaSlicer CLI
+  cloud.py               HMAC-authenticated, replay-protected cloud bridge
+  jobs.py                Safe job metadata import, file transfer, multi-tool accounting and start
   static/label.css       60 × 40 mm label print CSS
   ui/                   Compiled Angular assets (not committed)
 tests/                   API regressions
 scripts/browser_smoke.py Chromium end-to-end regressions
 docs/ui-ux-concept.md    UX design baseline
-Dockerfile               Angular build + non-root Python runtime
+Dockerfile               Angular build + non-root Python runtime, optional distro PrusaSlicer
+compose.slicer.yaml      Optional PrusaSlicer build and profile mount
 compose.yaml             Single self-hosted container
 ```
 

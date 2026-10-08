@@ -240,3 +240,21 @@ def test_slicing_opt_in_profile_and_cli_argument_guards(workspace, monkeypatch, 
     assert response.status_code == 200, response.text
     assert response.headers["X-Estimated-Grams"] == "22"
     assert response.content.endswith(b"G1 E2\n")
+
+
+def test_slicer_rejects_profile_postprocessing(workspace, monkeypatch, tmp_path):
+    client, _, _, _, _ = workspace
+    root = tmp_path / "profiles"
+    root.mkdir()
+    (root / "unsafe.ini").write_text("post_process = /bin/sh /tmp/command.sh\n")
+    binary = tmp_path / "prusa-slicer"
+    binary.write_text("fake")
+    binary.chmod(0o755)
+    monkeypatch.setenv("FILAMENT_SLICER_ENABLED", "1")
+    monkeypatch.setenv("FILAMENT_SLICER_PROFILES_DIR", str(root))
+    monkeypatch.setenv("FILAMENT_SLICER_EXECUTABLE", str(binary))
+    response = client.post("/api/slicing/slice?profile=unsafe",
+                           content=b"solid cube\nfacet normal 0 0 1\nendsolid cube\n",
+                           headers={"Content-Type":"application/octet-stream"})
+    assert response.status_code == 422
+    assert "post-processing" in response.text

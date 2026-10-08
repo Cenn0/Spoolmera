@@ -7,6 +7,7 @@ import base64
 import hashlib
 import hmac
 import os
+import re
 import secrets
 import time
 from pathlib import Path
@@ -145,7 +146,7 @@ def protect(app: FastAPI, db_path: Path) -> None:
                     return JSONResponse({"detail": "Origin not permitted."}, status_code=403)
         # Machine-origin HMAC webhooks bypass browser sessions only at this exact endpoint.
         cloud_hook = (method == "POST" and
-                      bool(__import__("re").fullmatch(r"/api/cloud/hooks/[A-Z][A-Z0-9_]{0,30}", path)))
+                      bool(re.fullmatch(r"/api/cloud/hooks/[A-Z][A-Z0-9_]{0,30}", path)))
         public = path in {"/api/health", "/api/auth/status", "/api/auth/setup", "/api/auth/login"} or cloud_hook
         api = path.startswith("/api/")
         protected_page = path.startswith("/labels/") or path in {"/docs", "/redoc", "/openapi.json"}
