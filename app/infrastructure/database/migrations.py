@@ -3,7 +3,7 @@ import sqlite3
 from uuid import uuid4
 from datetime import datetime, timezone
 
-CURRENT_SCHEMA_VERSION = 6
+CURRENT_SCHEMA_VERSION = 7
 
 def migrate_v2_v4(connection: sqlite3.Connection) -> None:
     """Preserve legacy IDs and write an idempotent material mapping upgrade."""
@@ -147,3 +147,22 @@ def migrate_v6(db: sqlite3.Connection) -> None:
         created_at TEXT NOT NULL
     )""")
     db.execute("CREATE INDEX IF NOT EXISTS idx_drying_spool ON drying_records(spool_id, dried_at DESC)")
+
+
+def migrate_v7(db: sqlite3.Connection) -> None:
+    """Advisory print reservations and explicit feeder-slot mapping."""
+    db.execute("""CREATE TABLE IF NOT EXISTS job_reservations (
+        job_id INTEGER NOT NULL REFERENCES print_jobs(id) ON DELETE RESTRICT,
+        spool_id INTEGER NOT NULL REFERENCES spools(id) ON DELETE RESTRICT,
+        reserved_g INTEGER NOT NULL CHECK(reserved_g > 0),
+        created_at TEXT NOT NULL,
+        PRIMARY KEY(job_id,spool_id)
+    )""")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_reservation_spool ON job_reservations(spool_id)")
+    db.execute("""CREATE TABLE IF NOT EXISTS printer_spool_slots (
+        printer_id INTEGER NOT NULL REFERENCES printers(id) ON DELETE RESTRICT,
+        tool INTEGER NOT NULL CHECK(tool BETWEEN 0 AND 15),
+        spool_id INTEGER NOT NULL UNIQUE REFERENCES spools(id) ON DELETE RESTRICT,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY(printer_id,tool)
+    )""")
