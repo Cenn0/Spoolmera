@@ -32,7 +32,7 @@
           <td><div class="stock-cell"><strong>{{grams(spool.remaining_g)}}</strong><small>of {{grams(spool.initial_g)}}</small><div class="progress" [class.low]="spool.remaining_g>0 && spool.remaining_g<=200"><span [style.width.%]="percent(spool)"></span></div></div></td>
           <td><span class="status" [class]="'status '+spool.status">{{spool.status}}</span></td>
           <td class="subdued">{{spool.location || '—'}}</td>
-          <td><div class="table-actions">@if(auth.canEdit()){<button type="button" [disabled]="spool.remaining_g===0" (click)="dialogs.open({kind:'movement',id:spool.id,mode:'consume'})">Record use</button>}<a [href]="'/labels/'+spool.uid" target="_blank" rel="noopener noreferrer">QR label</a><button type="button" (click)="dialogs.open({kind:'details',id:spool.id})">Details ↗</button></div></td>
+          <td><div class="table-actions">@if(auth.canEdit()){<button type="button" [disabled]="spool.remaining_g===0" (click)="dialogs.open({kind:'movement',id:spool.id,mode:'consume'})">Record use</button>}<a [href]="'/labels/'+spool.uid" target="_blank" rel="noopener noreferrer">QR label 60×40</a><a [href]="'/labels/'+spool.uid+'?size=50x30'" target="_blank" rel="noopener noreferrer">50×30</a><button type="button" (click)="dialogs.open({kind:'details',id:spool.id})">Details ↗</button></div></td>
         </tr>
       } @empty {
         <tr><td colspan="6"><div class="placeholder">{{data.spools().length?'No spools match your filters.':'No spools yet. Add your first physical roll.'}}</div></td></tr>

@@ -1,5 +1,6 @@
 """Authenticated inventory, label, CSV and read-only integration routes."""
 from pathlib import Path
+from typing import Literal
 from uuid import uuid4
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -127,7 +128,7 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
         )
 
     @router.get("/labels/{spool_uid}", response_class=HTMLResponse, include_in_schema=False)
-    def print_label(spool_uid: str):
+    def print_label(spool_uid: str, size: Literal["60x40","50x30"] = Query(default="60x40")):
         with session(db_path) as db:
             row = db.execute(
                 """SELECT s.uid, s.id, s.remaining_g, s.initial_g,
@@ -138,7 +139,7 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
             if row is None:
                 raise HTTPException(status_code=404, detail="Spool not found.")
         return HTMLResponse(
-            content=label_html(dict(row)),
+            content=label_html(dict(row), size=size),
             headers={"Cache-Control": "no-store",
                      "Content-Security-Policy": "default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'"},
         )
