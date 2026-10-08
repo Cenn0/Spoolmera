@@ -9,6 +9,10 @@ from app.models import WeighInput, DryingInput
 
 def record_weighing(db_path: Path, spool_id: int, payload: WeighInput, actor_id: int) -> dict:
     with session(db_path, write=True) as db:
+        return record_weighing_in_transaction(db, spool_id, payload, actor_id)
+
+
+def record_weighing_in_transaction(db, spool_id: int, payload: WeighInput, actor_id: int) -> dict:
         spool = db.execute(
             "SELECT initial_g,remaining_g,tare_g FROM spools WHERE id=? AND archived_at IS NULL",
             (spool_id,),

@@ -151,7 +151,9 @@ def protect(app: FastAPI, db_path: Path) -> None:
                       bool(re.fullmatch(r"/api/cloud/hooks/[A-Z][A-Z0-9_]{0,30}", path)))
         machine_read = (method in {"GET", "HEAD"} and
                         path in {"/api/automation/v1/spools", "/api/automation/v1/movements"})
-        public = path in {"/api/health", "/api/auth/status", "/api/auth/setup", "/api/auth/login"} or cloud_hook or machine_read
+        scale_hook = (method == "POST" and
+                      bool(re.fullmatch(r"/api/scales/hooks/[A-Z][A-Z0-9_]{0,30}", path)))
+        public = path in {"/api/health", "/api/auth/status", "/api/auth/setup", "/api/auth/login"} or cloud_hook or scale_hook or machine_read
         api = path.startswith("/api/")
         protected_page = path.startswith("/labels/") or path in {"/docs", "/redoc", "/openapi.json"}
         if (api and not public) or protected_page:

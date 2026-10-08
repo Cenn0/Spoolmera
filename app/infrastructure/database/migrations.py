@@ -3,7 +3,7 @@ import sqlite3
 from uuid import uuid4
 from datetime import datetime, timezone
 
-CURRENT_SCHEMA_VERSION = 8
+CURRENT_SCHEMA_VERSION = 9
 
 def migrate_v2_v4(connection: sqlite3.Connection) -> None:
     """Preserve legacy IDs and write an idempotent material mapping upgrade."""
@@ -194,3 +194,23 @@ def migrate_v8(db: sqlite3.Connection) -> None:
         PRIMARY KEY(namespace,external_id)
     )""")
     db.execute("CREATE INDEX IF NOT EXISTS idx_identifiers_spool ON spool_identifiers(spool_id)")
+
+
+def migrate_v9(db: sqlite3.Connection) -> None:
+    """Signed scale measurements awaiting explicit inventory approval."""
+    db.execute("""CREATE TABLE IF NOT EXISTS scale_event_receipts (
+        id INTEGER PRIMARY KEY,
+        source TEXT NOT NULL,
+        event_id TEXT NOT NULL,
+        payload_digest TEXT NOT NULL,
+        spool_id INTEGER NOT NULL REFERENCES spools(id) ON DELETE RESTRICT,
+        gross_g INTEGER NOT NULL CHECK(gross_g BETWEEN 0 AND 200000),
+        tare_g INTEGER CHECK(tare_g BETWEEN 0 AND 100000),
+        status TEXT NOT NULL DEFAULT 'pending'
+            CHECK(status IN ('pending','applied','discarded')),
+        received_at TEXT NOT NULL,
+        reviewed_at TEXT,
+        reviewed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        UNIQUE(source,event_id)
+    )""")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_scale_pending ON scale_event_receipts(status,id)")
