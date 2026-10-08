@@ -29,37 +29,37 @@ Available in v0.4: session-based authentication, role-based multi-user accounts,
 
 Requires Docker with Compose. The image builds Angular using Node.js and serves it with the existing FastAPI application in a **single runtime container**.
 
-\`\`\`bash
+```bash
 git clone https://github.com/Cenn0/FilamentManager.git
 cd FilamentManager
 cp .env.example .env
 # Generate a random bootstrap secret (32+ characters), then set it in .env:
 python -c 'import secrets; print(secrets.token_urlsafe(32))'
 docker compose up -d --build
-\`\`\`
+```
 
 Open **http://127.0.0.1:8765** on the machine hosting Docker. First use requires creating the administrator with the server's `FILAMENT_BOOTSTRAP_TOKEN` and a password of at least 14 characters. A missing token intentionally prevents account setup.
 
-The database is stored persistently in the Docker volume \`filament_data\`. To stop the app without removing its data:
+The database is stored persistently in the Docker volume `filament_data`. To stop the app without removing its data:
 
-\`\`\`bash
+```bash
 docker compose down
-\`\`\`
+```
 
-Do **not** run \`docker compose down -v\` unless you intend to remove your saved inventory.
+Do **not** run `docker compose down -v` unless you intend to remove your saved inventory.
 
 ### Configure QR URLs for other devices
 
-By default, QR codes contain \`http://127.0.0.1:8765/s/<spool-uuid>\`. This works only on the host itself: **127.0.0.1 on a phone is the phone, not your server**.
+By default, QR codes contain `http://127.0.0.1:8765/s/<spool-uuid>`. This works only on the host itself: **127.0.0.1 on a phone is the phone, not your server**.
 
-Set \`FILAMENT_PUBLIC_BASE_URL\` to an origin accessible from the device that scans the label, for example \`http://filament.home.example:8765\` or \`https://filament.example.com\`. It must be an HTTP(S) origin without credentials, path, query, or fragment.
+Set `FILAMENT_PUBLIC_BASE_URL` to an origin accessible from the device that scans the label, for example `http://filament.home.example:8765` or `https://filament.example.com`. It must be an HTTP(S) origin without credentials, path, query, or fragment.
 
 Example on a trusted private LAN, after deliberately changing the Compose port binding and ensuring the network is protected:
 
-\`\`\`yaml
+```yaml
 environment:
   FILAMENT_PUBLIC_BASE_URL: "http://192.168.1.10:8765"
-\`\`\`
+```
 
 **Security warning:** Application login is implemented, but the Compose service still binds to localhost by default. For access from outside the host, use an HTTPS reverse proxy or protected VPN, set `FILAMENT_COOKIE_SECURE=1`, configure `FILAMENT_PUBLIC_BASE_URL` as the external origin, and restrict printer egress to explicitly allowlisted IPs. Do not publish unencrypted HTTP login endpoints.
 
@@ -100,7 +100,7 @@ All inventory routes, printed labels, CSV endpoints, and read-only Integration A
 
 Python **3.12+** and Angular 22-compatible Node.js (24.15+ recommended). For non-Docker development set `FILAMENT_BOOTSTRAP_TOKEN` to a unique, random 24+ character secret before starting FastAPI:
 
-\`\`\`bash
+```bash
 python -m venv .venv
 # Linux/macOS:
 source .venv/bin/activate
@@ -108,7 +108,7 @@ source .venv/bin/activate
 # .venv\Scripts\Activate.ps1
 python -m pip install -r requirements-dev.txt
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8765
-\`\`\`
+```
 
 Start Angular in a second terminal with a development API proxy:
 
@@ -130,9 +130,9 @@ npm run build
 
 Run backend tests:
 
-\`\`\`bash
+```bash
 python -m pytest -q
-\`\`\`
+```
 
 API documentation: http://127.0.0.1:8765/docs.
 
@@ -140,8 +140,8 @@ Configuration:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| \`FILAMENT_DB_PATH\` | \`.data/filaments.sqlite3\` | Persistent SQLite database path; Docker uses \`/data/filaments.sqlite3\` |
-| \`FILAMENT_PUBLIC_BASE_URL\` | \`http://127.0.0.1:8765\` | QR link base URL and allowed browser Origin |
+| `FILAMENT_DB_PATH` | `.data/filaments.sqlite3` | Persistent SQLite database path; Docker uses `/data/filaments.sqlite3` |
+| `FILAMENT_PUBLIC_BASE_URL` | `http://127.0.0.1:8765` | QR link base URL and allowed browser Origin |
 | `FILAMENT_BOOTSTRAP_TOKEN` | unset | Required secret for initial administrator creation |
 | `FILAMENT_COOKIE_SECURE` | `0` | Set `1` behind HTTPS/TLS termination |
 | `FILAMENT_PRINTER_ALLOWED_IPS` | empty | Exact, comma-separated private controller IPs |

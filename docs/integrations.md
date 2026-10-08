@@ -1,14 +1,14 @@
 # Printer and slicer integration — contract and roadmap
 
-**Status: foundation only. There is no active printer or slicer connector.**
+**Status: the v1 inventory API remains read-only; separate authenticated Moonraker and OctoPrint connectors are implemented in the main application. Automatic slicing is not implemented.**
 
 The goal is to make Filament Manager useful for a variety of printer ecosystems without binding the inventory schema to any single vendor or requiring remote printer access from the inventory service.
 
 ## Implemented read-only API v1
 
-\`GET /api/integrations/v1/capabilities\`:
+`GET /api/integrations/v1/capabilities`:
 
-\`\`\`json
+```json
 {
   "schema_version": "1",
   "inventory_read": true,
@@ -16,11 +16,11 @@ The goal is to make Filament Manager useful for a variety of printer ecosystems 
   "printer_connections": false,
   "slicer_connections": false
 }
-\`\`\`
+```
 
-\`GET /api/integrations/v1/spools\`:
+`GET /api/integrations/v1/spools`:
 
-\`\`\`json
+```json
 {
   "schema_version": "1",
   "spools": [
@@ -40,15 +40,15 @@ The goal is to make Filament Manager useful for a variety of printer ecosystems 
     }
   ]
 }
-\`\`\`
+```
 
 Values above are illustrative and not actual API contents. Identifiers are immutable per physical spool. The endpoint returns active spools only. The schema is versioned so future adapters can distinguish incompatible changes.
 
-**Security:** This API currently has the same protections (or lack thereof) as the local application. It is not safe to publish externally without strong authentication and transport security.
+**Security:** The v1 read-only inventory endpoints require an authenticated application session and must be accessed over trusted transport. The v1 capability flags describe only the external v1 API contract, **not** availability of the separate admin-configured printer connectors.
 
-## Proposed adapter boundary (not implemented)
+## Planned external write-event contract (not implemented)
 
-A future adapter should run as a separate module or process, depending on printer credentials and network trust. Its responsibilities could include:
+The new read-only controller connectors and job tracker are documented in [Security and printer operation](security-and-printers.md). A separate future write-event adapter could run as a module or separate process, depending on network trust. Potential responsibilities include:
 
 1. Discovering configured printers or slicers using their **official, version-matched** interfaces.
 2. Matching spool UUIDs to printer feeder slots or slicer presets using explicit user approval; never assume a match by color alone.
@@ -59,7 +59,7 @@ A future adapter should run as a separate module or process, depending on printe
 
 An **illustrative, future-only** event shape (there is no route accepting this payload yet):
 
-\`\`\`json
+```json
 {
   "schema_version": "1",
   "source": "example-adapter",
@@ -70,20 +70,19 @@ An **illustrative, future-only** event shape (there is no route accepting this p
   "measurement": "estimated",
   "status": "completed"
 }
-\`\`\`
+```
 
-Before enabling write integration, add a persistent unique constraint on \`(source, event_uid)\` and implement the event insert plus inventory deduction in the **same transaction**, with retry-safe responses.
+Before enabling write integration, add a persistent unique constraint on `(source, event_uid)` and implement the event insert plus inventory deduction in the **same transaction**, with retry-safe responses.
 
 ## Integration candidates to evaluate later
 
-Potential adapter targets include OctoPrint, Moonraker/Klipper, Bambu Lab, Prusa Connect, and common slicer project or metadata formats. These are **candidates**, not verified compatible or officially supported integrations. Check each product's current official documentation, authentication model, licensing, and supported API versions when choosing an adapter.
+Read-only adapters for **OctoPrint** and **Moonraker/Klipper** are now implemented and tested with mocked controller responses (not live hardware certification). Further candidates are Bambu Lab, Prusa Connect and richer slicer metadata formats; support for them is not implemented or verified. Check each product's current official documentation, authentication model, licensing, and supported API versions when choosing an adapter.
 
-## Recommended delivery order
+## Future delivery order
 
-1. Explicit printer-to-spool assignments and controlled settings storage.
-2. Source-specific read-only adapters and completion/event telemetry.
-3. Manual review and approval of estimated consumption.
-4. Authenticated event-ingestion API with auditability and idempotency.
-5. Optional automated deduction only after extensive failure-mode testing.
+1. Harden controller history capture, device compatibility testing and recovery from missed polling.
+2. Introduce explicit multi-extruder spool mapping and material waste estimation.
+3. Add authenticated, idempotent source-event ingestion with a separate durable scheduler.
+4. Evaluate printer control and automatic slicing as separate, security-reviewed features.
 
 Printers and slicers should never be able to execute arbitrary operations on the inventory host.
