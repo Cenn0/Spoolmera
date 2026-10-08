@@ -64,6 +64,19 @@
         }
       }
     </section>
+    <section class="panel">
+      <div class="panel-heading"><div><span class="eyebrow">MATERIAL USAGE</span><h2>Consumption & cost</h2></div></div>
+      @if(costs();as metrics){
+        <p class="helper">Consumed: {{grams(metrics.consumed_g)}} · purchase-price estimates only, excluding energy and labor.</p>
+        @for(group of metrics.currency_groups;track group.currency){
+          <div class="material-entry">
+            <div><strong>{{group.currency}}</strong>
+              <span>{{(group.known_cost_cents/100).toFixed(2)}} {{group.currency}}</span></div>
+            <small>{{grams(group.consumed_g)}} recorded · {{grams(group.unpriced_g)}} without purchase price</small>
+          </div>
+        }@empty{<p class="placeholder">No consumption records yet.</p>}
+      }@else{<p class="helper">Cost estimates are unavailable.</p>}
+    </section>
     <section class="side-note"><span class="eyebrow">GOOD TO KNOW</span><h3>Every roll has its own identity.</h3><p>Print a QR label for each physical spool. A quick scan takes you straight to its details and consumption history.</p><a routerLink="/spools" class="text-link">Browse spools →</a></section>
   </div>
 </div>
