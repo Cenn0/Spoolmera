@@ -1,3 +1,8 @@
+@if (!auth.ready()) {
+  <main class="login-screen"><p role="status">Loading secure workspace…</p></main>
+} @else if (!auth.user()) {
+  <fm-login (authenticated)="afterLogin()" />
+} @else {
 <div class="shell">
   <aside class="sidebar" [class.nav-open]="navOpen()" aria-label="Main navigation">
     <a class="brand" routerLink="/" (click)="closeNav()" aria-label="Filament Manager home">
@@ -10,7 +15,10 @@
       <a routerLink="/spools" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">◎</span> Spools <span class="nav-count">{{ inventory.overview().total_spools }}</span></a>
       <a routerLink="/filaments" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">▤</span> Filaments</a>
       <a routerLink="/history" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">◷</span> History</a>
+      <a routerLink="/jobs" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">▣</span> Print jobs</a>
+      <a routerLink="/printers" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">▥</span> Printers</a>
       <a routerLink="/integrations" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">⌘</span> Integrations</a>
+      @if(auth.isAdmin()) {<a routerLink="/users" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">♙</span> Users</a>}
     </nav>
     <div class="sidebar-bottom">
       <div class="server-card">
@@ -28,7 +36,9 @@
       <div class="breadcrumbs"><span>WORKSPACE</span><b>/</b><strong>Material inventory</strong></div>
       <div class="top-actions">
         <span class="system-state"><span class="live-dot" [class.offline]="!!inventory.error()"></span>{{ inventory.error() ? 'Unavailable' : inventory.loading() ? 'Loading' : 'Local instance' }}</span>
-        <button type="button" class="btn primary add-spool" (click)="openSpool()"><span aria-hidden="true">+</span> Add spool</button>
+        <span class="user-chip">{{auth.user()?.username}} · {{auth.user()?.role}}</span>
+        <button type="button" class="logout-action" (click)="auth.logout()" aria-label="Sign out">Sign out</button>
+        @if(auth.canEdit()){<button type="button" class="btn primary add-spool" (click)="openSpool()"><span aria-hidden="true">+</span> Add spool</button>}
       </div>
     </header>
 
@@ -46,3 +56,5 @@
     <fm-dialogs />
   </div>
 </div>
+
+}
