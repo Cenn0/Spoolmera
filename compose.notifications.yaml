@@ -1,0 +1,27 @@
+# Optional. Start with:
+# docker compose -f compose.yaml -f compose.notifications.yaml up -d --build
+services:
+  filament-notifications:
+    build:
+      context: .
+      dockerfile: Dockerfile.notifications
+    restart: unless-stopped
+    depends_on:
+      filament-manager:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      FILAMENT_MANAGER_URL: http://filament-manager:8765
+    volumes:
+      - filament_notifier_state:/state
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,size=8m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+volumes:
+  filament_notifier_state:

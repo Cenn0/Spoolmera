@@ -1,0 +1,8 @@
+# Optional standalone polling-to-ntfy bridge. No app database, printer tokens or code.
+FROM python:3.12-alpine
+WORKDIR /worker
+COPY scripts/notification_bridge.py ./
+RUN addgroup -S -g 10002 notifier && adduser -S -D -u 10002 -G notifier notifier \
+    && mkdir /state && chown notifier:notifier /state
+USER notifier
+CMD ["python","-u","notification_bridge.py","--loop"]
