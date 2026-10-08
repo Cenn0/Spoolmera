@@ -13,6 +13,14 @@
       <label>Identifier<input [(ngModel)]="tagSearch" (keyup.enter)="findTag()" maxlength="128" placeholder="Paste or scan tag ID"></label>
     </div>
     <button type="button" class="btn ghost" [disabled]="scanning()||tagSearch.trim().length<8" (click)="findTag()">Find spool</button>
+    @if(supportsWebNfc()){
+      @if(nfcActive()){
+        <button type="button" class="btn ghost" (click)="stopNfc()">Stop NFC scan</button>
+        <p class="helper">Hold a compatible NFC tag near your phone. The browser may ask for permission.</p>
+      }@else{
+        <button type="button" class="btn ghost" (click)="scanNfc()">Scan NFC tag</button>
+      }
+    }
   </div>
 </section>
 <section class="panel data-panel">
