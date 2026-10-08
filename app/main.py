@@ -72,7 +72,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
 
     app = FastAPI(
         title="Filament Manager API",
-        version="0.6.0",
+        version="0.9.0",
         description="Local management of filament products, physical spools and inventory movements.",
         lifespan=lifespan,
     )
