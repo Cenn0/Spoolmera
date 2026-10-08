@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.database import initialize_database, session, utc_now
 from app.models import MovementInput, ProductInput, SpoolInput, SpoolUpdate
@@ -24,7 +25,7 @@ class SPAStaticFiles(StaticFiles):
     async def get_response(self, path, scope):
         try:
             response = await super().get_response(path, scope)
-        except HTTPException as exc:
+        except StarletteHTTPException as exc:
             if (exc.status_code != 404 or "." in Path(path).name
                     or path.startswith(("api/", "labels/", "static/", "s/"))):
                 raise
