@@ -3,6 +3,7 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 from typing import Iterator
 
 SCHEMA = """
@@ -78,3 +79,26 @@ def initialize_database(path: str | Path) -> None:
     with session(path) as connection:
         connection.execute("PRAGMA journal_mode = WAL")
         connection.executescript(SCHEMA)
+        # Migration v2 preserves existing numeric IDs while assigning stable UUIDs.
+        connection.execute("BEGIN IMMEDIATE")
+        try:
+            for table in ("products", "spools"):
+                columns = {row["name"] for row in connection.execute(f"PRAGMA table_info({table})")}
+                if "uid" not in columns:
+                    connection.execute(f"ALTER TABLE {table} ADD COLUMN uid TEXT")
+                for row in connection.execute(
+                    f"SELECT id FROM {table} WHERE uid IS NULL OR uid = ''"
+                ).fetchall():
+                    connection.execute(
+                        f"UPDATE {table} SET uid = ? WHERE id = ?",
+                        (str(uuid4()), row["id"]),
+                    )
+                connection.execute(
+                    f"CREATE UNIQUE INDEX IF NOT EXISTS idx_{table}_uid ON {table}(uid)"
+                )
+            connection.execute("PRAGMA user_version = 2")
+            connection.execute("COMMIT")
+        except BaseException:
+            if connection.in_transaction:
+                connection.execute("ROLLBACK")
+            raise
