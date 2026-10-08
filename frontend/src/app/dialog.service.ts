@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 
-export type DialogKind = 'product' | 'spool' | 'details' | 'movement' | 'csv';
+export type DialogKind = 'product' | 'spool' | 'details' | 'movement' | 'csv' | 'weigh' | 'drying';
 export interface DialogRequest {
   kind: DialogKind;
   id?: number;
