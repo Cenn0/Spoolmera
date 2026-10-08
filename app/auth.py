@@ -190,23 +190,34 @@ def protect(app: FastAPI, db_path: Path) -> None:
         subject = hashlib.sha256((payload.username.casefold() + "|" +
                    (request.client.host if request.client else "unknown")).encode()).hexdigest()
         now = int(time.time())
+        denied = 0
+        result = None
         with session(db_path, write=True) as db:
             db.execute("DELETE FROM auth_failures WHERE created_at < ?", (now - 900,))
             count = db.execute("SELECT COUNT(*) FROM auth_failures WHERE subject=?", (subject,)).fetchone()[0]
             if count >= 5:
-                raise HTTPException(status_code=429, detail="Too many attempts. Try again later.")
-            row = db.execute("SELECT * FROM users WHERE username=?", (payload.username,)).fetchone()
-            valid = verify_password(payload.password, row["password_hash"] if row is not None else None)
-            if not valid or not row["enabled"]:
-                db.execute("INSERT INTO auth_failures(subject,created_at) VALUES(?,?)", (subject, now))
-                raise HTTPException(status_code=401, detail="Invalid credentials.")
-            db.execute("DELETE FROM auth_failures WHERE subject=?", (subject,))
-            response = JSONResponse({"id": row["id"], "username": row["username"], "role": row["role"]})
-            csrf = issue_session(db, row["id"], response)
-            response.body = response.render(public_user(row, csrf))
-            response.headers["content-length"] = str(len(response.body))
-            audit(db, row["id"], "login", "user", row["id"])
-            return response
+                denied = 429
+            else:
+                row = db.execute("SELECT * FROM users WHERE username=?", (payload.username,)).fetchone()
+                valid = verify_password(payload.password, row["password_hash"] if row is not None else None)
+                if not valid or not row["enabled"]:
+                    db.execute("INSERT INTO auth_failures(subject,created_at) VALUES(?,?)", (subject, now))
+                    denied = 401
+                else:
+                    db.execute("DELETE FROM auth_failures WHERE subject=?", (subject,))
+                    response = JSONResponse(public_user(row))
+                    csrf = issue_session(db, row["id"], response)
+                    response.body = response.render(public_user(row, csrf))
+                    response.headers["content-length"] = str(len(response.body))
+                    audit(db, row["id"], "login", "user", row["id"])
+                    result = response
+        # Do not raise within the write context: failures must be committed
+        # for throttling to persist, rather than rolled back on exception.
+        if denied:
+            raise HTTPException(status_code=denied, detail=(
+                "Too many attempts. Try again later." if denied == 429 else "Invalid credentials."
+            ))
+        return result
 
     @app.get("/api/auth/me")
     def me(request: Request):
