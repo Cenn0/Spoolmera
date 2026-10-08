@@ -8,11 +8,15 @@ the live API process.
 import argparse
 import os
 import sqlite3
+from contextlib import closing
 import stat
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
+import sys
+# This CLI is run as python scripts/restore.py from the repository root.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from app.infrastructure.database.migrations import CURRENT_SCHEMA_VERSION
 
 
@@ -46,7 +50,7 @@ def restore(source:Path,destination:Path,*,confirm:bool=False)->Path|None:
     previous=None
     try:
         uri="file:"+quote(str(source),safe="/")+ "?mode=ro"
-        with sqlite3.connect(uri,uri=True) as src,sqlite3.connect(stage) as dst:
+        with closing(sqlite3.connect(uri,uri=True)) as src,closing(sqlite3.connect(stage)) as dst:
             _integrity(src)
             src.backup(dst,pages=1000,sleep=0.01)
             dst.execute("PRAGMA journal_mode=DELETE")
@@ -56,7 +60,7 @@ def restore(source:Path,destination:Path,*,confirm:bool=False)->Path|None:
             previous=Path(str(destination)+".pre-restore-"+backup_suffix)
             if previous.exists():
                 raise RuntimeError("Pre-restore backup path already exists.")
-            with sqlite3.connect(destination) as src,sqlite3.connect(previous) as dst:
+            with closing(sqlite3.connect(destination)) as src,closing(sqlite3.connect(previous)) as dst:
                 src.backup(dst)
                 dst.execute("PRAGMA journal_mode=DELETE")
                 _integrity(dst)
