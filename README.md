@@ -23,7 +23,7 @@
 - **Versioned CSV export and import** with preview, validation, transaction rollback on errors, and idempotent UUID-based matching.
 - **Read-only integration API v1** as a foundation for later printer or slicer adapters.
 
-Not implemented: authentication, external printer connections, automatic slicing or print-job import, automatic filament consumption, and multi-user management.
+Available in v0.4: session-based authentication, role-based multi-user accounts, read-only Moonraker/OctoPrint connections, G-code job metadata import and conservative completion-based automatic material deductions. **Not implemented:** automatic slicing, printer control/file upload, cloud adapters, multi-material mapping or SSO. See [Security and printer operation](docs/security-and-printers.md).
 
 ## Quick start (Docker)
 
@@ -32,10 +32,13 @@ Requires Docker with Compose. The image builds Angular using Node.js and serves 
 \`\`\`bash
 git clone https://github.com/Cenn0/FilamentManager.git
 cd FilamentManager
+cp .env.example .env
+# Generate a random bootstrap secret (32+ characters), then set it in .env:
+python -c 'import secrets; print(secrets.token_urlsafe(32))'
 docker compose up -d --build
 \`\`\`
 
-Open **http://127.0.0.1:8765** on the machine hosting Docker.
+Open **http://127.0.0.1:8765** on the machine hosting Docker. First use requires creating the administrator with the server's `FILAMENT_BOOTSTRAP_TOKEN` and a password of at least 14 characters. A missing token intentionally prevents account setup.
 
 The database is stored persistently in the Docker volume \`filament_data\`. To stop the app without removing its data:
 
@@ -58,7 +61,7 @@ environment:
   FILAMENT_PUBLIC_BASE_URL: "http://192.168.1.10:8765"
 \`\`\`
 
-**Security warning:** This MVP has no authentication. Do **not** expose it directly to the internet or to an untrusted network. For remote use, place it behind an authenticating TLS reverse proxy or a secured VPN, restrict network access, and configure the public URL accordingly. The default Compose configuration deliberately binds the port to localhost.
+**Security warning:** Application login is implemented, but the Compose service still binds to localhost by default. For access from outside the host, use an HTTPS reverse proxy or protected VPN, set `FILAMENT_COOKIE_SECURE=1`, configure `FILAMENT_PUBLIC_BASE_URL` as the external origin, and restrict printer egress to explicitly allowlisted IPs. Do not publish unencrypted HTTP login endpoints.
 
 ### Print QR labels
 
@@ -81,18 +84,21 @@ Use **Spools → Export CSV** to download an Excel-friendly UTF-8 inventory snap
 
 See [CSV schema and limits](docs/csv-format.md).
 
-### Printer / slicer integration foundation
+### Printer connections, job import and stock accounting
 
-The application currently provides a versioned, read-only JSON contract:
+The **Printers** screen (admin-only editing) supports read-only **Moonraker/Klipper** and **OctoPrint** controllers. The server refuses to connect unless each exact private IP is listed in `FILAMENT_PRINTER_ALLOWED_IPS`; public IPs, hostnames, redirects, proxy forwarding and arbitrary remote URLs are rejected.
 
-- \`GET /api/integrations/v1/capabilities\` — feature flags.
-- \`GET /api/integrations/v1/spools\` — spool UUIDs, material metadata, remaining grams, and conditions.
+Place any controller API key in an environment variable such as `FILAMENT_PRINTER_TOKEN_WORKSHOP` in the operator's private `.env` file, then enter that **variable name** in the printer form. The key itself is never stored in SQLite. OctoPrint requires an API key; some trusted-LAN Moonraker installations may be reachable without one. Prefer restricted printer credentials and firewall rules.
 
-These endpoints are not authenticated independently. No printer or slicer connection is implemented, and no automated inventory writes are accepted. See [integration design and roadmap](docs/integrations.md) for intended adapter boundaries, event-idempotency rules, and security requirements.
+In **Print jobs**, select a printer and physical spool, then register either the exact filename already on the printer with an estimated gram weight, or import metadata from a local `.gcode`/`.gco`/`.gc` file (up to 16 MiB). The G-code is not stored, executed or uploaded. There is **no in-app slicer**; the existing slicing and file-transfer workflow remains external.
+
+For Moonraker, enable the job history service. The application polls every 30 seconds by default. Only a unique job-history ID **first observed in progress** and later confirmed completed can automatically debit the estimated grams. The inventory balance and ledger record are committed atomically. All uncertain outcomes require deliberate confirmation or discard; OctoPrint cannot provide an equally authoritative generic completion signal through its current-job endpoint and is always review-only. This is estimated consumption, not physical weighing. One job maps to one spool.
+
+All inventory routes, printed labels, CSV endpoints, and read-only Integration API v1 endpoints now require login. Roles: **viewer** (read), **editor** (inventory and jobs), **admin** (users and printer configurations). [Security, limitations and implementation details](docs/security-and-printers.md).
 
 ## Local development
 
-Python **3.12+** and Angular 22-compatible Node.js (24.15+ recommended):
+Python **3.12+** and Angular 22-compatible Node.js (24.15+ recommended). For non-Docker development set `FILAMENT_BOOTSTRAP_TOKEN` to a unique, random 24+ character secret before starting FastAPI:
 
 \`\`\`bash
 python -m venv .venv
@@ -135,11 +141,16 @@ Configuration:
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | \`FILAMENT_DB_PATH\` | \`.data/filaments.sqlite3\` | Persistent SQLite database path; Docker uses \`/data/filaments.sqlite3\` |
-| \`FILAMENT_PUBLIC_BASE_URL\` | \`http://127.0.0.1:8765\` | Fixed base URL embedded in spool QR codes |
+| \`FILAMENT_PUBLIC_BASE_URL\` | \`http://127.0.0.1:8765\` | QR link base URL and allowed browser Origin |
+| `FILAMENT_BOOTSTRAP_TOKEN` | unset | Required secret for initial administrator creation |
+| `FILAMENT_COOKIE_SECURE` | `0` | Set `1` behind HTTPS/TLS termination |
+| `FILAMENT_PRINTER_ALLOWED_IPS` | empty | Exact, comma-separated private controller IPs |
+| `FILAMENT_PRINTER_TOKEN_*` | unset | Printer API keys referenced by environment name |
+| `FILAMENT_PRINTER_POLL_SECONDS` | `30` | Background polling cadence, min 10/max 300 |
 
 ### Migrations and backups
 
-The first startup of v0.2 adds UUIDs to existing products and spools in-place, keeping their numeric IDs and movement history. Before upgrading an existing installation, **take a consistent SQLite backup** (via SQLite backup API or a stopped container and its volume data). The migration is designed to be idempotent but does not replace a backup.
+Schema v3 adds user accounts, sessions, printer configuration, jobs and job-linked ledger IDs while preserving existing inventory. The earlier v0.2 migration added UUIDs to existing products and spools in-place, keeping their numeric IDs and movement history. Before upgrading an existing installation, **take a consistent SQLite backup** (via SQLite backup API or a stopped container and its volume data). The migration is designed to be idempotent but does not replace a backup.
 
 Back up the SQLite database and associated WAL content consistently, not by copying an open database file without a snapshot.
 
@@ -165,6 +176,9 @@ app/
   inventory_csv.py       Safe inventory CSV import/export
   labels.py              QR payloads and physical label HTML
   integrations.py        Versioned read-only API contract
+  auth.py                Cookie-session auth, CSRF, roles, user administration
+  printers.py            Restricted private-network Moonraker/OctoPrint status clients
+  jobs.py                Safe job metadata import and idempotent accounting
   static/label.css       60 × 40 mm label print CSS
   ui/                   Compiled Angular assets (not committed)
 tests/                   API regressions
@@ -176,7 +190,7 @@ compose.yaml             Single self-hosted container
 
 Production serves static Angular assets through FastAPI and requires no Node.js or third-party CDN at runtime. Balances remain whole grams; each inventory update and corresponding movement ledger entry are committed atomically.
 
-**Security:** The application still has no authentication. Compose deliberately binds to loopback only. Do not expose it to untrusted networks; a secured VPN or an authenticating TLS reverse proxy is required for broader access.
+**Security:** Login and account roles are implemented. Keep the loopback binding unless you explicitly deploy behind HTTPS/restricted VPN. Separate API security from printer network restrictions and backup protection.
 
 ## License
 
