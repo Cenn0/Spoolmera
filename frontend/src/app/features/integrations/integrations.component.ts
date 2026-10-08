@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../auth.service';
-import { CloudReceipt, Printer, WorkspaceService } from '../../workspace.service';
+import { CloudReceipt, Printer, WorkspaceService, AutomationToken } from '../../workspace.service';
 import { RouterLink } from '@angular/router';
 import { DialogService, NoticeService } from '../../dialog.service';
 import { InventoryService, apiError } from '../../inventory.service';
@@ -8,6 +9,7 @@ import { Capabilities, dateText, grams, stockPercent } from '../../models';
 
 @Component({
   standalone: true,
+  imports:[FormsModule],
   templateUrl:'../../integrations.html'
 })
 export class IntegrationsComponent implements OnInit {
@@ -17,6 +19,32 @@ export class IntegrationsComponent implements OnInit {
   readonly printers = signal<Printer[]>([]);
   readonly auth = inject(AuthService);
   readonly cloudEvents = signal<CloudReceipt[]>([]);
+  readonly tokens=signal<AutomationToken[]>([]);
+  readonly issuedSecret=signal('');
+  readonly tokenBusy=signal(false);
+  readonly tokenError=signal('');
+  tokenLabel='';tokenScope:'inventory_read'|'events_read'='inventory_read';
+  async createToken():Promise<void>{
+    if(!this.auth.isAdmin()||this.tokenBusy())return;
+    this.tokenBusy.set(true);this.tokenError.set('');this.issuedSecret.set('');
+    try {
+      const response=await this.workspace.createAutomationToken(this.tokenLabel,this.tokenScope);
+      this.issuedSecret.set(response.token);this.tokenLabel='';
+      this.tokens.set(await this.workspace.automationTokens());
+      this.notices.show('Automation token created. Copy its secret now; it is only shown once.');
+    }catch(err){this.tokenError.set(apiError(err));}
+    finally{this.tokenBusy.set(false);}
+  }
+  async revokeToken(id:number):Promise<void>{
+    if(this.tokenBusy()||!window.confirm('Revoke this machine token immediately?'))return;
+    this.tokenBusy.set(true);this.tokenError.set('');
+    try{
+      await this.workspace.revokeAutomationToken(id);
+      this.tokens.set(await this.workspace.automationTokens());
+      this.notices.show('Machine token revoked.');
+    }catch(err){this.tokenError.set(apiError(err));}
+    finally{this.tokenBusy.set(false);}
+  }
   readonly enabledPrinters = computed(() => this.printers().filter(printer => printer.enabled).length);
   readonly capabilities = signal<Capabilities | null>(null);
   async ngOnInit(): Promise<void> {
@@ -26,7 +54,10 @@ export class IntegrationsComponent implements OnInit {
       ]);
       this.capabilities.set(capabilities);
       this.printers.set(printers);
-      if(this.auth.isAdmin())this.cloudEvents.set(await this.workspace.cloudEvents());
+      if(this.auth.isAdmin()){
+        this.cloudEvents.set(await this.workspace.cloudEvents());
+        this.tokens.set(await this.workspace.automationTokens());
+      }
     }
     catch (error) { this.notices.show('Unable to load integration capabilities: ' + apiError(error),true); }
   }
