@@ -32,6 +32,8 @@ export class DialogsComponent {
   readonly busy=signal(false);
   readonly error=signal('');
   readonly history=signal<Movement[]>([]);
+  readonly tags=signal<{namespace:string;external_id:string;created_at:string}[]>([]);
+  tagNamespace='nfc';tagValue='';
   readonly dryingHistory=signal<{id:number;temperature_c:number;duration_minutes:number;dried_at:string;note:string}[]>([]);
   readonly archiveCheck=signal(false);
   readonly importCheck=signal(false);
@@ -53,6 +55,7 @@ export class DialogsComponent {
       this.busy.set(false);
       this.history.set([]);
       this.dryingHistory.set([]);
+      this.tags.set([]);this.tagValue='';this.tagNamespace='nfc';
       this.archiveCheck.set(false);
       this.importCheck.set(false);
       this.csvPreview.set(null);
@@ -78,6 +81,7 @@ export class DialogsComponent {
           this.detail={location:s.location || '',notes:s.notes || '',opened:s.opened};
           void this.loadHistory(s.id);
           void this.loadDrying(s.id);
+          void this.loadTags(s.id);
         }
       }
       if (active.kind==='weigh') {
@@ -124,6 +128,33 @@ export class DialogsComponent {
   private async loadHistory(id:number):Promise<void> {
     try { this.history.set(await this.data.movementsFor(id)); }
     catch(error){ this.error.set(apiError(error)); }
+  }
+  private async loadTags(id:number):Promise<void> {
+    try{this.tags.set(await this.data.identifiers(id));}
+    catch(error){this.error.set(apiError(error));}
+  }
+  async addTag():Promise<void> {
+    const s=this.selected;if(!s||this.busy())return;
+    if(!/^[A-Za-z0-9:_-]{8,128}$/.test(this.tagValue.trim())){
+      this.error.set('Tag ID must contain 8–128 letters, digits, underscores, dashes or colons.');return;
+    }
+    this.busy.set(true);this.error.set('');
+    try{
+      await this.data.registerIdentifier(s.id,this.tagNamespace,this.tagValue.trim());
+      this.tagValue='';await this.loadTags(s.id);
+      this.notices.show('Tag linked to this physical spool.');
+    }catch(error){this.error.set(apiError(error));}
+    finally{this.busy.set(false);}
+  }
+  async unlinkTag(namespace:string,value:string):Promise<void>{
+    const s=this.selected;if(!s||this.busy())return;
+    this.busy.set(true);this.error.set('');
+    try{
+      await this.data.deleteIdentifier(s.id,namespace,value);
+      await this.loadTags(s.id);
+      this.notices.show('Tag mapping removed.');
+    }catch(error){this.error.set(apiError(error));}
+    finally{this.busy.set(false);}
   }
   private async loadDrying(id:number):Promise<void> {
     try {this.dryingHistory.set(await this.data.dryingRecords(id));}

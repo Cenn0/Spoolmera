@@ -89,6 +89,20 @@ export class InventoryService {
   dryingRecords(id: number): Promise<{id:number;temperature_c:number;duration_minutes:number;dried_at:string;note:string}[]> {
     return firstValueFrom(this.http.get<{id:number;temperature_c:number;duration_minutes:number;dried_at:string;note:string}[]>('/api/spools/' + id + '/drying'));
   }
+  identifiers(id:number):Promise<{namespace:string;external_id:string;created_at:string}[]> {
+    return firstValueFrom(this.http.get<{namespace:string;external_id:string;created_at:string}[]>('/api/spools/'+id+'/identifiers'));
+  }
+  registerIdentifier(id:number,namespace:string,external_id:string):Promise<void> {
+    return firstValueFrom(this.http.post<void>('/api/spools/'+id+'/identifiers',{namespace,external_id}));
+  }
+  deleteIdentifier(id:number,namespace:string,external_id:string):Promise<void> {
+    return firstValueFrom(this.http.delete<void>('/api/spools/'+id+'/identifiers/'
+      +encodeURIComponent(namespace)+'/'+encodeURIComponent(external_id)));
+  }
+  resolveIdentifier(namespace:string,external_id:string):Promise<{id:number;uid:string}> {
+    return firstValueFrom(this.http.get<{id:number;uid:string}>('/api/identifiers/'
+      +encodeURIComponent(namespace)+'/'+encodeURIComponent(external_id)));
+  }
   async archive(id: number): Promise<void> {
     await firstValueFrom(this.http.post('/api/spools/' + id + '/archive', {}));
     await this.load();

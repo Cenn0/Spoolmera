@@ -61,6 +61,22 @@
           <div class="inline-form-actions"><button type="submit" class="btn ghost" [disabled]="busy() || detailForm.invalid">Save spool details</button></div>
         </form>}
         <div class="details-footer">
+          <h3 class="modal-section-title">Physical tag identities</h3>
+          <p class="helper">Optional NFC/OpenPrintTag identifiers are references, never authentication or proof of physically loaded filament.</p>
+          @for(tag of tags();track tag.namespace+tag.external_id){
+            <div class="detail-movement"><span>{{tag.namespace}}</span><strong>{{tag.external_id}}</strong>
+              @if(auth.canEdit()){<button type="button" class="btn ghost" [disabled]="busy()" (click)="unlinkTag(tag.namespace,tag.external_id)">Unlink</button>}
+            </div>
+          }@empty{<p class="helper">No physical tag IDs assigned.</p>}
+          @if(auth.canEdit()){
+            <div class="form-grid">
+              <label>Tag kind<select name="tagNamespace" [(ngModel)]="tagNamespace">
+                <option value="nfc">NFC</option><option value="openprinttag">OpenPrintTag</option><option value="custom">Custom reader</option>
+              </select></label>
+              <label>Tag ID<input name="tagValue" [(ngModel)]="tagValue" maxlength="128" placeholder="Reader-scanned identifier"></label>
+            </div>
+            <button class="btn ghost" type="button" [disabled]="busy()||tagValue.trim().length<8" (click)="addTag()">Link tag</button>
+          }
           <h3 class="modal-section-title">Material care</h3>
           <p class="helper">Tare: {{grams(item.tare_g)}} · Batch: {{item.batch || '—'}}</p>
           @for (entry of dryingHistory();track entry.id) {
