@@ -6,7 +6,7 @@
 <section class="panel workflow-panel">
   <div class="panel-heading"><div><span class="eyebrow">CREATE ONLY</span><h2>Spoolman JSON snapshot</h2></div></div>
   <div class="workflow-form">
-    <p class="helper">Accepts the JSON response of Spoolman's list-spools endpoint as a list, or wrapped as {"spools": [...]}. This does not migrate usage history, users, printer settings or archived rolls. No data is overwritten on a repeat import.</p>
+    <p class="helper">Accepts the JSON response of Spoolman's list-spools endpoint as a list, or wrapped inside a JSON object containing a spools array. This does not migrate usage history, users, printer settings or archived rolls. No data is overwritten on a repeat import.</p>
     <div class="form-grid">
       <label>Source identifier (unique per Spoolman instance)<input [(ngModel)]="source"
         maxlength="40" pattern="[A-Za-z0-9_-]+" placeholder="workshop-spoolman"></label>
