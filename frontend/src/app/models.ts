@@ -1,3 +1,5 @@
+import type { ApiOverview, ApiProduct, ApiSpool, ApiCapabilities } from './core/api/generated-contracts';
+
 export interface Overview {
   total_spools: number;
   remaining_g: number;
@@ -100,3 +102,10 @@ export function dateText(value: string): string {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString('en-US', {dateStyle:'medium', timeStyle:'short'});
 }
+
+// Statically validate that the handcrafted UI models satisfy generated API contracts.
+const _overviewContract: ApiOverview = {} as Overview;
+const _productContract: ApiProduct = {} as Product;
+const _spoolContract: ApiSpool = {} as Spool;
+const _capabilitiesContract: ApiCapabilities = {} as Capabilities;
+void [_overviewContract, _productContract, _spoolContract, _capabilitiesContract];

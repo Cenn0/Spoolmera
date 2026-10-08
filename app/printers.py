@@ -23,6 +23,7 @@ from app.core.policies import require_editor, require_admin
 from app.database import session, utc_now
 from app.auth import audit
 from app.services.command_service import reserve_command, finalize_command, clear_command
+from app.api.contracts import PrinterResponse
 
 TOKEN_PATTERN = re.compile(r"^FILAMENT_PRINTER_TOKEN_[A-Z0-9_]{1,50}$")
 PRIVATE_NETWORKS = tuple(ipaddress.ip_network(value) for value in (
@@ -253,7 +254,7 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
     def printer_capabilities():
         return {"write_enabled": control_enabled(), "max_upload_bytes": 16 * 1024 * 1024}
 
-    @app.get("/api/printers")
+    @app.get("/api/printers", response_model=list[PrinterResponse])
     def printers(request: Request):
         with session(db_path) as db:
             rows = [safe_printer(row) for row in db.execute(

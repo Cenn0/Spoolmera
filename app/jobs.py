@@ -21,6 +21,7 @@ from app.services.command_service import reserve_command, finalize_command, conf
 from app.services.polling_service import record_poll_success, record_poll_failure
 from app.services.lease_service import acquire_lease, release_lease
 from app.infrastructure.printers.adapters import adapter_for
+from app.api.contracts import JobResponse
 from uuid import uuid4
 from app.core.policies import require_editor, require_admin
 from app.database import session, utc_now
@@ -268,7 +269,7 @@ async def poll_worker(db_path: Path):
 
 
 def register_job_routes(app: FastAPI, db_path: Path) -> None:
-    @app.get("/api/jobs")
+    @app.get("/api/jobs", response_model=list[JobResponse])
     def list_jobs():
         with session(db_path) as db:
             rows = db.execute(

@@ -13,13 +13,16 @@ from app.integrations import get_inventory_snapshot, get_integration_capabilitie
 from app.services.accounting_service import record_manual_movement
 from app.services import inventory_service
 from app.services.inventory_service import spool_as_dict
+from app.api.contracts import (
+    OverviewResponse, ProductResponse, SpoolResponse, SpoolPageResponse, CapabilitiesResponse
+)
 
 def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
-    @app.get("/api/overview")
+    @app.get("/api/overview", response_model=OverviewResponse)
     def overview():
         return inventory_service.overview(db_path)
 
-    @app.get("/api/products")
+    @app.get("/api/products", response_model=list[ProductResponse])
     def list_products():
         return inventory_service.list_products(db_path)
 
@@ -31,7 +34,30 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
     def update_product(product_id: int, payload: ProductInput, request: Request):
         return inventory_service.update_product(db_path, product_id, payload, request.state.user["id"])
 
-    @app.get("/api/spools")
+    @app.get("/api/inventory/v2/spools", response_model=SpoolPageResponse)
+    def paginated_spools(limit: int = Query(default=50, ge=1, le=200),
+                         cursor: int | None = Query(default=None, gt=0),
+                         material: str | None = Query(default=None, min_length=1, max_length=32)):
+        """Cursor pagination for large inventories without changing the v1 API."""
+        clauses = ["s.archived_at IS NULL"]
+        params: list[object] = []
+        if cursor is not None:
+            clauses.append("s.id < ?")
+            params.append(cursor)
+        if material is not None:
+            clauses.append("p.material = ?")
+            params.append(material.upper())
+        query = """SELECT s.*, p.brand, p.name AS product_name, p.material,
+                          p.color_name, p.color_hex, p.diameter_mm
+                   FROM spools s JOIN products p ON p.id=s.product_id
+                   WHERE """ + " AND ".join(clauses) + " ORDER BY s.id DESC LIMIT ?"
+        with session(db_path) as db:
+            rows = db.execute(query, (*params, limit + 1)).fetchall()
+        has_more = len(rows) > limit
+        items = [spool_as_dict(row) for row in rows[:limit]]
+        return {"items": items, "next_cursor": items[-1]["id"] if has_more else None}
+
+    @app.get("/api/spools", response_model=list[SpoolResponse])
     def list_spools():
         return inventory_service.list_spools(db_path)
 
@@ -130,7 +156,32 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
                 audit(db, request.state.user["id"], "csv_import", "inventory", None)
             return result
 
-    @app.get("/api/integrations/v1/capabilities")
+    @app.get("/api/diagnostics", dependencies=[Depends(require_admin)])
+    def diagnostics():
+        """Operational counts only; no printer tokens or credentials."""
+        with session(db_path) as db:
+            jobs = [dict(row) for row in db.execute(
+                "SELECT status,COUNT(*) AS count FROM print_jobs GROUP BY status").fetchall()]
+            uncertain = db.execute(
+                "SELECT COUNT(*) FROM printer_commands WHERE state IN ('unknown','sending')"
+            ).fetchone()[0]
+            polling = [dict(row) for row in db.execute(
+                """SELECT p.id,p.name,ps.last_attempt_at,ps.last_success_at,
+                          COALESCE(ps.consecutive_failures,0) AS consecutive_failures,
+                          COALESCE(ps.last_error,'') AS last_error
+                   FROM printers p LEFT JOIN printer_poll_state ps ON ps.printer_id=p.id
+                   ORDER BY p.id""").fetchall()]
+        return {"jobs":jobs,"uncertain_commands":uncertain,"printers":polling}
+
+    @app.get("/api/audit", dependencies=[Depends(require_admin)])
+    def audit_events(limit: int = Query(default=100, ge=1, le=200)):
+        with session(db_path) as db:
+            return [dict(row) for row in db.execute(
+                """SELECT a.id,a.action,a.entity,a.entity_id,a.created_at,u.username AS actor
+                   FROM audit_events a LEFT JOIN users u ON u.id=a.actor_id
+                   ORDER BY a.id DESC LIMIT ?""", (limit,)).fetchall()]
+
+    @app.get("/api/integrations/v1/capabilities", response_model=CapabilitiesResponse)
     def integration_capabilities():
         return get_integration_capabilities()
 
