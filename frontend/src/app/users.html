@@ -20,9 +20,16 @@
           <select [value]="u.role" #roleSelect aria-label="User role" (change)="update(u,{role:roleSelect.value})" [disabled]="busy()||!u.enabled">
             <option value="viewer">Viewer</option><option value="editor">Editor</option><option value="admin">Admin</option>
           </select>
-          <button class="btn ghost" type="button" [disabled]="busy()" (click)="reset(u)">Reset password</button>
+          <button class="btn ghost" type="button" [disabled]="busy()" (click)="openReset(u)">Reset password</button>
           <button class="btn ghost" type="button" [disabled]="busy()" (click)="update(u,{enabled:!u.enabled})">{{u.enabled?'Disable':'Enable'}}</button>
         </div>
+        @if(resetFor()===u.id){
+          <div class="inline-reset">
+            <label>New password (minimum 14 characters)<input type="password" name="reset-password" [(ngModel)]="resetSecret" minlength="14" maxlength="128" autocomplete="new-password"></label>
+            <button class="btn primary" type="button" [disabled]="busy()||resetSecret.length<14" (click)="reset(u)">Apply password reset</button>
+            <button class="btn ghost" type="button" (click)="openReset(u)">Cancel</button>
+          </div>
+        }
       </article>
     } @empty {<div class="placeholder">No accounts.</div>}
   </div>

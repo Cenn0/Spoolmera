@@ -107,6 +107,8 @@ export class UsersComponent implements OnInit {
   readonly api=inject(WorkspaceService);readonly auth=inject(AuthService);readonly notice=inject(NoticeService);
   readonly users=signal<ManagedUser[]>([]);readonly error=signal('');readonly busy=signal(false);
   username='';password='';role:'viewer'|'editor'|'admin'='viewer';
+  readonly resetFor=signal<number|null>(null);
+  resetSecret='';
   async ngOnInit(){await this.refresh();}
   async refresh(){try{this.users.set(await this.api.users());}catch(e){this.error.set(apiError(e));}}
   async create(){
@@ -123,10 +125,17 @@ export class UsersComponent implements OnInit {
     catch(e){this.error.set(apiError(e));}
     finally{this.busy.set(false);}
   }
+  openReset(user:ManagedUser):void {
+    this.error.set('');
+    this.resetSecret='';
+    this.resetFor.set(this.resetFor()===user.id?null:user.id);
+  }
   async reset(user:ManagedUser){
-    const password=window.prompt('New password (at least 14 characters) for '+user.username+':');
-    if(password===null)return;
-    if(password.length<14){this.error.set('Password must be at least 14 characters.');return;}
-    await this.update(user,{password});
+    if(this.resetFor()!==user.id || this.resetSecret.length<14) {
+      this.error.set('Provide a password of at least 14 characters.');
+      return;
+    }
+    await this.update(user,{password:this.resetSecret});
+    if(!this.error()) {this.resetSecret='';this.resetFor.set(null);}
   }
 }
