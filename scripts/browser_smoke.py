@@ -78,6 +78,40 @@ def run() -> None:
         expect(page.locator("fm-root")).to_contain_text("Read-only available")
         expect(page.locator("fm-root")).to_contain_text("Not connected")
 
+        # Admin can provision users and register a restricted controller without
+        # opening a real connection; a print job maps to an existing spool.
+        page.locator('.side-nav a[href="/users"]').click()
+        page.locator('input[name="username"]').fill("browser-viewer")
+        page.locator('input[name="password"]').fill("browser-viewer-password-2026")
+        page.get_by_role("button", name="Create user").click()
+        expect(page.locator(".workflow-list")).to_contain_text("browser-viewer")
+
+        page.locator('.side-nav a[href="/printers"]').click()
+        page.locator('input[name="name"]').fill("Test Klipper")
+        page.locator('input[name="base_url"]').fill("http://192.168.50.20:7125")
+        page.get_by_role("button", name="Add printer").click()
+        expect(page.locator(".workflow-list")).to_contain_text("Test Klipper")
+
+        page.locator('.side-nav a[href="/jobs"]').click()
+        page.locator('input[name="fileName"]').fill("fixture.gcode")
+        page.locator('input[name="estimatedG"]').fill("25")
+        page.get_by_role("button", name="Register print job").click()
+        expect(page.locator(".workflow-list")).to_contain_text("fixture.gcode")
+
+        # Viewer access is read-only, and the session is genuinely revoked on logout.
+        page.get_by_role("button", name="Sign out").click()
+        expect(page.locator("h1")).to_contain_text("Welcome back")
+        page.locator('fm-login input[name="username"]').fill("browser-viewer")
+        page.locator('fm-login input[name="password"]').fill("browser-viewer-password-2026")
+        page.get_by_role("button", name="Sign in").click()
+        expect(page.locator('.side-nav a[href="/users"]')).to_have_count(0)
+        expect(page.locator(".add-spool")).to_have_count(0)
+        page.get_by_role("button", name="Sign out").click()
+        page.locator('fm-login input[name="username"]').fill("browser-admin")
+        page.locator('fm-login input[name="password"]').fill("browser-test-password-strong-2026")
+        page.get_by_role("button", name="Sign in").click()
+        expect(page.locator(".add-spool")).to_be_visible()
+
         mobile_context = browser.new_context(viewport={"width": 390, "height": 844},
                                              storage_state=page.context.storage_state())
         mobile = mobile_context.new_page()
