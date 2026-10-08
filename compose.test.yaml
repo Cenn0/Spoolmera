@@ -1,0 +1,30 @@
+name: filament-manager-test
+services:
+  filament-manager:
+    image: filament-manager:test
+    build: .
+    ports:
+      - "127.0.0.1:${FILAMENT_TEST_PORT:-8766}:8765"
+    env_file: .env.test
+    environment:
+      FILAMENT_DB_PATH: /data/filaments.sqlite3
+      FILAMENT_COOKIE_SECURE: "0"
+      FILAMENT_PUBLIC_BASE_URL: "http://127.0.0.1:${FILAMENT_TEST_PORT:-8766}"
+      FILAMENT_PRINTER_ALLOWED_IPS: ""
+    volumes:
+      - test_data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+volumes:
+  test_data:

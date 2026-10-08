@@ -33,7 +33,14 @@ jobs:
       - name: Stage compiled frontend for backend tests
         run: mkdir -p app/ui && cp -a frontend/dist/filament-manager/browser/. app/ui/
       - name: Run API tests
-        run: python -m pytest -q
+        run: python -m pytest -q --junitxml=test-results.xml
+      - name: Publish test report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: api-test-results
+          path: test-results.xml
+          retention-days: 7
 
   docker-smoke:
     runs-on: ubuntu-latest
@@ -42,18 +49,28 @@ jobs:
       - name: Validate Compose configuration
         run: docker compose config --quiet
       - name: Build image
-        run: docker build --tag filament-manager:ci .
+        run: docker build --tag filament-manager:ci --tag filament-manager:test .
       - name: Start container and probe HTTP
         shell: bash
         run: |
           set -euo pipefail
+          export FILAMENT_BOOTSTRAP_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
           docker volume create filament-manager-ci >/dev/null
-          container="$(docker run --detach --read-only --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp:rw,nosuid --mount type=volume,source=filament-manager-ci,target=/data --publish 127.0.0.1:8765:8765 filament-manager:ci)"
+          container="$(docker run --detach --read-only --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp:rw,nosuid --env FILAMENT_BOOTSTRAP_TOKEN --mount type=volume,source=filament-manager-ci,target=/data --publish 127.0.0.1:8765:8765 filament-manager:ci)"
           trap 'docker rm -f "$container" >/dev/null 2>&1 || true; docker volume rm filament-manager-ci >/dev/null 2>&1 || true' EXIT
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:8765/api/health | grep -q '"status":"ok"'; then
-              curl --fail --silent --output /dev/null http://127.0.0.1:8765/
-              exit 0
+              python3 scripts/http_smoke.py
+              docker restart "$container" >/dev/null
+              for restart_attempt in $(seq 1 30); do
+                if curl --fail --silent http://127.0.0.1:8765/api/health >/dev/null; then
+                  python3 scripts/http_smoke.py --persistence
+                  exit 0
+                fi
+                sleep 1
+              done
+              docker logs "$container"
+              exit 1
             fi
             if [ "$(docker inspect --format '{{.State.Running}}' "$container")" != "true" ]; then
               docker logs "$container"
@@ -63,6 +80,29 @@ jobs:
           done
           docker logs "$container"
           exit 1
+      - name: Validate isolated test launcher
+        shell: bash
+        run: |
+          set -euo pipefail
+          trap 'docker compose -p filament-manager-test -f compose.test.yaml down -v >/dev/null 2>&1 || true' EXIT
+          python3 scripts/start_test.py --prebuilt
+          export FILAMENT_BOOTSTRAP_TOKEN="$(python3 -c 'from pathlib import Path; print(Path(".env.test").read_text().strip().split("=", 1)[1])')"
+          python3 scripts/http_smoke.py --base http://127.0.0.1:8766
+      - name: Package tested image
+        run: |
+          mkdir -p test-release/scripts
+          docker save filament-manager:test | gzip > test-release/filament-manager-image.tar.gz
+          cp compose.test.yaml test-release/
+          cp scripts/start_test.py test-release/scripts/
+          cp docs/testing.md test-release/TESTING.md
+          (cd test-release && sha256sum filament-manager-image.tar.gz > SHA256SUMS)
+      - name: Publish downloadable test instance
+        uses: actions/upload-artifact@v7
+        with:
+          name: filament-manager-test-linux-amd64
+          path: test-release/
+          compression-level: 0
+          retention-days: 7
 
   browser-smoke:
     runs-on: ubuntu-latest
@@ -102,3 +142,4 @@ jobs:
             sleep 1
           done
           python scripts/browser_smoke.py
+

@@ -27,6 +27,12 @@ Available in v0.4: session-based authentication, role-based multi-user accounts,
 
 ## Quick start (Docker)
 
+For a separate test installation or a prebuilt CI image, see
+[Testing Filament Manager](docs/testing.md). Start it with
+`python scripts/start_test.py`; it uses its own data volume on port 8766.
+The [follow-up review](docs/review-regressions-2026-10-08.md) records confirmed
+defects, fixes, executed tests and remaining limitations.
+
 Requires Docker with Compose. The image builds Angular using Node.js and serves it with the existing FastAPI application in a **single runtime container**.
 
 ```bash
@@ -197,3 +203,4 @@ Production serves static Angular assets through FastAPI and requires no Node.js 
 Licensed under the **Apache License, Version 2.0**. See [LICENSE](LICENSE) for the full terms.
 
 This license applies to the repository's original project files. Third-party dependencies retain their respective upstream licenses.
+

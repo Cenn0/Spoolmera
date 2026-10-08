@@ -1,13 +1,18 @@
 """Browser smoke test covering Angular inventory workflows on desktop and mobile."""
 from pathlib import Path
+import os
+import re
 from playwright.sync_api import expect, sync_playwright
 
 BASE = "http://127.0.0.1:8765"
 
 def run() -> None:
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
+        browser = playwright.chromium.launch(headless=True,
+            executable_path=os.getenv("FILAMENT_TEST_BROWSER_EXECUTABLE") or None)
         page = browser.new_page(accept_downloads=True)
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(BASE + "/", wait_until="networkidle")
         expect(page.locator("h1")).to_contain_text("Create the first administrator")
         page.locator('fm-login input[name="username"]').fill("browser-admin")
@@ -81,6 +86,8 @@ def run() -> None:
         # Admin can provision users and register a restricted controller without
         # opening a real connection; a print job maps to an existing spool.
         page.locator('.side-nav a[href="/users"]').click()
+        # Wait for template-driven controls to register before dispatching input.
+        expect(page.locator("form.workflow-form")).to_have_class(re.compile(r".*ng-invalid.*"))
         page.locator('input[name="username"]').fill("browser-viewer")
         page.locator('input[name="password"]').fill("browser-viewer-password-2026")
         page.get_by_role("button", name="Create user").click()
@@ -98,6 +105,14 @@ def run() -> None:
         page.get_by_role("button", name="Register print job").click()
         expect(page.locator(".workflow-list")).to_contain_text("fixture.gcode")
 
+        # Passwords are exact secrets, including leading/trailing spaces.
+        page.locator('.side-nav a[href="/account"]').click()
+        page.locator('input[name="old"]').fill("browser-test-password-strong-2026")
+        page.locator('input[name="new"]').fill("  browser-new-password-2026  ")
+        page.locator('input[name="confirm"]').fill("  browser-new-password-2026  ")
+        page.get_by_role("button", name="Update password").click()
+        expect(page.locator(".notice")).to_contain_text("Password changed")
+
         # Viewer access is read-only, and the session is genuinely revoked on logout.
         page.get_by_role("button", name="Sign out").click()
         expect(page.locator("h1")).to_contain_text("Welcome back")
@@ -108,7 +123,7 @@ def run() -> None:
         expect(page.locator(".add-spool")).to_have_count(0)
         page.get_by_role("button", name="Sign out").click()
         page.locator('fm-login input[name="username"]').fill("browser-admin")
-        page.locator('fm-login input[name="password"]').fill("browser-test-password-strong-2026")
+        page.locator('fm-login input[name="password"]').fill("  browser-new-password-2026  ")
         page.get_by_role("button", name="Sign in").click()
         expect(page.locator(".add-spool")).to_be_visible()
 
@@ -119,8 +134,16 @@ def run() -> None:
         expect(mobile.locator(".mobile-spool")).to_have_count(1)
         expect(mobile.locator(".side-nav")).to_be_visible()
         mobile_context.close()
+
+        # Revocation in another session must return the UI to login on the next API call.
+        csrf = page.request.get(BASE + "/api/auth/me").json()["csrf_token"]
+        assert page.request.post(BASE + "/api/auth/logout", headers={"X-CSRF-Token": csrf}).status == 200
+        page.locator('.side-nav a[href="/jobs"]').click()
+        expect(page.locator("h1")).to_contain_text("Welcome back")
+        assert not errors, errors
         browser.close()
 
 if __name__ == "__main__":
     run()
-    print("Angular browser smoke passed: product, spool, use, QR, CSV, deep link, integrations, mobile.")
+    print("Angular browser smoke passed: inventory, QR, CSV, roles, password, session revocation, mobile.")
+

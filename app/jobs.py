@@ -9,7 +9,6 @@ import logging
 import os
 import re
 import sqlite3
-from contextlib import suppress
 from datetime import datetime
 from pathlib import Path
 
@@ -124,6 +123,10 @@ def poll_printer(db_path: Path, printer_id: int) -> dict:
             "SELECT * FROM print_jobs WHERE printer_id=? AND status IN ('pending','printing')",
             (printer_id,),
         ).fetchall()]
+        claimed_ids = {row[0] for row in db.execute(
+            "SELECT external_job_id FROM print_jobs WHERE printer_id=? AND external_job_id IS NOT NULL",
+            (printer_id,),
+        ).fetchall()}
     if not printer:
         raise ValueError("Printer is disabled or missing.")
     if printer["kind"] == "moonraker":
@@ -147,13 +150,15 @@ def poll_printer(db_path: Path, printer_id: int) -> dict:
                     item.get("filename") == job["file_name"]
                     and isinstance(item.get("start_time"), (int, float))
                     and item["start_time"] >= created - 2
-                    and str(item.get("job_id", ""))]
-                if candidates:
-                    matched = max(candidates, key=lambda item: item["start_time"])
-            if not matched:
+                    and item["job_id"] not in claimed_ids]
+                if len(candidates) == 1:
+                    matched = candidates[0]
+                elif len(candidates) > 1:
+                    outcome = "needs_review"
+            if not matched and not outcome:
                 continue
-            remote_state = matched.get("status")
-            external_id = str(matched["job_id"])
+            remote_state = matched.get("status") if matched else None
+            external_id = matched["job_id"] if matched else None
             if remote_state == "in_progress":
                 outcome = "printing"
             elif remote_state == "completed":
@@ -188,8 +193,8 @@ def poll_printer(db_path: Path, printer_id: int) -> dict:
                     apply_consumption(db, fresh, None)
                 else:
                     db.execute(
-                        "UPDATE print_jobs SET status='needs_review',note=?,updated_at=? WHERE id=?",
-                        ("Printer completion not proven or print failed. Confirm actual material usage.",
+                        "UPDATE print_jobs SET status='needs_review',external_job_id=?,note=?,updated_at=? WHERE id=?",
+                        (external_id, "Printer completion not proven, ambiguous history or print failed. Confirm actual material usage.",
                          utc_now(), job["id"]),
                     )
                 changed += 1
@@ -310,3 +315,4 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
                        (utc_now(), job_id))
             audit(db, request.state.user["id"], "job_cancel_tracking", "print_job", job_id)
         return {"id": job_id, "status": "cancelled"}
+
