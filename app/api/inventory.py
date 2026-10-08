@@ -1,7 +1,7 @@
 """Authenticated inventory, label, CSV and read-only integration routes."""
 from pathlib import Path
 from uuid import uuid4
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from app.auth import audit
 from app.core.policies import require_editor, require_admin
@@ -18,23 +18,24 @@ from app.api.contracts import (
 )
 
 def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
-    @app.get("/api/overview", response_model=OverviewResponse)
+    router = APIRouter()
+    @router.get("/api/overview", response_model=OverviewResponse)
     def overview():
         return inventory_service.overview(db_path)
 
-    @app.get("/api/products", response_model=list[ProductResponse])
+    @router.get("/api/products", response_model=list[ProductResponse])
     def list_products():
         return inventory_service.list_products(db_path)
 
-    @app.post("/api/products", status_code=201, dependencies=[Depends(require_editor)])
+    @router.post("/api/products", status_code=201, dependencies=[Depends(require_editor)])
     def add_product(payload: ProductInput, request: Request):
         return inventory_service.add_product(db_path, payload, request.state.user["id"])
 
-    @app.put("/api/products/{product_id}", dependencies=[Depends(require_editor)])
+    @router.put("/api/products/{product_id}", dependencies=[Depends(require_editor)])
     def update_product(product_id: int, payload: ProductInput, request: Request):
         return inventory_service.update_product(db_path, product_id, payload, request.state.user["id"])
 
-    @app.get("/api/inventory/v2/spools", response_model=SpoolPageResponse)
+    @router.get("/api/inventory/v2/spools", response_model=SpoolPageResponse)
     def paginated_spools(limit: int = Query(default=50, ge=1, le=200),
                          cursor: int | None = Query(default=None, gt=0),
                          material: str | None = Query(default=None, min_length=1, max_length=32)):
@@ -57,36 +58,36 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
         items = [spool_as_dict(row) for row in rows[:limit]]
         return {"items": items, "next_cursor": items[-1]["id"] if has_more else None}
 
-    @app.get("/api/spools", response_model=list[SpoolResponse])
+    @router.get("/api/spools", response_model=list[SpoolResponse])
     def list_spools():
         return inventory_service.list_spools(db_path)
 
-    @app.post("/api/spools", status_code=201, dependencies=[Depends(require_editor)])
+    @router.post("/api/spools", status_code=201, dependencies=[Depends(require_editor)])
     def add_spool(payload: SpoolInput, request: Request):
         return inventory_service.add_spool(db_path, payload, request.state.user["id"])
 
-    @app.patch("/api/spools/{spool_id}", dependencies=[Depends(require_editor)])
+    @router.patch("/api/spools/{spool_id}", dependencies=[Depends(require_editor)])
     def update_spool(spool_id: int, payload: SpoolUpdate, request: Request):
         return inventory_service.update_spool(db_path, spool_id, payload, request.state.user["id"])
 
-    @app.post("/api/spools/{spool_id}/movements", status_code=201, dependencies=[Depends(require_editor)])
+    @router.post("/api/spools/{spool_id}/movements", status_code=201, dependencies=[Depends(require_editor)])
     def add_movement(spool_id: int, payload: MovementInput, request: Request):
         return record_manual_movement(db_path, spool_id, payload, request.state.user["id"])
 
-    @app.get("/api/spools/{spool_id}/movements")
+    @router.get("/api/spools/{spool_id}/movements")
     def spool_movements(spool_id: int):
         return inventory_service.spool_movements(db_path, spool_id)
 
-    @app.get("/api/movements")
+    @router.get("/api/movements")
     def recent_movements(limit: int = Query(default=30, ge=1, le=200)):
         return inventory_service.recent_movements(db_path, limit)
 
-    @app.post("/api/spools/{spool_id}/archive", dependencies=[Depends(require_editor)])
+    @router.post("/api/spools/{spool_id}/archive", dependencies=[Depends(require_editor)])
     def archive_spool(spool_id: int, request: Request):
         return inventory_service.archive_spool(db_path, spool_id, request.state.user["id"])
 
     # Stable UUIDs identify spools, but are NOT authentication tokens.
-    @app.get("/s/{spool_uid}", include_in_schema=False)
+    @router.get("/s/{spool_uid}", include_in_schema=False)
     def open_spool(spool_uid: str):
         with session(db_path) as db:
             row = db.execute("SELECT uid FROM spools WHERE uid=?", (spool_uid,)).fetchone()
@@ -94,7 +95,7 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
                 raise HTTPException(status_code=404, detail="Spool not found.")
         return RedirectResponse(url="/?spool=" + spool_uid, status_code=302)
 
-    @app.get("/api/spools/{spool_uid}/qr.svg", include_in_schema=False)
+    @router.get("/api/spools/{spool_uid}/qr.svg", include_in_schema=False)
     def spool_qr(spool_uid: str):
         with session(db_path) as db:
             row = db.execute("SELECT uid FROM spools WHERE uid=?", (spool_uid,)).fetchone()
@@ -107,7 +108,7 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
                      "Content-Security-Policy": "default-src 'none'; sandbox"},
         )
 
-    @app.get("/labels/{spool_uid}", response_class=HTMLResponse, include_in_schema=False)
+    @router.get("/labels/{spool_uid}", response_class=HTMLResponse, include_in_schema=False)
     def print_label(spool_uid: str):
         with session(db_path) as db:
             row = db.execute(
@@ -124,7 +125,7 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
                      "Content-Security-Policy": "default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'"},
         )
 
-    @app.get("/api/export/inventory.csv")
+    @router.get("/api/export/inventory.csv")
     def download_inventory():
         with session(db_path) as db:
             content = export_inventory(db)
@@ -135,7 +136,7 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
                      "Cache-Control": "no-store"},
         )
 
-    @app.post("/api/import/inventory.csv", dependencies=[Depends(require_editor)])
+    @router.post("/api/import/inventory.csv", dependencies=[Depends(require_editor)])
     async def upload_inventory(request: Request, dry_run: bool = Query(default=True)):
         if request.headers.get("content-type", "").split(";")[0].strip().lower() != "text/csv":
             raise HTTPException(status_code=415, detail="The request must use Content-Type: text/csv.")
@@ -156,7 +157,7 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
                 audit(db, request.state.user["id"], "csv_import", "inventory", None)
             return result
 
-    @app.get("/api/diagnostics", dependencies=[Depends(require_admin)])
+    @router.get("/api/diagnostics", dependencies=[Depends(require_admin)])
     def diagnostics():
         """Operational counts only; no printer tokens or credentials."""
         with session(db_path) as db:
@@ -173,7 +174,7 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
                    ORDER BY p.id""").fetchall()]
         return {"jobs":jobs,"uncertain_commands":uncertain,"printers":polling}
 
-    @app.get("/api/audit", dependencies=[Depends(require_admin)])
+    @router.get("/api/audit", dependencies=[Depends(require_admin)])
     def audit_events(limit: int = Query(default=100, ge=1, le=200)):
         with session(db_path) as db:
             return [dict(row) for row in db.execute(
@@ -181,13 +182,13 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
                    FROM audit_events a LEFT JOIN users u ON u.id=a.actor_id
                    ORDER BY a.id DESC LIMIT ?""", (limit,)).fetchall()]
 
-    @app.get("/api/integrations/v1/capabilities", response_model=CapabilitiesResponse)
+    @router.get("/api/integrations/v1/capabilities", response_model=CapabilitiesResponse)
     def integration_capabilities():
         return get_integration_capabilities()
 
-    @app.get("/api/integrations/v1/spools")
+    @router.get("/api/integrations/v1/spools")
     def integration_spools():
         with session(db_path) as db:
             return get_inventory_snapshot(db)
 
-
+    app.include_router(router)

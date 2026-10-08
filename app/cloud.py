@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 from typing import Literal
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.auth import audit
@@ -50,7 +50,8 @@ def verify_cloud_request(source: str, request: Request, body: bytes) -> None:
 
 
 def register_cloud_routes(app: FastAPI, db_path: Path) -> None:
-    @app.post("/api/cloud/hooks/{source}")
+    router = APIRouter()
+    @router.post("/api/cloud/hooks/{source}")
     async def receive_cloud_event(source: str, request: Request):
         size = 0
         chunks = []
@@ -104,10 +105,12 @@ def register_cloud_routes(app: FastAPI, db_path: Path) -> None:
             audit(db, None, "cloud_" + event.status, "print_job", event.job_id)
         return {"duplicate": False, "disposition": disposition}
 
-    @app.get("/api/cloud/events", dependencies=[Depends(require_admin)])
+    @router.get("/api/cloud/events", dependencies=[Depends(require_admin)])
     def list_cloud_events():
         with session(db_path) as db:
             return [dict(row) for row in db.execute(
                 """SELECT source,event_id,job_id,disposition,received_at
                    FROM cloud_event_receipts ORDER BY received_at DESC,event_id DESC LIMIT 100"""
             ).fetchall()]
+
+    app.include_router(router)

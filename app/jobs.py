@@ -12,7 +12,7 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.auth import audit
@@ -269,7 +269,8 @@ async def poll_worker(db_path: Path):
 
 
 def register_job_routes(app: FastAPI, db_path: Path) -> None:
-    @app.get("/api/jobs", response_model=list[JobResponse])
+    router = APIRouter()
+    @router.get("/api/jobs", response_model=list[JobResponse])
     def list_jobs():
         with session(db_path) as db:
             rows = db.execute(
@@ -293,15 +294,15 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
                 ).fetchall()]
         return jobs
 
-    @app.post("/api/jobs/multi", status_code=201, dependencies=[Depends(require_editor)])
+    @router.post("/api/jobs/multi", status_code=201, dependencies=[Depends(require_editor)])
     def add_multi_job(payload: MultiJobInput, request: Request):
         return {"id": insert_multi_job(db_path, payload, request.state.user["id"])}
 
-    @app.post("/api/jobs", status_code=201, dependencies=[Depends(require_editor)])
+    @router.post("/api/jobs", status_code=201, dependencies=[Depends(require_editor)])
     def add_job(payload: JobInput, request: Request):
         return {"id": insert_job(db_path, payload, request.state.user["id"])}
 
-    @app.post("/api/jobs/import", status_code=201, dependencies=[Depends(require_editor)])
+    @router.post("/api/jobs/import", status_code=201, dependencies=[Depends(require_editor)])
     async def import_gcode(
         request: Request,
         printer_id: int = Query(gt=0),
@@ -336,14 +337,14 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
         return {"id": job_id, "estimated_g": quantity, "weight_source": "manual" if estimated_g else "gcode_comment",
                 "file_stored": False}
 
-    @app.post("/api/printers/{printer_id}/poll", dependencies=[Depends(require_editor)])
+    @router.post("/api/printers/{printer_id}/poll", dependencies=[Depends(require_editor)])
     def manual_poll(printer_id: int):
         try:
             return poll_printer(db_path, printer_id)
         except ValueError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    @app.post("/api/jobs/{job_id}/resolve", dependencies=[Depends(require_editor)])
+    @router.post("/api/jobs/{job_id}/resolve", dependencies=[Depends(require_editor)])
     def resolve(job_id: int, payload: Resolution, request: Request):
         with session(db_path, write=True) as db:
             job = db.execute("SELECT * FROM print_jobs WHERE id=?", (job_id,)).fetchone()
@@ -361,7 +362,7 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
             return {"id": job_id, "status": "completed"}
 
 
-    @app.post("/api/jobs/{job_id}/upload", dependencies=[Depends(require_admin)])
+    @router.post("/api/jobs/{job_id}/upload", dependencies=[Depends(require_admin)])
     async def upload_to_printer(job_id: int, request: Request, file_name: str = Query(min_length=3, max_length=180)):
         require_control()
         if request.headers.get("content-type", "").split(";")[0].strip().lower() not in {
@@ -403,7 +404,7 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
         return {"job_id": job_id, "uploaded": True, "http_status": status,
                 "note": "File transferred only; print has not been started."}
 
-    @app.get("/api/jobs/{job_id}/commands")
+    @router.get("/api/jobs/{job_id}/commands")
     def get_job_commands(job_id: int):
         with session(db_path) as db:
             if not db.execute("SELECT id FROM print_jobs WHERE id=?", (job_id,)).fetchone():
@@ -414,7 +415,7 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
                 (job_id,),
             ).fetchall()]
 
-    @app.post("/api/jobs/{job_id}/start", dependencies=[Depends(require_admin)])
+    @router.post("/api/jobs/{job_id}/start", dependencies=[Depends(require_admin)])
     def start_printer_job(job_id: int, request: Request):
         require_control()
         with session(db_path) as db:
@@ -455,7 +456,7 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
         return {"job_id": job_id, "command_id": command_id, "started": True,
                 "http_status": status, "note": "Controller acknowledged the request; tracking still awaits independently observed state."}
 
-    @app.post("/api/jobs/{job_id}/cancel", dependencies=[Depends(require_editor)])
+    @router.post("/api/jobs/{job_id}/cancel", dependencies=[Depends(require_editor)])
     def cancel(job_id: int, request: Request):
         with session(db_path, write=True) as db:
             job = db.execute("SELECT * FROM print_jobs WHERE id=?", (job_id,)).fetchone()
@@ -468,3 +469,4 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
             audit(db, request.state.user["id"], "job_cancel_tracking", "print_job", job_id)
         return {"id": job_id, "status": "cancelled"}
 
+    app.include_router(router)

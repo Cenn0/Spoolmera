@@ -3,9 +3,10 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from uuid import uuid4
 from typing import Iterator
-from app.infrastructure.database.migrations import migrate_v5
+from app.infrastructure.database.migrations import (
+    CURRENT_SCHEMA_VERSION, migrate_v2_v4, migrate_v5, recover_interrupted_commands,
+)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS products (
@@ -154,44 +155,18 @@ def initialize_database(path: str | Path) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     with session(path) as connection:
         connection.execute("PRAGMA journal_mode = WAL")
-        connection.executescript(SCHEMA)
-        if connection.execute("PRAGMA user_version").fetchone()[0] > 5:
+        version = connection.execute("PRAGMA user_version").fetchone()[0]
+        if version > CURRENT_SCHEMA_VERSION:
             raise RuntimeError("Database schema is newer than this Filament Manager version.")
+        connection.executescript(SCHEMA)
         # Migration v2 preserves existing numeric IDs while assigning stable UUIDs.
         connection.execute("BEGIN IMMEDIATE")
         try:
-            for table in ("products", "spools"):
-                columns = {row["name"] for row in connection.execute(f"PRAGMA table_info({table})")}
-                if "uid" not in columns:
-                    connection.execute(f"ALTER TABLE {table} ADD COLUMN uid TEXT")
-                for row in connection.execute(
-                    f"SELECT id FROM {table} WHERE uid IS NULL OR uid = ''"
-                ).fetchall():
-                    connection.execute(
-                        f"UPDATE {table} SET uid = ? WHERE id = ?",
-                        (str(uuid4()), row["id"]),
-                    )
-                connection.execute(
-                    f"CREATE UNIQUE INDEX IF NOT EXISTS idx_{table}_uid ON {table}(uid)"
-                )
-            movement_columns = {row["name"] for row in connection.execute("PRAGMA table_info(movements)")}
-            if "print_job_id" not in movement_columns:
-                connection.execute(
-                    "ALTER TABLE movements ADD COLUMN print_job_id INTEGER REFERENCES print_jobs(id)"
-                )
-            # Version 4 supports one immutable movement per (job, physical spool).
-            # Dropping the old one-movement-per-job index is required for MMU jobs.
-            connection.execute("DROP INDEX IF EXISTS idx_movements_print_job")
-            connection.execute(
-                "CREATE UNIQUE INDEX IF NOT EXISTS idx_movements_print_job_spool "
-                "ON movements(print_job_id, spool_id) WHERE print_job_id IS NOT NULL"
-            )
-            connection.execute(
-                """INSERT OR IGNORE INTO job_materials(job_id,tool,spool_id,estimated_g,movement_id)
-                   SELECT id,0,spool_id,estimated_g,movement_id FROM print_jobs"""
-            )
-            migrate_v5(connection)
-            connection.execute("PRAGMA user_version = 5")
+            migrate_v2_v4(connection)
+            if version < CURRENT_SCHEMA_VERSION:
+                migrate_v5(connection)
+            recover_interrupted_commands(connection)
+            connection.execute(f"PRAGMA user_version = {CURRENT_SCHEMA_VERSION}")
             connection.execute("COMMIT")
         except BaseException:
             if connection.in_transaction:

@@ -1,5 +1,43 @@
-"""Idempotent migration to schema v5; v2-v4 compatibility remains in database.py."""
+"""Additive, idempotent SQLite schema migrations and restart recovery."""
 import sqlite3
+from uuid import uuid4
+from datetime import datetime, timezone
+
+CURRENT_SCHEMA_VERSION = 5
+
+def migrate_v2_v4(connection: sqlite3.Connection) -> None:
+    """Preserve legacy IDs and write an idempotent material mapping upgrade."""
+    for table in ("products", "spools"):
+        columns = {row["name"] for row in connection.execute(f"PRAGMA table_info({table})")}
+        if "uid" not in columns:
+            connection.execute(f"ALTER TABLE {table} ADD COLUMN uid TEXT")
+        for row in connection.execute(
+            f"SELECT id FROM {table} WHERE uid IS NULL OR uid = ''"
+        ).fetchall():
+            connection.execute(
+                f"UPDATE {table} SET uid = ? WHERE id = ?",
+                (str(uuid4()), row["id"]),
+            )
+        connection.execute(
+            f"CREATE UNIQUE INDEX IF NOT EXISTS idx_{table}_uid ON {table}(uid)"
+        )
+    movement_columns = {row["name"] for row in connection.execute("PRAGMA table_info(movements)")}
+    if "print_job_id" not in movement_columns:
+        connection.execute(
+            "ALTER TABLE movements ADD COLUMN print_job_id INTEGER REFERENCES print_jobs(id)"
+        )
+    # Version 4 supports one immutable movement per (job, physical spool).
+    # Dropping the old one-movement-per-job index is required for MMU jobs.
+    connection.execute("DROP INDEX IF EXISTS idx_movements_print_job")
+    connection.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_movements_print_job_spool "
+        "ON movements(print_job_id, spool_id) WHERE print_job_id IS NOT NULL"
+    )
+    connection.execute(
+        """INSERT OR IGNORE INTO job_materials(job_id,tool,spool_id,estimated_g,movement_id)
+           SELECT id,0,spool_id,estimated_g,movement_id FROM print_jobs"""
+    )
+
 
 def _ensure_column(db: sqlite3.Connection, table: str, column: str, ddl: str) -> None:
     existing = {row["name"] for row in db.execute(f"PRAGMA table_info({table})")}
@@ -62,8 +100,15 @@ def migrate_v5(db: sqlite3.Connection) -> None:
         owner TEXT NOT NULL,
         expires_at INTEGER NOT NULL
     )""")
-    # Preserve live multi-process commands; only old, potentially crashed sends
-    # become unknown. They are never auto-retried.
+    # Runtime recovery is separate from schema upgrades.
+
+
+def recover_interrupted_commands(db: sqlite3.Connection) -> None:
+    """Fail closed after API restart; never retry a possibly delivered command.
+
+    A single API worker is the supported deployment. A second worker can only
+    mark an in-flight command unknown, never execute it again automatically.
+    """
     db.execute("""UPDATE printer_commands SET state='unknown',updated_at=?
-                  WHERE state='sending' AND unixepoch(updated_at) < unixepoch('now')-90""",
-               (__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(timespec="seconds"),))
+                  WHERE state='sending'""",
+               (datetime.now(timezone.utc).isoformat(timespec="seconds"),))

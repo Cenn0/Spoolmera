@@ -10,7 +10,7 @@ import urllib.request
 import json
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import Response
 
 from app.auth import audit
@@ -157,13 +157,14 @@ def remote_slice_stl(data: bytes, name: str) -> tuple[bytes, int | None]:
 
 
 def register_slicing_routes(app: FastAPI, db_path: Path) -> None:
-    @app.get("/api/slicing/profiles", dependencies=[Depends(require_admin)])
+    router = APIRouter()
+    @router.get("/api/slicing/profiles", dependencies=[Depends(require_admin)])
     async def profiles():
         if not slicer_enabled():
             return {"enabled": False, "profiles": []}
         return {"enabled": True, "profiles": await asyncio.to_thread(worker_profiles)}
 
-    @app.post("/api/slicing/slice", dependencies=[Depends(require_admin)])
+    @router.post("/api/slicing/slice", dependencies=[Depends(require_admin)])
     async def slice_model(request: Request, profile: str = Query(min_length=1, max_length=64)):
         if not slicer_enabled():
             raise HTTPException(status_code=403, detail="Slicing is disabled by the operator.")
@@ -189,3 +190,5 @@ def register_slicing_routes(app: FastAPI, db_path: Path) -> None:
         if estimated is not None:
             headers["X-Estimated-Grams"] = str(estimated)
         return Response(content=content, media_type="application/octet-stream", headers=headers)
+
+    app.include_router(router)

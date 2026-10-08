@@ -15,7 +15,7 @@ from argon2 import PasswordHasher, Type
 from argon2.exceptions import VerificationError, InvalidHashError
 from typing import Literal
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -130,6 +130,7 @@ def audit(db, actor: int | None, action: str, entity: str, entity_id: int | None
 
 
 def protect(app: FastAPI, db_path: Path) -> None:
+    router = APIRouter()
     @app.middleware("http")
     async def auth_middleware(request: Request, call_next):
         path = request.url.path
@@ -167,13 +168,13 @@ def protect(app: FastAPI, db_path: Path) -> None:
             response.headers["Cache-Control"] = "no-store"
         return response
 
-    @app.get("/api/auth/status")
+    @router.get("/api/auth/status")
     def status():
         with session(db_path) as db:
             count = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
         return {"needs_setup": count == 0}
 
-    @app.post("/api/auth/setup")
+    @router.post("/api/auth/setup")
     def setup(payload: SetupForm, request: Request):
         secret = os.getenv("FILAMENT_BOOTSTRAP_TOKEN", "")
         provided = request.headers.get("x-bootstrap-token", "")
@@ -194,7 +195,7 @@ def protect(app: FastAPI, db_path: Path) -> None:
             response.headers["content-length"] = str(len(response.body))
         return response
 
-    @app.post("/api/auth/login")
+    @router.post("/api/auth/login")
     def login(payload: LoginForm, request: Request):
         """Costly password verification runs outside SQLite's write transaction."""
         subject = hashlib.sha256((payload.username.casefold() + "|" +
@@ -238,11 +239,11 @@ def protect(app: FastAPI, db_path: Path) -> None:
             raise HTTPException(status_code=401, detail="Invalid credentials.")
         return response
 
-    @app.get("/api/auth/me")
+    @router.get("/api/auth/me")
     def me(request: Request):
         return public_user(request.state.user, request.state.user["csrf_token"])
 
-    @app.post("/api/auth/logout")
+    @router.post("/api/auth/logout")
     def logout(request: Request):
         token = request.cookies.get(COOKIE, "")
         with session(db_path, write=True) as db:
@@ -252,7 +253,7 @@ def protect(app: FastAPI, db_path: Path) -> None:
         response.delete_cookie(COOKIE, path="/")
         return response
 
-    @app.post("/api/auth/password")
+    @router.post("/api/auth/password")
     def password_change(request: Request, payload: PasswordChange):
         actor = request.state.user["id"]
         with session(db_path, write=True) as db:
@@ -268,14 +269,14 @@ def protect(app: FastAPI, db_path: Path) -> None:
             audit(db, actor, "password_change", "user", actor)
         return response
 
-    @app.get("/api/auth/users", dependencies=[Depends(require_admin)])
+    @router.get("/api/auth/users", dependencies=[Depends(require_admin)])
     def list_users():
         with session(db_path) as db:
             return [dict(row) for row in db.execute(
                 "SELECT id,username,role,enabled,created_at FROM users ORDER BY username COLLATE NOCASE"
             ).fetchall()]
 
-    @app.post("/api/auth/users", status_code=201, dependencies=[Depends(require_admin)])
+    @router.post("/api/auth/users", status_code=201, dependencies=[Depends(require_admin)])
     def create_user(request: Request, payload: NewUser):
         with session(db_path, write=True) as db:
             if db.execute("SELECT 1 FROM users WHERE username=?", (payload.username,)).fetchone():
@@ -287,7 +288,7 @@ def protect(app: FastAPI, db_path: Path) -> None:
             audit(db, request.state.user["id"], "user_create", "user", user_id)
         return {"id": user_id}
 
-    @app.patch("/api/auth/users/{user_id}", dependencies=[Depends(require_admin)])
+    @router.patch("/api/auth/users/{user_id}", dependencies=[Depends(require_admin)])
     def update_user(user_id: int, payload: UserUpdate, request: Request):
         changes = payload.model_dump(exclude_unset=True)
         if not changes or any(value is None for value in changes.values()):
@@ -312,3 +313,4 @@ def protect(app: FastAPI, db_path: Path) -> None:
             audit(db, request.state.user["id"], "user_update", "user", user_id)
         return {"id": user_id}
 
+    app.include_router(router)

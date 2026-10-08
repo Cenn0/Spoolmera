@@ -15,7 +15,7 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import urlsplit, quote
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Literal
 
@@ -250,11 +250,12 @@ def upload_controller_file(printer, filename: str, content: bytes) -> int:
 
 
 def register_printer_routes(app: FastAPI, db_path: Path) -> None:
-    @app.get("/api/printers/capabilities")
+    router = APIRouter()
+    @router.get("/api/printers/capabilities")
     def printer_capabilities():
         return {"write_enabled": control_enabled(), "max_upload_bytes": 16 * 1024 * 1024}
 
-    @app.get("/api/printers", response_model=list[PrinterResponse])
+    @router.get("/api/printers", response_model=list[PrinterResponse])
     def printers(request: Request):
         with session(db_path) as db:
             rows = [safe_printer(row) for row in db.execute(
@@ -265,7 +266,7 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
                 row["token_env"] = ""
         return rows
 
-    @app.post("/api/printers", status_code=201, dependencies=[Depends(require_admin)])
+    @router.post("/api/printers", status_code=201, dependencies=[Depends(require_admin)])
     def add_printer(payload: PrinterInput, request: Request):
         try:
             base = validate_printer_input(payload)
@@ -281,7 +282,7 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
             audit(db, request.state.user["id"], "printer_create", "printer", printer_id)
         return {"id": printer_id}
 
-    @app.put("/api/printers/{printer_id}", dependencies=[Depends(require_admin)])
+    @router.put("/api/printers/{printer_id}", dependencies=[Depends(require_admin)])
     def update_printer(printer_id: int, payload: PrinterInput, request: Request):
         try:
             base = validate_printer_input(payload)
@@ -307,7 +308,7 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
             audit(db, request.state.user["id"], "printer_update", "printer", printer_id)
         return {"id": printer_id}
 
-    @app.post("/api/printers/{printer_id}/probe", dependencies=[Depends(require_admin)])
+    @router.post("/api/printers/{printer_id}/probe", dependencies=[Depends(require_admin)])
     def probe(printer_id: int):
         with session(db_path) as db:
             printer = db.execute("SELECT * FROM printers WHERE id=? AND enabled=1", (printer_id,)).fetchone()
@@ -318,7 +319,7 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
         except ValueError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    @app.get("/api/printers/{printer_id}/commands", dependencies=[Depends(require_admin)])
+    @router.get("/api/printers/{printer_id}/commands", dependencies=[Depends(require_admin)])
     def printer_command_history(printer_id: int):
         with session(db_path) as db:
             if not db.execute("SELECT 1 FROM printers WHERE id=?", (printer_id,)).fetchone():
@@ -329,12 +330,12 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
                 (printer_id,),
             ).fetchall()]
 
-    @app.post("/api/printers/commands/{command_id}/clear", dependencies=[Depends(require_admin)])
+    @router.post("/api/printers/commands/{command_id}/clear", dependencies=[Depends(require_admin)])
     def clear_start_command(command_id: str, payload: ClearCommand, request: Request):
         clear_command(db_path, command_id, request.state.user["id"], payload.reason)
         return {"id": command_id, "state": "cleared"}
 
-    @app.post("/api/printers/{printer_id}/control", dependencies=[Depends(require_admin)])
+    @router.post("/api/printers/{printer_id}/control", dependencies=[Depends(require_admin)])
     def control_printer(printer_id: int, payload: PrinterCommand, request: Request):
         require_control()
         with session(db_path) as db:
@@ -364,3 +365,5 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
             audit(db, request.state.user["id"], "printer_" + payload.action, "printer", printer_id)
         return {"printer_id": printer_id, "command_id": command_id,
                 "action": payload.action, "http_status": status}
+
+    app.include_router(router)
