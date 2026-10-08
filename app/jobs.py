@@ -36,6 +36,21 @@ class JobInput(BaseModel):
     note: str = Field(default="", max_length=300)
 
 
+class MaterialMapping(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    tool: int = Field(ge=0, le=15)
+    spool_id: int = Field(gt=0)
+    estimated_g: int = Field(gt=0, le=100000)
+
+
+class MultiJobInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    printer_id: int = Field(gt=0)
+    file_name: str = Field(min_length=3, max_length=180)
+    materials: list[MaterialMapping] = Field(min_length=2, max_length=8)
+    note: str = Field(default="", max_length=300)
+
+
 class Resolution(BaseModel):
     model_config = ConfigDict(extra="forbid")
     action: str = Field(pattern=r"^(debit|discard)$")
@@ -86,31 +101,102 @@ def insert_job(db_path: Path, payload: JobInput, actor_id: int) -> int:
             ).lastrowid
         except sqlite3.IntegrityError as exc:
             raise HTTPException(status_code=409, detail="An active mapping already exists for this printer and file.") from exc
+        db.execute(
+            "INSERT INTO job_materials(job_id,tool,spool_id,estimated_g) VALUES(?,?,?,?)",
+            (job_id, 0, payload.spool_id, payload.estimated_g),
+        )
         audit(db, actor_id, "job_register", "print_job", job_id)
     return job_id
 
 
+def insert_multi_job(db_path: Path, payload: MultiJobInput, actor_id: int) -> int:
+    """Explicit tool-to-spool assignments; never infer mappings from color."""
+    if not valid_filename(payload.file_name):
+        raise HTTPException(status_code=422, detail="Expected a safe relative G-code filename.")
+    if len({item.tool for item in payload.materials}) != len(payload.materials):
+        raise HTTPException(status_code=422, detail="Tool numbers must be unique.")
+    total = sum(item.estimated_g for item in payload.materials)
+    if total > 100000:
+        raise HTTPException(status_code=422, detail="Job total exceeds the supported weight.")
+    by_spool: dict[int, int] = {}
+    for item in payload.materials:
+        by_spool[item.spool_id] = by_spool.get(item.spool_id, 0) + item.estimated_g
+    with session(db_path, write=True) as db:
+        printer = db.execute("SELECT enabled FROM printers WHERE id=?", (payload.printer_id,)).fetchone()
+        if not printer or not printer["enabled"]:
+            raise HTTPException(status_code=404, detail="Enabled printer not found.")
+        for spool_id, grams in by_spool.items():
+            spool = db.execute(
+                "SELECT remaining_g,archived_at FROM spools WHERE id=?", (spool_id,)
+            ).fetchone()
+            if not spool or spool["archived_at"] is not None:
+                raise HTTPException(status_code=404, detail="Active spool not found.")
+            if spool["remaining_g"] < grams:
+                raise HTTPException(status_code=409, detail="Estimated consumption exceeds available spool stock.")
+        stamp = utc_now()
+        try:
+            job_id = db.execute(
+                """INSERT INTO print_jobs(printer_id,spool_id,file_name,estimated_g,note,created_by,created_at,updated_at)
+                   VALUES(?,?,?,?,?,?,?,?)""",
+                (payload.printer_id, payload.materials[0].spool_id, payload.file_name,
+                 total, payload.note, actor_id, stamp, stamp),
+            ).lastrowid
+        except sqlite3.IntegrityError as exc:
+            raise HTTPException(status_code=409, detail="An active mapping already exists for this printer and file.") from exc
+        db.executemany(
+            "INSERT INTO job_materials(job_id,tool,spool_id,estimated_g) VALUES(?,?,?,?)",
+            [(job_id, item.tool, item.spool_id, item.estimated_g) for item in payload.materials],
+        )
+        audit(db, actor_id, "job_register_multi", "print_job", job_id)
+    return job_id
+
+
 def apply_consumption(db, job, actor_id: int | None) -> bool:
-    """Called under BEGIN IMMEDIATE: one movement and one state transition."""
+    """Atomic and retry-safe accounting across every physical spool in a job."""
     current = db.execute("SELECT * FROM print_jobs WHERE id=?", (job["id"],)).fetchone()
     if not current or current["status"] in ("completed", "cancelled"):
         return False
-    spool = db.execute("SELECT * FROM spools WHERE id=?", (current["spool_id"],)).fetchone()
-    if not spool or spool["archived_at"] or spool["remaining_g"] < current["estimated_g"]:
-        db.execute("UPDATE print_jobs SET status='needs_review',note=?,updated_at=? WHERE id=?",
-                   ("Cannot safely debit: spool archived or stock insufficient.", utc_now(), current["id"]))
-        return False
-    remaining = spool["remaining_g"] - current["estimated_g"]
-    db.execute("UPDATE spools SET remaining_g=?,opened=1 WHERE id=?", (remaining, current["spool_id"]))
-    movement_id = db.execute(
-        """INSERT INTO movements(spool_id,kind,delta_g,remaining_after_g,note,created_at,print_job_id)
-           VALUES(?,'consume',?,?,?,?,?)""",
-        (current["spool_id"], -current["estimated_g"], remaining,
-         "Print job #" + str(current["id"]) + " — " + current["file_name"], utc_now(), current["id"]),
-    ).lastrowid
+    mappings = db.execute(
+        "SELECT tool,spool_id,estimated_g FROM job_materials WHERE job_id=? ORDER BY tool",
+        (current["id"],),
+    ).fetchall()
+    if not mappings:
+        # Compatibility with a pre-v4 database opened by older automation.
+        mappings = [{"tool": 0, "spool_id": current["spool_id"],
+                     "estimated_g": current["estimated_g"]}]
+    amounts: dict[int, int] = {}
+    for mapping in mappings:
+        spool_id = mapping["spool_id"]
+        amounts[spool_id] = amounts.get(spool_id, 0) + mapping["estimated_g"]
+    for spool_id, required in amounts.items():
+        spool = db.execute("SELECT remaining_g,archived_at FROM spools WHERE id=?", (spool_id,)).fetchone()
+        if not spool or spool["archived_at"] or spool["remaining_g"] < required:
+            db.execute(
+                "UPDATE print_jobs SET status='needs_review',note=?,updated_at=? WHERE id=?",
+                ("Cannot safely debit: one or more mapped spools are archived or have insufficient stock.",
+                 utc_now(), current["id"]),
+            )
+            return False
+    first_movement = None
+    for spool_id, required in amounts.items():
+        spool = db.execute("SELECT remaining_g FROM spools WHERE id=?", (spool_id,)).fetchone()
+        remaining = spool["remaining_g"] - required
+        db.execute("UPDATE spools SET remaining_g=?,opened=1 WHERE id=?", (remaining, spool_id))
+        movement_id = db.execute(
+            """INSERT INTO movements(spool_id,kind,delta_g,remaining_after_g,note,created_at,print_job_id)
+               VALUES(?,'consume',?,?,?,?,?)""",
+            (spool_id, -required, remaining, "Print job #" + str(current["id"]) + " — " +
+             current["file_name"], utc_now(), current["id"]),
+        ).lastrowid
+        db.execute(
+            "UPDATE job_materials SET movement_id=? WHERE job_id=? AND spool_id=?",
+            (movement_id, current["id"], spool_id),
+        )
+        if first_movement is None:
+            first_movement = movement_id
     db.execute(
         "UPDATE print_jobs SET status='completed',movement_id=?,updated_at=? WHERE id=?",
-        (movement_id, utc_now(), current["id"]),
+        (first_movement, utc_now(), current["id"]),
     )
     audit(db, actor_id, "job_consumption", "print_job", current["id"])
     return True
@@ -232,13 +318,27 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
     @app.get("/api/jobs")
     def list_jobs():
         with session(db_path) as db:
-            return [dict(row) for row in db.execute(
+            rows = db.execute(
                 """SELECT j.*,p.name AS printer_name,s.uid AS spool_uid,
                           f.brand,f.name AS product_name
                    FROM print_jobs j JOIN printers p ON p.id=j.printer_id
                    JOIN spools s ON s.id=j.spool_id JOIN products f ON f.id=s.product_id
                    ORDER BY j.id DESC LIMIT 200"""
-            ).fetchall()]
+            ).fetchall()
+            jobs = [dict(row) for row in rows]
+            for job in jobs:
+                job["materials"] = [dict(row) for row in db.execute(
+                    """SELECT m.tool,m.spool_id,m.estimated_g,m.movement_id,
+                              s.uid AS spool_uid,p.brand,p.name AS product_name
+                       FROM job_materials m JOIN spools s ON s.id=m.spool_id
+                       JOIN products p ON p.id=s.product_id WHERE m.job_id=? ORDER BY m.tool""",
+                    (job["id"],),
+                ).fetchall()]
+        return jobs
+
+    @app.post("/api/jobs/multi", status_code=201)
+    def add_multi_job(payload: MultiJobInput, request: Request):
+        return {"id": insert_multi_job(db_path, payload, request.state.user["id"])}
 
     @app.post("/api/jobs", status_code=201)
     def add_job(payload: JobInput, request: Request):
