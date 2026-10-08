@@ -108,11 +108,11 @@ Start Angular in a second terminal with a development API proxy:
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm start
 ```
 
-Open **http://127.0.0.1:4200** for development. Directly opening FastAPI's root without compiled Angular assets displays a build-required response. Docker builds the Angular frontend automatically.
+Open **http://127.0.0.1:4200** for development. Directly opening FastAPI's root without compiled Angular assets displays a build-required response. Docker builds the Angular frontend automatically from the committed npm lockfile.
 
 Type-check and build Angular:
 
