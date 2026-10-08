@@ -59,7 +59,7 @@ export class DialogsComponent {
       this.csvFile=null;
       if (active.kind==='product') {
         const p=this.data.products().find(x=>x.id===active.id);
-        this.product=p ? {
+        this.product=active.catalog ? {...blankProduct(),...active.catalog} : p ? {
           brand:p.brand,name:p.name,material:p.material,color_name:p.color_name,
           color_hex:p.color_hex,diameter_mm:p.diameter_mm,notes:p.notes,
           density_g_cm3:p.density_g_cm3,nozzle_min_c:p.nozzle_min_c,

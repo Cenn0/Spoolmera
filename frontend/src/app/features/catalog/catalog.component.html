@@ -1,0 +1,60 @@
+<section class="page-head">
+  <div><span class="eyebrow">COMMUNITY DATA</span><h1>Open filament <em>catalog.</em></h1>
+    <p>Choose a community-maintained product and review its properties before adding it to your local inventory.</p>
+  </div>
+</section>
+@if(error()){<p class="form-error" role="alert">{{error()}}</p>}
+@if(loading()){<p class="helper" role="status">Loading catalog…</p>}
+<section class="panel workflow-panel">
+  <div class="panel-heading"><div><span class="eyebrow">{{info() || 'OPT-IN LOOKUP'}}</span><h2>Find a filament</h2></div></div>
+  <div class="workflow-form">
+    <p class="helper">The Open Filament Database is an optional external source. The server caches retrieved data for offline reuse. No filament information is saved until you confirm it in the local form.</p>
+    @if(brands().length){
+      <div class="form-grid">
+        <label>Filter manufacturers<input [(ngModel)]="query" name="catalogSearch" placeholder="Search brand"></label>
+        <label>Manufacturer<select name="brand" [(ngModel)]="brandSlug" (change)="selectBrand()">
+          <option value="">Choose brand</option>
+          @for(item of matches;track item.slug){<option [value]="item.slug">{{item.name}}</option>}
+        </select></label>
+        @if(brand();as data){
+          <label>Material<select name="material" [(ngModel)]="materialSlug" (change)="selectMaterial()">
+            <option value="">Choose material</option>
+            @for(item of data.materials || [];track item.slug){<option [value]="item.slug">{{item.material}}</option>}
+          </select></label>
+        }
+        @if(material();as data){
+          <label>Product line<select name="filament" [(ngModel)]="filamentSlug" (change)="selectFilament()">
+            <option value="">Choose product</option>
+            @for(item of data.filaments || [];track item.slug){<option [value]="item.slug">{{item.name}}</option>}
+          </select></label>
+        }
+        @if(filament();as data){
+          <label>Color / variant<select name="variant" [(ngModel)]="variantSlug" (change)="selectVariant()">
+            <option value="">Choose variant</option>
+            @for(item of data.variants || [];track item.slug){<option [value]="item.slug">{{item.name}}</option>}
+          </select></label>
+        }
+        @if(variant();as data){
+          <label>Spool size<select name="size" [(ngModel)]="sizeIndex">
+            @for(size of data.sizes || [];track $index){
+              <option [ngValue]="$index">{{size.filament_weight}} g · {{size.diameter}} mm</option>
+            }
+          </select></label>
+        }
+      </div>
+      @if(variant();as data){
+        <div class="detail-summary">
+          <span class="swatch xlarge" [style.background-color]="data.color_hex"></span>
+          <div><strong>{{brand()?.name}} · {{filament()?.name}}</strong>
+            <p>{{material()?.material}} · {{data.name}}</p>
+            <small>Source values are suggestions, not verified print settings.</small></div>
+        </div>
+        @if(auth.canEdit()){
+          <button class="btn primary" type="button" (click)="useProduct()" [disabled]="loading()">Review and add as local product</button>
+        }
+      }
+    } @else if (!loading()){
+      <p class="helper">No catalog data loaded. Enable FILAMENT_CATALOG_ENABLED=1 to allow optional lookups, then reload. Manual filament creation always remains available.</p>
+    }
+  </div>
+</section>
