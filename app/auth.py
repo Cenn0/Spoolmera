@@ -10,6 +10,8 @@ import os
 import secrets
 import time
 from pathlib import Path
+from argon2 import PasswordHasher, Type
+from argon2.exceptions import VerificationError, InvalidHashError
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request
@@ -21,6 +23,9 @@ from app.database import session, utc_now
 COOKIE = "filament_session"
 SESSION_SECONDS = 7 * 24 * 3600
 DUMMY_SALT = b"filament-manager-dummy"
+PASSWORD_HASHER = PasswordHasher(time_cost=2, memory_cost=19456, parallelism=1,
+                                 hash_len=32, salt_len=16, type=Type.ID)
+DUMMY_HASH = PASSWORD_HASHER.hash("irrelevant-invalid-dummy-password")
 ROLE_ORDER = {"viewer": 0, "editor": 1, "admin": 2}
 
 
@@ -51,24 +56,26 @@ class PasswordChange(BaseModel):
     new_password: str = Field(min_length=14, max_length=128)
 
 
-def hash_password(password: str, salt: bytes | None = None) -> str:
-    salt = salt or secrets.token_bytes(16)
-    derived = hashlib.scrypt(password.encode("utf-8"), salt=salt, n=16384, r=8, p=1, dklen=32)
-    return "scrypt$16384$" + base64.b64encode(salt).decode() + "$" + base64.b64encode(derived).decode()
+def hash_password(password: str) -> str:
+    return PASSWORD_HASHER.hash(password)
 
 
 def verify_password(password: str, hashed: str | None) -> bool:
+    if not hashed or hashed.startswith("$argon2id$"):
+        try:
+            verified = PASSWORD_HASHER.verify(hashed or DUMMY_HASH, password)
+            return bool(hashed) and verified
+        except (VerificationError, InvalidHashError):
+            return False
+    # Transitional compatibility with the development-only scrypt format.
     try:
-        if hashed:
-            algorithm, rounds, salt_text, derived_text = hashed.split("$")
-            if algorithm != "scrypt" or rounds != "16384":
-                raise ValueError("Unsupported credential scheme")
-            salt = base64.b64decode(salt_text, validate=True)
-            expected = base64.b64decode(derived_text, validate=True)
-        else:
-            salt, expected = DUMMY_SALT, b"\0" * 32
+        algorithm, rounds, salt_text, derived_text = hashed.split("$")
+        if algorithm != "scrypt" or rounds != "16384":
+            return False
+        salt = base64.b64decode(salt_text, validate=True)
+        expected = base64.b64decode(derived_text, validate=True)
         attempt = hashlib.scrypt(password.encode("utf-8"), salt=salt, n=16384, r=8, p=1, dklen=32)
-        return bool(hashed) and hmac.compare_digest(expected, attempt)
+        return hmac.compare_digest(expected, attempt)
     except (ValueError, UnicodeError):
         return False
 
@@ -204,6 +211,9 @@ def protect(app: FastAPI, db_path: Path) -> None:
                     db.execute("INSERT INTO auth_failures(subject,created_at) VALUES(?,?)", (subject, now))
                     denied = 401
                 else:
+                    if row["password_hash"].startswith("scrypt$") or PASSWORD_HASHER.check_needs_rehash(row["password_hash"]):
+                        db.execute("UPDATE users SET password_hash=? WHERE id=?",
+                                   (hash_password(payload.password), row["id"]))
                     db.execute("DELETE FROM auth_failures WHERE subject=?", (subject,))
                     response = JSONResponse(public_user(row))
                     csrf = issue_session(db, row["id"], response)

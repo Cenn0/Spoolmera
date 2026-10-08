@@ -2,7 +2,7 @@
 
 ## Security controls
 
-First-administrator setup requires `FILAMENT_BOOTSTRAP_TOKEN` (a unique, unpredictable string of at least 24 characters). Accounts use salted scrypt password hashing and 14-character minimum passwords. Random session credentials are stored only as SHA-256 hashes; browser cookies use HttpOnly, SameSite=Lax and Secure when configured. Session-bound CSRF headers protect state-changing operations.
+First-administrator setup requires `FILAMENT_BOOTSTRAP_TOKEN` (a unique, unpredictable string of at least 24 characters). Accounts use Argon2id (19 MiB memory, 2 iterations, parallelism 1) and a minimum of 14 characters. Previous development-only scrypt hashes can be verified and are upgraded on login. Random session credentials are stored only as SHA-256 hashes; browser cookies use HttpOnly, SameSite=Lax and Secure when configured. Session-bound CSRF headers protect state-changing operations.
 
 Roles: **viewer** can inspect inventory, **editor** can change inventory and manage tracked jobs, and **admin** can additionally manage user accounts and printer configuration. Role changes revoke existing sessions. The last enabled administrator cannot be removed. Login attempts are throttled per client/user pair.
 
