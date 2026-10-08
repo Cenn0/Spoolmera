@@ -1,7 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../auth.service';
-import { CloudReceipt, Printer, WorkspaceService, AutomationToken } from '../../workspace.service';
+import { CloudReceipt, Printer, WorkspaceService, AutomationToken, ScaleMeasurement } from '../../workspace.service';
 import { RouterLink } from '@angular/router';
 import { DialogService, NoticeService } from '../../dialog.service';
 import { InventoryService, apiError } from '../../inventory.service';
@@ -19,6 +19,22 @@ export class IntegrationsComponent implements OnInit {
   readonly printers = signal<Printer[]>([]);
   readonly auth = inject(AuthService);
   readonly cloudEvents = signal<CloudReceipt[]>([]);
+  readonly scales=signal<ScaleMeasurement[]>([]);
+  scaleNote='Verified physical scale measurement and correct spool identification.';
+  readonly scaleBusy=signal(false);
+  async reviewScale(item:ScaleMeasurement,action:'approve'|'discard'):Promise<void>{
+    if(this.scaleBusy()||!this.auth.canEdit()||this.scaleNote.trim().length<10)return;
+    if(action==='approve' && !window.confirm(
+      'Apply scale measurement for '+item.brand+' '+item.product_name+'? This may change physical stock.'))return;
+    this.scaleBusy.set(true);
+    try{
+      await this.workspace.reviewScale(item.id,action,this.scaleNote.trim());
+      this.scales.set(await this.workspace.scaleMeasurements());
+      await this.data.load();
+      this.notices.show(action==='approve'?'Measured stock adjustment recorded.':'Scale report discarded.');
+    }catch(e){this.notices.show(apiError(e),true);}
+    finally{this.scaleBusy.set(false);}
+  }
   readonly tokens=signal<AutomationToken[]>([]);
   readonly issuedSecret=signal('');
   readonly tokenBusy=signal(false);
@@ -54,6 +70,7 @@ export class IntegrationsComponent implements OnInit {
       ]);
       this.capabilities.set(capabilities);
       this.printers.set(printers);
+      if(this.auth.canEdit())this.scales.set(await this.workspace.scaleMeasurements());
       if(this.auth.isAdmin()){
         this.cloudEvents.set(await this.workspace.cloudEvents());
         this.tokens.set(await this.workspace.automationTokens());

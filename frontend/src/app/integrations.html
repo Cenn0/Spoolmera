@@ -13,6 +13,29 @@
     <p>Create restricted bearer tokens for your local automation clients. Inventory and movement events have separate read scopes. These endpoints never control printers or change spool inventory.</p>
     <code>GET /api/automation/v1/spools</code><code>GET /api/automation/v1/movements?after=0</code></article>
 </div>
+@if(auth.canEdit()){
+<section class="panel workflow-panel">
+  <div class="panel-heading"><div><span class="eyebrow">SCALE INTEGRATION</span><h2>Pending physical measurements</h2></div></div>
+  <div class="workflow-form">
+    <p class="helper">An optional signed ESP32/ESPHome scale bridge can submit readings. These reports never automatically adjust inventory. Review the correct physical spool and tare before approving.</p>
+    <label>Review explanation<input [(ngModel)]="scaleNote" maxlength="500" minlength="10" placeholder="Physical verification" /></label>
+  </div>
+  <div class="workflow-list">
+    @for(item of scales();track item.id){
+      <article class="workflow-row">
+        <div class="workflow-main"><strong>{{item.brand}} · {{item.product_name}}</strong>
+          <small>Device {{item.source}} · Gross {{item.gross_g}} g · Tare {{item.tare_g ?? item.current_tare_g}} g · Currently {{item.remaining_g}} g</small>
+          <small>Measured {{item.received_at}} · {{item.spool_uid}}</small>
+        </div>
+        <div class="workflow-buttons">
+          <button class="btn ghost" type="button" [disabled]="scaleBusy()||scaleNote.trim().length<10" (click)="reviewScale(item,'discard')">Discard</button>
+          <button class="btn primary" type="button" [disabled]="scaleBusy()||scaleNote.trim().length<10" (click)="reviewScale(item,'approve')">Approve measurement</button>
+        </div>
+      </article>
+    }@empty{<p class="placeholder">No pending scale reports.</p>}
+  </div>
+</section>
+}
 @if(auth.isAdmin()){
 <section class="panel workflow-panel">
   <div class="panel-heading"><div><span class="eyebrow">TOKEN ADMINISTRATION</span><h2>Read-only machine tokens</h2></div></div>
