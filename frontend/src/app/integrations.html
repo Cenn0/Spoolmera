@@ -1,9 +1,23 @@
-<section class="page-head"><div><span class="eyebrow">FUTURE CONNECTIONS</span><h1>Connected <em>workflows.</em></h1><p>Printer connections and print-job tracking are now available alongside the versioned inventory API.</p></div></section>
+<section class="page-head"><div><span class="eyebrow">INTEGRATION OVERVIEW</span><h1>Connected <em>workflows.</em></h1><p>Printer connections and print-job tracking are now available alongside the versioned inventory API.</p></div></section>
 <div class="integration-grid">
   <article class="panel integration-card"><span class="eyebrow">INVENTORY API</span><h2>Integration API v1</h2><span class="status connected">Read-only available</span><p>Machine-readable active spool inventory and versioned capabilities. No automatic writes.</p><code>GET /api/integrations/v1/spools</code><code>GET /api/integrations/v1/capabilities</code><a class="text-link" href="/docs" target="_blank" rel="noopener noreferrer">API documentation ↗</a></article>
-  <article class="panel integration-card"><span class="eyebrow">DEVICE CONNECTIONS</span><h2>3D printers</h2><span class="status connected">{{enabledPrinters()}} enabled / {{printers().length}} configured</span><p>Read-only Moonraker and OctoPrint connections can be configured by an administrator. Moonraker history-confirmed jobs may automatically deduct estimated material; OctoPrint jobs require explicit review.</p><a class="text-link" href="/printers">Manage connections →</a></article>
-  <article class="panel integration-card"><span class="eyebrow">PRINT PREPARATION</span><h2>Slicers</h2><span class="status empty">Not connected</span><p>Direct slicer execution remains unavailable. Import G-code weight metadata or register an existing printer file and spool from Print jobs.</p></article>
+  <article class="panel integration-card"><span class="eyebrow">DEVICE CONNECTIONS</span><h2>3D printers</h2><span class="status connected">{{enabledPrinters()}} enabled / {{printers().length}} configured</span><p>Moonraker and OctoPrint connections can be configured by an administrator. Moonraker history-confirmed jobs may automatically deduct estimated material; OctoPrint jobs require explicit review.</p><a class="text-link" href="/printers">Manage connections →</a></article>
+  <article class="panel integration-card"><span class="eyebrow">PRINT PREPARATION</span><h2>Slicers</h2><span class="status">Opt-in</span><p>Opt-in PrusaSlicer CLI slicing runs with an operator-approved profile. Jobs offer safe file transfer and manual print start when the administrator enables controller writes.</p></article>
+  <article class="panel integration-card"><span class="eyebrow">CLOUD CONNECTIVITY</span><h2>Signed cloud bridge</h2>
+    <span class="status">External relay required</span>
+    <p>HMAC-authenticated vendor-neutral event ingress with replay protection. Completion reports require human review; native Bambu/Prusa cloud APIs and SSO are not implemented.</p>
+    <code>POST /api/cloud/hooks/&lt;ALIAS&gt;</code><a class="text-link" href="/docs">See API documentation →</a>
+  </article>
 </div>
+@if(auth.isAdmin()){
+<section class="panel workflow-panel"><div class="panel-heading"><div><span class="eyebrow">CLOUD AUDIT</span><h2>Recent cloud receipts</h2></div></div>
+  <div class="workflow-list">
+    @for(e of cloudEvents();track e.source+':'+e.event_id){
+      <div class="workflow-row"><strong>{{e.source}} · {{e.event_id}}</strong><span>Job #{{e.job_id}} · {{e.disposition}}</span><small>{{e.received_at}}</small></div>
+    }@empty {<div class="placeholder">No signed cloud events received.</div>}
+  </div>
+</section>
+}
 @if (capabilities(); as flags) {
   <section class="panel capabilities"><h2>Reported capabilities</h2><div><span>Inventory read</span><strong>{{flags.inventory_read?'Supported':'Unavailable'}}</strong></div><div><span>External integration API v1 writes</span><strong>{{flags.usage_write?'Supported':'Not available (read-only)'}}</strong></div><div><span>External integration API v1 printer pairing</span><strong>{{flags.printer_connections?'Available':'Not in v1'}}</strong></div><div><span>Slicer connectivity</span><strong>{{flags.slicer_connections?'Available':'Not available'}}</strong></div><div><span>Schema version</span><strong>{{flags.schema_version}}</strong></div></section>
 }

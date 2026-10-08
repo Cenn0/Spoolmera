@@ -5,11 +5,20 @@ COPY frontend/package.json frontend/package-lock.json frontend/angular.json fron
 COPY frontend/src ./src
 RUN npm ci --no-audit --no-fund && npm run build
 
-FROM python:3.12-slim
+FROM python:3.12-slim-trixie
+ARG FILAMENT_INSTALL_PRUSA_SLICER=0
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     FILAMENT_DB_PATH=/data/filaments.sqlite3
 WORKDIR /srv/filament-manager
+# Slicer support is opt-in. Debian trixie packages PrusaSlicer 2.9.2; profiles
+# must be compatible with that version. No arbitrary downloads/install scripts.
+RUN if [ "$FILAMENT_INSTALL_PRUSA_SLICER" = "1" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends prusa-slicer && \
+      rm -rf /var/lib/apt/lists/*; \
+    elif [ "$FILAMENT_INSTALL_PRUSA_SLICER" != "0" ]; then \
+      echo "FILAMENT_INSTALL_PRUSA_SLICER must be 0 or 1" >&2; exit 1; \
+    fi
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt \
     && groupadd --gid 10001 filament \

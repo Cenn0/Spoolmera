@@ -14,6 +14,8 @@ from app.database import initialize_database, session, utc_now
 from app.auth import protect
 from app.printers import register_printer_routes
 from app.jobs import register_job_routes, poll_worker
+from app.cloud import register_cloud_routes
+from app.slicing import register_slicing_routes
 from app.models import MovementInput, ProductInput, SpoolInput, SpoolUpdate
 from app.labels import label_html, qr_svg, spool_public_url
 from app.inventory_csv import export_inventory, import_inventory
@@ -69,13 +71,15 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
 
     app = FastAPI(
         title="Filament Manager API",
-        version="0.4.0",
+        version="0.5.0",
         description="Local management of filament products, physical spools and inventory movements.",
         lifespan=lifespan,
     )
     protect(app, db_path)
     register_printer_routes(app, db_path)
     register_job_routes(app, db_path)
+    register_cloud_routes(app, db_path)
+    register_slicing_routes(app, db_path)
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
     @app.get("/", include_in_schema=False)

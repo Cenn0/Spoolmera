@@ -22,7 +22,23 @@
       <label>Estimated filament (g)<input name="estimatedG" type="number" [(ngModel)]="estimatedG" min="1" max="100000" step="1" placeholder="Use G-code metadata when blank"></label>
       <label>Note (manual mapping only)<input name="note" [(ngModel)]="note" maxlength="300" placeholder="Optional reference"></label>
     </div>
-    <p class="helper">Only metadata is imported; G-code is never executed, stored or transferred. One job maps to one spool. Moonraker history must be enabled for automatic debit. OctoPrint completion requires review.</p>
+    @if(extraMaterials().length){
+      <div class="material-mapping-list">
+        @for(m of extraMaterials();track $index){
+          <div class="workflow-row">
+            <label>Tool <input [name]="'tool'+$index" type="number" [(ngModel)]="m.tool" min="1" max="15" required></label>
+            <label>Physical spool <select [name]="'materialSpool'+$index" [(ngModel)]="m.spool_id" required>
+              @for(s of data.spools();track s.id){@if(s.remaining_g>0){<option [ngValue]="s.id">{{s.brand}} · {{s.product_name}}</option>}}
+            </select></label>
+            <label>Estimated g <input [name]="'materialWeight'+$index" type="number" [(ngModel)]="m.estimated_g" min="1" required></label>
+            <button class="btn ghost" type="button" (click)="removeMaterial($index)">Remove</button>
+          </div>
+        }
+      </div>
+    }
+    <button class="btn ghost" type="button" [disabled]="extraMaterials.length>=7||!!upload" (click)="addMaterial()">Add another material/tool</button>
+    <p class="helper">The first spool is tool 0. All additional tools must have unique numbers and explicit weights. Multi-material jobs cannot use automatic weight inference from an imported G-code file. The combined amount is deducted atomically after verified completion or manual approval.</p>
+    <p class="helper">Importing a G-code file here registers metadata only. Uploading to a printer is a separate administrator action; it never starts automatically. Moonraker history-confirmed jobs may debit automatically; OctoPrint always requires review.</p>
     <button class="btn primary" type="submit" [disabled]="busy()||jobForm.invalid||!printerId||!spoolId">Register print job</button>
   </form>
 </section>
@@ -33,7 +49,10 @@
     @for(job of jobs();track job.id){
       <article class="workflow-row">
         <div class="workflow-main"><strong>#{{job.id}} · {{job.file_name}}</strong>
-          <span>{{job.printer_name}} · {{job.brand}} {{job.product_name}} · {{grams(job.estimated_g)}}</span>
+          <span>{{job.printer_name}} · {{grams(job.estimated_g)}} total</span>
+          @for(m of job.materials;track m.tool){
+            <small>Tool {{m.tool}} · {{m.brand}} {{m.product_name}} · {{grams(m.estimated_g)}}</small>
+          }
           @if(job.note){<small>{{job.note}}</small>}
         </div>
         <span class="status" [class.opened]="job.status==='completed'" [class.sealed]="job.status==='printing'">{{job.status.replace('_',' ')}}</span>
@@ -41,6 +60,12 @@
           <div class="workflow-buttons">
             @if(job.status==='pending'||job.status==='printing'){
               <button type="button" class="btn ghost" [disabled]="busy()" (click)="poll(job.printer_id)">Poll</button>
+              @if(auth.isAdmin() && capabilities().write_enabled && job.status==='pending'){
+                <label class="btn ghost">Upload G-code
+                  <input type="file" accept=".gcode,.gco,.gc" [disabled]="busy()" (change)="uploadPending(job,$event)" hidden>
+                </label>
+                <button type="button" class="btn primary" [disabled]="busy()" (click)="start(job)">Start print</button>
+              }
               <button type="button" class="btn ghost" [disabled]="busy()" (click)="cancel(job)">Stop tracking</button>
             }
             @if(job.status==='needs_review'){
@@ -53,3 +78,23 @@
     } @empty {<div class="placeholder">No linked print jobs. Register a G-code filename and spool first.</div>}
   </div>
 </section>
+
+@if(auth.isAdmin()){
+<section class="panel workflow-panel">
+  <div class="panel-heading"><div><span class="eyebrow">MODEL PREPARATION</span><h2>Automatic STL slicing</h2></div></div>
+  @if(slicer().enabled && slicer().profiles.length){
+    <div class="workflow-form">
+      <div class="form-grid">
+        <label>Model (.stl)<input type="file" accept=".stl" (change)="chooseStl($event)"></label>
+        <label>Operator-approved profile<select [(ngModel)]="sliceProfile">
+          @for(profile of slicer().profiles;track profile){<option [value]="profile">{{profile}}</option>}
+        </select></label>
+      </div>
+      <button class="btn primary" type="button" [disabled]="busy()||!stlFile||!sliceProfile" (click)="sliceModel()">Slice and download G-code</button>
+      <p class="helper">Slicing uses the exact operator-managed PrusaSlicer profile. Inspect printer dimensions, tool assignments, temperature, supports and generated G-code before upload or starting a print.</p>
+    </div>
+  }@else{
+    <p class="helper">Slicing is disabled or no operator-approved profiles are mounted. See the integration documentation to enable it.</p>
+  }
+</section>
+}

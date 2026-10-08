@@ -1,6 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { AuthService } from './auth.service';
-import { Printer, WorkspaceService } from './workspace.service';
+import { CloudReceipt, Printer, WorkspaceService } from './workspace.service';
 import { RouterLink } from '@angular/router';
 import { DialogService, NoticeService } from './dialog.service';
 import { InventoryService, apiError } from './inventory.service';
@@ -87,6 +87,8 @@ export class IntegrationsComponent implements OnInit {
   private readonly notices = inject(NoticeService);
   private readonly workspace = inject(WorkspaceService);
   readonly printers = signal<Printer[]>([]);
+  readonly auth = inject(AuthService);
+  readonly cloudEvents = signal<CloudReceipt[]>([]);
   readonly enabledPrinters = computed(() => this.printers().filter(printer => printer.enabled).length);
   readonly capabilities = signal<Capabilities | null>(null);
   async ngOnInit(): Promise<void> {
@@ -96,6 +98,7 @@ export class IntegrationsComponent implements OnInit {
       ]);
       this.capabilities.set(capabilities);
       this.printers.set(printers);
+      if(this.auth.isAdmin())this.cloudEvents.set(await this.workspace.cloudEvents());
     }
     catch (error) { this.notices.show('Unable to load integration capabilities: ' + apiError(error),true); }
   }

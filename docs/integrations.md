@@ -1,6 +1,6 @@
 # Printer and slicer integration — contract and roadmap
 
-**Status: the v1 inventory API remains read-only; separate authenticated Moonraker and OctoPrint connectors are implemented in the main application. Automatic slicing is not implemented.**
+**Status: the v1 inventory API remains read-only; separate authenticated Moonraker and OctoPrint connectors support optional commands and file upload, approved-profile PrusaSlicer CLI slicing, explicit tool mappings and an HMAC-signed cloud event bridge.** All write/physical operations are opt-in and documented in [Operations](operations.md).
 
 The goal is to make Filament Manager useful for a variety of printer ecosystems without binding the inventory schema to any single vendor or requiring remote printer access from the inventory service.
 
@@ -46,7 +46,7 @@ Values above are illustrative and not actual API contents. Identifiers are immut
 
 **Security:** The v1 read-only inventory endpoints require an authenticated application session and must be accessed over trusted transport. The v1 capability flags describe only the external v1 API contract, **not** availability of the separate admin-configured printer connectors.
 
-## Planned external write-event contract (not implemented)
+## Future outbound event/mutation contract (not implemented)
 
 The new read-only controller connectors and job tracker are documented in [Security and printer operation](security-and-printers.md). A separate future write-event adapter could run as a module or separate process, depending on network trust. Potential responsibilities include:
 
@@ -57,7 +57,7 @@ The new read-only controller connectors and job tracker are documented in [Secur
 5. Emitting authenticated, idempotent usage events with unique per-source event IDs, so reconnection and retries cannot double-subtract a spool.
 6. Treating interrupted jobs, purge/wipe material, multi-material prints, failed prints, and spool swaps as explicit edge cases.
 
-An **illustrative, future-only** event shape (there is no route accepting this payload yet):
+An **illustrative, future-only** direct inventory usage-write event shape (there is no route accepting this payload; the separate cloud receipt route only records events and marks needs_review):
 
 ```json
 {
@@ -76,13 +76,13 @@ Before enabling write integration, add a persistent unique constraint on `(sourc
 
 ## Integration candidates to evaluate later
 
-Read-only adapters for **OctoPrint** and **Moonraker/Klipper** are now implemented and tested with mocked controller responses (not live hardware certification). Further candidates are Bambu Lab, Prusa Connect and richer slicer metadata formats; support for them is not implemented or verified. Check each product's current official documentation, authentication model, licensing, and supported API versions when choosing an adapter.
+OctoPrint and Moonraker/Klipper adapters now include optional physical control, G-code transfer, and tracked-job start, tested against mock transport only (not live hardware certification). Bambu Lab and Prusa Connect **native cloud APIs are not implemented**; approved operator cloud bridges can send signed status receipts to the generic webhook. Full vendor compatibility remains unverified. Check each product's current official documentation, authentication model, licensing, and supported API versions when choosing an adapter.
 
 ## Future delivery order
 
 1. Harden controller history capture, device compatibility testing and recovery from missed polling.
-2. Introduce explicit multi-extruder spool mapping and material waste estimation.
+2. Expand existing explicit multi-extruder spool mapping to slicer-derived per-tool quantities and optional waste estimates.
 3. Add authenticated, idempotent source-event ingestion with a separate durable scheduler.
-4. Evaluate printer control and automatic slicing as separate, security-reviewed features.
+4. Harden existing opt-in printer control and slicing for verified hardware profiles and more isolated execution.
 
 Printers and slicers should never be able to execute arbitrary operations on the inventory host.
