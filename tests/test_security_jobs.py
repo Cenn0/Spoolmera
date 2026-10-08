@@ -68,7 +68,8 @@ def test_password_auth_throttling_and_revoked_sessions(tmp_path):
             "old_password":PASSWORD,"new_password":"new-password-strong-2026"
         })
         assert updated.status_code==200,updated.text
-        assert client.get("/api/products").status_code==401
+        # Password change revokes previous sessions but returns a replacement cookie.
+        assert client.get("/api/products").status_code==200
         client.headers["X-CSRF-Token"]=updated.json()["csrf_token"]
         assert client.get("/api/products").status_code==200
         assert client.post("/api/auth/logout").status_code==200

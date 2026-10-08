@@ -78,12 +78,13 @@ def run() -> None:
         expect(page.locator("fm-root")).to_contain_text("Read-only available")
         expect(page.locator("fm-root")).to_contain_text("Not connected")
 
-        mobile = page.context.new_page()
-        mobile.set_viewport_size({"width": 390, "height": 844})
+        mobile_context = browser.new_context(viewport={"width": 390, "height": 844},
+                                             storage_state=page.context.storage_state())
+        mobile = mobile_context.new_page()
         mobile.goto(BASE + "/spools", wait_until="networkidle")
         expect(mobile.locator(".mobile-spool")).to_have_count(1)
         expect(mobile.locator(".side-nav")).to_be_visible()
-        mobile.close()
+        mobile_context.close()
         browser.close()
 
 if __name__ == "__main__":
