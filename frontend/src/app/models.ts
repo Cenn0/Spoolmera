@@ -21,6 +21,8 @@ export interface Product {
   notes: string;
   spool_count: number;
   total_remaining_g: number;
+  created_at: string;
+  updated_at: string;
 }
 export interface ProductInput {
   brand: string;

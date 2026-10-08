@@ -3,6 +3,8 @@ import argparse
 import json
 import types
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from typing import Literal, Union, get_args, get_origin
 from pydantic import BaseModel
 from app.api.contracts import API_MODELS
