@@ -94,7 +94,7 @@ function setView(viewName) {
   });
   $("#route-title").textContent = titles[viewName];
   document.title = titles[viewName] + " — Filament Manager";
-  window.scrollTo({ top: 0, behavior: "instant" });
+  window.scrollTo({ top: 0, behavior: "auto" });
 }
 
 function statusBadge(status) {

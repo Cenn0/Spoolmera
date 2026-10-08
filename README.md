@@ -39,7 +39,7 @@ Die Anwendung ist dann unter http://127.0.0.1:8765 erreichbar. API-Dokumentation
 Tests:
 
 ```bash
-pytest -q
+python -m pytest -q
 ```
 
 ## Sicherheit und Datensicherung

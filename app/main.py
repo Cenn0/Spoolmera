@@ -153,6 +153,18 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
             changes["opened"] = int(changes["opened"])
         assignments = ", ".join(f"{name}=?" for name in changes)
         with session(db_path, write=True) as db:
+            if changes.get("opened") == 0:
+                spool = db.execute(
+                    "SELECT initial_g, remaining_g FROM spools WHERE id=? AND archived_at IS NULL",
+                    (spool_id,),
+                ).fetchone()
+                if spool is None:
+                    raise HTTPException(status_code=404, detail="Rolle nicht gefunden.")
+                if spool["remaining_g"] != spool["initial_g"]:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Eine benutzte Rolle kann nicht als ungeöffnet markiert werden.",
+                    )
             result = db.execute(
                 f"UPDATE spools SET {assignments} WHERE id=? AND archived_at IS NULL",
                 (*changes.values(), spool_id),
