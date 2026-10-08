@@ -19,6 +19,9 @@ from app.auth import audit
 from app.services.accounting_service import apply_consumption
 from app.services.command_service import reserve_command, finalize_command, confirm_job_command
 from app.services.polling_service import record_poll_success, record_poll_failure
+from app.services.lease_service import acquire_lease, release_lease
+from app.infrastructure.printers.adapters import adapter_for
+from uuid import uuid4
 from app.core.policies import require_editor, require_admin
 from app.database import session, utc_now
 from app.printers import (
@@ -173,56 +176,18 @@ def poll_printer(db_path: Path, printer_id: int) -> dict:
         ).fetchall()}
     if not printer:
         raise ValueError("Printer is disabled or missing.")
-    if printer["kind"] == "moonraker":
-        history = moonraker_history(printer)
-        current_status = printer_status(printer)
-    else:
-        history = []
-        current_status = printer_status(printer)
+    adapter = adapter_for(
+        printer["kind"], status=printer_status,
+        history=moonraker_history, lookup=moonraker_job,
+    )
+    history = adapter.get_history(printer)
+    current_status = adapter.get_status(printer)
     changed = 0
     for job in jobs:
-        outcome = None
-        remote_state = None
-        external_id = job["external_job_id"]
-        if printer["kind"] == "moonraker":
-            # An immutable history ID is the reliable identity of a physical run.
-            matched = None
-            if external_id:
-                matched = next((item for item in history if str(item.get("job_id")) == external_id), None)
-                if matched is None:
-                    # IDs survive beyond Moonraker's bounded list. Fetch the known run directly.
-                    try:
-                        matched = moonraker_job(printer, external_id)
-                    except ValueError:
-                        matched = None
-            else:
-                created = datetime.fromisoformat(job["created_at"]).timestamp()
-                candidates = [item for item in history if
-                    item.get("filename") == job["file_name"]
-                    and isinstance(item.get("start_time"), (int, float))
-                    and item["start_time"] >= created - 2
-                    and item["job_id"] not in claimed_ids]
-                if len(candidates) == 1:
-                    matched = candidates[0]
-                elif len(candidates) > 1:
-                    outcome = "needs_review"
-            if not matched and not outcome:
-                continue
-            remote_state = matched.get("status") if matched else None
-            external_id = matched["job_id"] if matched else None
-            if remote_state == "in_progress":
-                outcome = "printing"
-            elif remote_state == "completed":
-                outcome = "completed" if job["observed_printing"] and job["external_job_id"] == external_id else "needs_review"
-            elif remote_state in ("cancelled", "error", "klippy_shutdown", "klippy_disconnect", "interrupted"):
-                outcome = "needs_review"
-        else:
-            state = current_status["state"].lower()
-            same_file = current_status["filename"] == job["file_name"]
-            if state in ("printing", "paused") and same_file:
-                outcome = "printing"
-            elif job["observed_printing"] and state not in ("printing", "paused"):
-                outcome = "needs_review"
+        observation = adapter.observe(printer, job, history, current_status, claimed_ids)
+        outcome = observation.outcome
+        external_id = observation.external_id
+        remote_state = observation.remote_state
         if not outcome:
             continue
         try:
@@ -289,9 +254,14 @@ def poll_all(db_path: Path) -> None:
 
 async def poll_worker(db_path: Path):
     interval = max(10, min(300, int(os.getenv("FILAMENT_PRINTER_POLL_SECONDS", "30"))))
+    owner = str(uuid4())
     while True:
         try:
-            await asyncio.to_thread(poll_all, db_path)
+            if acquire_lease(db_path, "printer-poll", owner, ttl_seconds=max(1800, 4*interval)):
+                try:
+                    await asyncio.to_thread(poll_all, db_path)
+                finally:
+                    release_lease(db_path, "printer-poll", owner)
         except Exception:
             LOG.exception("Unexpected printer polling failure")
         await asyncio.sleep(interval)

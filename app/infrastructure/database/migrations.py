@@ -57,6 +57,13 @@ def migrate_v5(db: sqlite3.Connection) -> None:
         consecutive_failures INTEGER NOT NULL DEFAULT 0,
         last_error TEXT NOT NULL DEFAULT ''
     )""")
-    # A crash can occur after the command reached hardware but before acknowledgement.
-    # Reconciliation must never silently retry such a command on restart.
-    db.execute("UPDATE printer_commands SET state='unknown',updated_at=CURRENT_TIMESTAMP WHERE state='sending'")
+    db.execute("""CREATE TABLE IF NOT EXISTS worker_leases (
+        name TEXT PRIMARY KEY,
+        owner TEXT NOT NULL,
+        expires_at INTEGER NOT NULL
+    )""")
+    # Preserve live multi-process commands; only old, potentially crashed sends
+    # become unknown. They are never auto-retried.
+    db.execute("""UPDATE printer_commands SET state='unknown',updated_at=?
+                  WHERE state='sending' AND unixepoch(updated_at) < unixepoch('now')-90""",
+               (__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(timespec="seconds"),))
