@@ -15,7 +15,7 @@ def run() -> None:
         browser = playwright.chromium.launch(headless=True)
         page = browser.new_page(accept_downloads=True)
         page.goto(BASE + "/", wait_until="networkidle")
-        expect(page.locator("h1")).to_contain_text("Every spool")
+        expect(page.locator("#dashboard-title")).to_contain_text("Every spool")
         page.locator('[data-action="new-product"]').first.click()
         product = page.locator("#product-dialog")
         expect(product).to_be_visible()
