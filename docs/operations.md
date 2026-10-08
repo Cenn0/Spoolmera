@@ -3,7 +3,7 @@
 > **Experimental opt-in functionality.** The APIs and unit tests do not certify
 > hardware compatibility or make uploaded machine instructions safe. Run only
 > behind HTTPS or VPN, restrict printer addresses, and physically supervise
-> first tests. The Filament Manager application remains one Docker service.
+> first tests. The default installation remains one Docker service; optional slicing uses a separate internal-only worker.
 
 ## Printer control and file upload
 

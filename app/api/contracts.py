@@ -82,7 +82,10 @@ class JobResponse(BaseModel):
     movement_id: int | None
     note: str
     external_job_id: str | None
+    observed_printing: int
     created_at: str
+    created_by: int | None
+    updated_at: str
     start_command_state: str | None
     materials: list[JobMaterialResponse]
 

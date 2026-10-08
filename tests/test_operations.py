@@ -209,6 +209,17 @@ def test_cloud_signature_replay_and_conservative_review(workspace, monkeypatch):
     assert client.get("/api/jobs").json()[0]["status"] == "needs_review"
     assert {r["id"]: r["remaining_g"] for r in client.get("/api/spools").json()}[s0] == 1000
     assert len(client.get("/api/cloud/events").json()) == 1
+    second = client.post("/api/printers", json={
+        "name":"Second","kind":"moonraker","base_url":"http://192.168.50.21:7125"
+    }).json()["id"]
+    other_job = client.post("/api/jobs", json={
+        "printer_id":second,"spool_id":s1,"file_name":"other.gcode","estimated_g":40
+    }).json()["id"]
+    foreign_body = json.dumps({"event_id":"remote-run-0002","job_id":other_job,"status":"completed"}).encode()
+    foreign_headers = {"X-Filament-Timestamp":stamp,
+        "X-Filament-Signature":signature("cloud-test-key-with-at-least-thirty-two-characters",stamp,foreign_body)}
+    assert client.post(route, content=foreign_body, headers=foreign_headers).status_code == 403
+    assert next(j for j in client.get("/api/jobs").json() if j["id"]==other_job)["status"] == "pending"
 
 
 def test_slicing_opt_in_profile_and_cli_argument_guards(workspace, monkeypatch, tmp_path):

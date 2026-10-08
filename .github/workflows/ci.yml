@@ -162,6 +162,18 @@ jobs:
         run: |
           docker run --rm --entrypoint /usr/bin/test filament-manager:slicer-ci -x /usr/bin/prusa-slicer
           docker run --rm --entrypoint /usr/bin/prusa-slicer filament-manager:slicer-ci --help >/dev/null
+      - name: Smoke-test isolated slicer Compose networking and token
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p slicer-profiles
+          printf 'nozzle_diameter = 0.4\n' > slicer-profiles/ci.ini
+          export FILAMENT_BOOTSTRAP_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+          printf 'FILAMENT_BOOTSTRAP_TOKEN=%s\nFILAMENT_SLICER_WORKER_TOKEN=%s\n' "$FILAMENT_BOOTSTRAP_TOKEN" "$FILAMENT_SLICER_WORKER_TOKEN" > .env
+          trap 'docker compose -f compose.yaml -f compose.slicer.yaml down -v >/dev/null 2>&1 || true; rm -f .env; rm -rf slicer-profiles' EXIT
+          docker compose -f compose.yaml -f compose.slicer.yaml up -d --build --wait
+          docker compose -f compose.yaml -f compose.slicer.yaml exec -T filament-manager python -c 'import json,os,urllib.request; req=urllib.request.Request("http://slicer-worker:8767/profiles",headers={"X-Worker-Token":os.environ["FILAMENT_SLICER_WORKER_TOKEN"]}); assert json.load(urllib.request.urlopen(req,timeout=5))=={"profiles":["ci"]}'
+          docker compose -f compose.yaml -f compose.slicer.yaml exec -T slicer-worker python -c 'import os; assert "FILAMENT_BOOTSTRAP_TOKEN" not in os.environ; assert not any(k.startswith("FILAMENT_PRINTER_TOKEN_") for k in os.environ)'
 
   security-audit:
     runs-on: ubuntu-latest

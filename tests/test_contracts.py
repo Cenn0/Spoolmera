@@ -24,3 +24,26 @@ def test_inventory_cursor_and_diagnostics(tmp_path):
         assert third["next_cursor"] is None
         assert client.get("/api/diagnostics").status_code==200
         assert client.get("/api/audit").status_code==200
+
+def test_non_admin_does_not_receive_printer_endpoint_details(tmp_path,monkeypatch):
+    path=tmp_path/"leastprivilege.sqlite3"
+    with TestClient(create_app(path)) as admin:
+        authenticate(admin)
+        monkeypatch.setenv("FILAMENT_PRINTER_ALLOWED_IPS","192.168.50.20")
+        created=admin.post("/api/printers",json={
+            "name":"Internal","kind":"moonraker","base_url":"http://192.168.50.20:7125"
+        })
+        assert created.status_code==201,created.text
+        new_user=admin.post("/api/auth/users",json={
+            "username":"readonly","password":"viewer-password-long-enough","role":"viewer"
+        })
+        assert new_user.status_code==201,new_user.text
+        assert admin.get("/api/printers").json()[0]["base_url"].startswith("http://")
+    with TestClient(create_app(path)) as viewer:
+        assert viewer.post("/api/auth/login",json={
+            "username":"readonly","password":"viewer-password-long-enough"}).status_code==200
+        item=viewer.get("/api/printers").json()[0]
+        assert item["name"]=="Internal"
+        assert item["base_url"] == "" and item["token_env"] == ""
+        assert viewer.get("/api/diagnostics").status_code==403
+        assert viewer.get("/api/audit").status_code==403

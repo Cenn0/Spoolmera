@@ -87,7 +87,10 @@ export interface ApiJob {
   movement_id: number | null;
   note: string;
   external_job_id: string | null;
+  observed_printing: number;
   created_at: string;
+  created_by: number | null;
+  updated_at: string;
   start_command_state: string | null;
   materials: ApiJobMaterial[];
 }
