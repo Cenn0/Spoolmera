@@ -28,6 +28,7 @@ jobs:
         working-directory: frontend
         run: |
           npm install --no-audit --no-fund
+          python -c 'import base64,pathlib; b=base64.b64encode(pathlib.Path("package-lock.json").read_bytes()).decode(); print("LOCKFILE-START"); [print("LOCKCHUNK:"+b[i:i+700]) for i in range(0,len(b),700)]; print("LOCKFILE-END")'
           npm run typecheck
           npm run build
       - name: Stage compiled frontend for backend tests
