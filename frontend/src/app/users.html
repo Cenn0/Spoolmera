@@ -1,0 +1,29 @@
+<section class="page-head"><div><span class="eyebrow">ACCESS CONTROL</span><h1>User <em>management.</em></h1><p>Create accounts with explicit admin, editor and viewer permissions.</p></div></section>
+@if(error()){<p class="form-error" role="alert">{{error()}}</p>}
+<section class="panel workflow-panel">
+  <div class="panel-heading"><div><span class="eyebrow">ADMINISTRATION</span><h2>Add user</h2></div></div>
+  <form class="workflow-form" #userForm="ngForm" (ngSubmit)="create()">
+    <div class="form-grid">
+      <label>Username<input name="username" [(ngModel)]="username" required maxlength="60" autocomplete="off"></label>
+      <label>Initial password<input name="password" type="password" [(ngModel)]="password" required minlength="14" maxlength="128" autocomplete="new-password"></label>
+      <label>Role<select name="role" [(ngModel)]="role"><option value="viewer">Viewer · read-only</option><option value="editor">Editor · inventory changes</option><option value="admin">Admin · users and connections</option></select></label>
+    </div>
+    <button class="btn primary" type="submit" [disabled]="busy()||userForm.invalid">Create user</button>
+  </form>
+</section>
+<section class="panel workflow-panel"><div class="panel-heading"><div><span class="eyebrow">MEMBERS</span><h2>Accounts</h2></div></div>
+  <div class="workflow-list">
+    @for(u of users();track u.id){
+      <article class="workflow-row">
+        <div class="workflow-main"><strong>{{u.username}} @if(u.id===auth.user()?.id){<small>(you)</small>}</strong><span>{{u.role}} · {{u.enabled?'Enabled':'Disabled'}}</span></div>
+        <div class="workflow-buttons">
+          <select [value]="u.role" #roleSelect aria-label="User role" (change)="update(u,{role:roleSelect.value})" [disabled]="busy()||!u.enabled">
+            <option value="viewer">Viewer</option><option value="editor">Editor</option><option value="admin">Admin</option>
+          </select>
+          <button class="btn ghost" type="button" [disabled]="busy()" (click)="reset(u)">Reset password</button>
+          <button class="btn ghost" type="button" [disabled]="busy()" (click)="update(u,{enabled:!u.enabled})">{{u.enabled?'Disable':'Enable'}}</button>
+        </div>
+      </article>
+    } @empty {<div class="placeholder">No accounts.</div>}
+  </div>
+</section>
