@@ -1,9 +1,9 @@
 # Compile Angular separately; runtime contains Python and static assets only.
 FROM node:24-alpine AS frontend-build
 WORKDIR /work/frontend
-COPY frontend/package.json frontend/angular.json frontend/tsconfig.json frontend/tsconfig.app.json ./
+COPY frontend/package.json frontend/package-lock.json frontend/angular.json frontend/tsconfig.json frontend/tsconfig.app.json ./
 COPY frontend/src ./src
-RUN npm install --no-audit --no-fund && npm run build
+RUN npm ci --no-audit --no-fund && npm run build
 
 FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
