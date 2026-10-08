@@ -112,7 +112,7 @@ def test_v3_material_migration_preserves_existing_records(workspace):
     with session(path) as db:
         mat = db.execute("SELECT tool,spool_id,estimated_g FROM job_materials WHERE job_id=?", (job_id,)).fetchone()
         assert tuple(mat) == (0, s0, 44)
-        assert db.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert db.execute("PRAGMA user_version").fetchone()[0] == 5
 
 
 def test_printer_control_default_off_and_admin_only(workspace, monkeypatch):
@@ -189,6 +189,7 @@ def test_cloud_signature_replay_and_conservative_review(workspace, monkeypatch):
         "printer_id": printer, "spool_id": s0, "file_name": "cloud.gcode", "estimated_g": 35
     }).json()["id"]
     monkeypatch.setenv("FILAMENT_CLOUD_HMAC_FARM", "cloud-test-key-with-at-least-thirty-two-characters")
+    monkeypatch.setenv("FILAMENT_CLOUD_PRINTER_FARM", str(printer))
     data = {"event_id": "remote-run-0001", "job_id": job_id, "status": "completed"}
     body = json.dumps(data).encode()
     stamp = str(int(time.time()))
@@ -208,6 +209,17 @@ def test_cloud_signature_replay_and_conservative_review(workspace, monkeypatch):
     assert client.get("/api/jobs").json()[0]["status"] == "needs_review"
     assert {r["id"]: r["remaining_g"] for r in client.get("/api/spools").json()}[s0] == 1000
     assert len(client.get("/api/cloud/events").json()) == 1
+    second = client.post("/api/printers", json={
+        "name":"Second","kind":"moonraker","base_url":"http://192.168.50.21:7125"
+    }).json()["id"]
+    other_job = client.post("/api/jobs", json={
+        "printer_id":second,"spool_id":s1,"file_name":"other.gcode","estimated_g":40
+    }).json()["id"]
+    foreign_body = json.dumps({"event_id":"remote-run-0002","job_id":other_job,"status":"completed"}).encode()
+    foreign_headers = {"X-Filament-Timestamp":stamp,
+        "X-Filament-Signature":signature("cloud-test-key-with-at-least-thirty-two-characters",stamp,foreign_body)}
+    assert client.post(route, content=foreign_body, headers=foreign_headers).status_code == 403
+    assert next(j for j in client.get("/api/jobs").json() if j["id"]==other_job)["status"] == "pending"
 
 
 def test_slicing_opt_in_profile_and_cli_argument_guards(workspace, monkeypatch, tmp_path):
@@ -225,6 +237,9 @@ def test_slicing_opt_in_profile_and_cli_argument_guards(workspace, monkeypatch, 
     monkeypatch.setenv("FILAMENT_SLICER_ENABLED", "1")
     monkeypatch.setenv("FILAMENT_SLICER_PROFILES_DIR", str(directory))
     monkeypatch.setenv("FILAMENT_SLICER_EXECUTABLE", str(binary))
+    monkeypatch.setenv("FILAMENT_SLICER_WORKER_URL", "http://slicer-worker:8767")
+    monkeypatch.setenv("FILAMENT_SLICER_WORKER_TOKEN", "slicer-test-worker-secret-at-least-32-characters")
+    monkeypatch.setattr("app.slicing.worker_profiles", lambda: __import__("app.slicing", fromlist=["list_profiles"]).list_profiles())
     assert client.get("/api/slicing/profiles").json() == {"enabled": True, "profiles": ["approved"]}
     assert client.post("/api/slicing/slice", params={"profile": "../evil"},
                        content=source, headers=headers).status_code == 422
@@ -236,6 +251,8 @@ def test_slicing_opt_in_profile_and_cli_argument_guards(workspace, monkeypatch, 
         Path(argv[argv.index("--output")+1]).write_bytes(b"; filament used [g] = 22.4\nG1 E2\n")
         return SimpleNamespace(returncode=0)
     monkeypatch.setattr("app.slicing.subprocess.run", fake_run)
+    monkeypatch.setattr("app.slicing.remote_slice_stl",
+        lambda data, profile: __import__("app.slicing", fromlist=["slice_stl"]).slice_stl(data, profile))
     response = client.post("/api/slicing/slice", params=query, content=source, headers=headers)
     assert response.status_code == 200, response.text
     assert response.headers["X-Estimated-Grams"] == "22"
@@ -253,6 +270,10 @@ def test_slicer_rejects_profile_postprocessing(workspace, monkeypatch, tmp_path)
     monkeypatch.setenv("FILAMENT_SLICER_ENABLED", "1")
     monkeypatch.setenv("FILAMENT_SLICER_PROFILES_DIR", str(root))
     monkeypatch.setenv("FILAMENT_SLICER_EXECUTABLE", str(binary))
+    monkeypatch.setenv("FILAMENT_SLICER_WORKER_URL", "http://slicer-worker:8767")
+    monkeypatch.setenv("FILAMENT_SLICER_WORKER_TOKEN", "slicer-test-worker-secret-at-least-32-characters")
+    monkeypatch.setattr("app.slicing.remote_slice_stl",
+        lambda data, profile: __import__("app.slicing", fromlist=["slice_stl"]).slice_stl(data, profile))
     response = client.post("/api/slicing/slice?profile=unsafe",
                            content=b"solid cube\nfacet normal 0 0 1\nendsolid cube\n",
                            headers={"Content-Type":"application/octet-stream"})
@@ -276,6 +297,7 @@ def test_upload_transport_revalidates_allowlist_and_rejects_redirect(workspace, 
 def test_cloud_event_does_not_require_web_session_but_requires_hmac(workspace, monkeypatch):
     client, path, printer, s0, s1 = workspace
     monkeypatch.setenv("FILAMENT_CLOUD_HMAC_RELAY", "unique-cloud-signing-secret-at-least-32-characters")
+    monkeypatch.setenv("FILAMENT_CLOUD_PRINTER_RELAY", str(printer))
     job_id = client.post("/api/jobs",json={"printer_id":printer,"spool_id":s0,
                                            "file_name":"unsigned.gcode","estimated_g":2}).json()["id"]
     with TestClient(create_app(path)) as anonymous:

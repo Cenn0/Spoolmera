@@ -26,7 +26,7 @@ The Moonraker adapter uses `GET /server/history/list` and the immutable job-hist
 
 Any missed observation (short job, restart), error, cancellation, insufficient stock or ambiguous result requires human review. OctoPrint's current-job status does not unambiguously prove successful completion, so it never automatically debits. Human confirmation debits the selected **estimate**, not sensor-measured grams; discard leaves inventory unchanged.
 
-The poller runs in the single FastAPI runtime process. Do not run multiple Uvicorn workers without moving polling to a distributed scheduler and adding process-wide lease semantics.
+Polling still runs in the FastAPI runtime. A SQLite lease prevents overlapping scheduled pollers sharing one database, but a single Uvicorn worker is the supported default; lease expiry alone is not a substitute for a dedicated distributed worker at scale. Polling failures and timestamps are persisted for diagnostics. Moonraker history lookups use its unique run ID to recover entries outside the latest 25.
 
 ## Versioned API
 
@@ -34,10 +34,16 @@ Existing `/api/integrations/v1/*` remains read-only; it now requires an authenti
 
 ## Known limitations
 
-No OAuth/SSO, MFA, native cloud-vendor API integration, automatic tool mapping, fully sandboxed slicer, isolation of tenants or physical filament weighing. Opt-in slicing, uploads, controls and signed vendor-neutral cloud bridge exist with explicit constraints in [Operations](operations.md). SQLite backups must be consistent across WAL files. Upgrading to DB v4 is forward-only without restoring a backup.
+No OAuth/SSO, MFA, native cloud-vendor API integration, automatic tool mapping, tenant isolation or physical filament weighing. The optional slicer now runs in a restricted, internal-only container; this reduces risk but is not a formal malware sandbox. Opt-in slicing, uploads, controls and signed vendor-neutral cloud bridge exist with explicit constraints in [Operations](operations.md). SQLite backups must be consistent across WAL files. Upgrading to DB v4 is forward-only without restoring a backup.
 
 Original device documentation:
 
 - [Moonraker print history](https://moonraker.readthedocs.io/en/latest/external_api/history/)
 - [Moonraker polling](https://moonraker.readthedocs.io/en/latest/external_api/introduction/)
 - [OctoPrint current-job operations](https://docs.octoprint.org/en/main/api/job.html)
+
+## Durable physical command boundary
+
+Printer commands are stored with a unique correlation ID and a lifecycle (`sending`, `acknowledged`, `unknown`, `confirmed`, `cleared`). A printer may act even when its HTTP response is lost: uncertain starts are never automatically resent. An administrator must verify the printer physically and record an explanation before clearing an unconfirmed command. Actual consumption is a separate transaction and requires a verified run identity or manual review.
+
+Signed cloud relay aliases must be bound to one configured printer using `FILAMENT_CLOUD_PRINTER_<ALIAS>`. Signing authenticates the source but does not prove a successful print or physical material usage. Slicer workers receive only their own shared worker token, not the API bootstrap secret or controller credentials.

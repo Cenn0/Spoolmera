@@ -11,10 +11,11 @@ import time
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.auth import audit
+from app.core.policies import require_editor, require_admin
 from app.database import session, utc_now
 
 SOURCE = re.compile(r"^[A-Z][A-Z0-9_]{0,30}$")
@@ -49,7 +50,8 @@ def verify_cloud_request(source: str, request: Request, body: bytes) -> None:
 
 
 def register_cloud_routes(app: FastAPI, db_path: Path) -> None:
-    @app.post("/api/cloud/hooks/{source}")
+    router = APIRouter()
+    @router.post("/api/cloud/hooks/{source}")
     async def receive_cloud_event(source: str, request: Request):
         size = 0
         chunks = []
@@ -79,10 +81,17 @@ def register_cloud_routes(app: FastAPI, db_path: Path) -> None:
             job = db.execute("SELECT * FROM print_jobs WHERE id=?", (event.job_id,)).fetchone()
             if not job:
                 raise HTTPException(status_code=404, detail="Tracked job not found.")
+            # A valid relay signature only authorizes the printer explicitly
+            # bound to that relay; do not let one relay change another's jobs.
+            bound_printer = os.getenv("FILAMENT_CLOUD_PRINTER_" + source, "")
+            if not bound_printer.isascii() or not bound_printer.isdecimal():
+                raise HTTPException(status_code=503, detail="Cloud relay has no configured printer binding.")
+            if int(bound_printer) != job["printer_id"]:
+                raise HTTPException(status_code=403, detail="Cloud relay is not authorized for this printer.")
             disposition = "recorded"
             if event.status in {"completed", "failed", "cancelled"} and job["status"] in {"pending", "printing"}:
                 db.execute(
-                    """UPDATE print_jobs SET status='needs_review',note=?,updated_at=?
+                    """UPDATE print_jobs SET status='needs_review',accounting_status='needs_review',note=?,updated_at=?
                        WHERE id=?""",
                     ("Cloud source " + source + " reported " + event.status +
                      "; verify actual material usage before deduction.", utc_now(), event.job_id),
@@ -96,10 +105,12 @@ def register_cloud_routes(app: FastAPI, db_path: Path) -> None:
             audit(db, None, "cloud_" + event.status, "print_job", event.job_id)
         return {"duplicate": False, "disposition": disposition}
 
-    @app.get("/api/cloud/events")
+    @router.get("/api/cloud/events", dependencies=[Depends(require_admin)])
     def list_cloud_events():
         with session(db_path) as db:
             return [dict(row) for row in db.execute(
                 """SELECT source,event_id,job_id,disposition,received_at
                    FROM cloud_event_receipts ORDER BY received_at DESC,event_id DESC LIMIT 100"""
             ).fetchall()]
+
+    app.include_router(router)

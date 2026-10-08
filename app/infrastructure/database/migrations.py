@@ -1,0 +1,114 @@
+"""Additive, idempotent SQLite schema migrations and restart recovery."""
+import sqlite3
+from uuid import uuid4
+from datetime import datetime, timezone
+
+CURRENT_SCHEMA_VERSION = 5
+
+def migrate_v2_v4(connection: sqlite3.Connection) -> None:
+    """Preserve legacy IDs and write an idempotent material mapping upgrade."""
+    for table in ("products", "spools"):
+        columns = {row["name"] for row in connection.execute(f"PRAGMA table_info({table})")}
+        if "uid" not in columns:
+            connection.execute(f"ALTER TABLE {table} ADD COLUMN uid TEXT")
+        for row in connection.execute(
+            f"SELECT id FROM {table} WHERE uid IS NULL OR uid = ''"
+        ).fetchall():
+            connection.execute(
+                f"UPDATE {table} SET uid = ? WHERE id = ?",
+                (str(uuid4()), row["id"]),
+            )
+        connection.execute(
+            f"CREATE UNIQUE INDEX IF NOT EXISTS idx_{table}_uid ON {table}(uid)"
+        )
+    movement_columns = {row["name"] for row in connection.execute("PRAGMA table_info(movements)")}
+    if "print_job_id" not in movement_columns:
+        connection.execute(
+            "ALTER TABLE movements ADD COLUMN print_job_id INTEGER REFERENCES print_jobs(id)"
+        )
+    # Version 4 supports one immutable movement per (job, physical spool).
+    # Dropping the old one-movement-per-job index is required for MMU jobs.
+    connection.execute("DROP INDEX IF EXISTS idx_movements_print_job")
+    connection.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_movements_print_job_spool "
+        "ON movements(print_job_id, spool_id) WHERE print_job_id IS NOT NULL"
+    )
+    connection.execute(
+        """INSERT OR IGNORE INTO job_materials(job_id,tool,spool_id,estimated_g,movement_id)
+           SELECT id,0,spool_id,estimated_g,movement_id FROM print_jobs"""
+    )
+
+
+def _ensure_column(db: sqlite3.Connection, table: str, column: str, ddl: str) -> None:
+    existing = {row["name"] for row in db.execute(f"PRAGMA table_info({table})")}
+    if column not in existing:
+        db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
+
+def migrate_v5(db: sqlite3.Connection) -> None:
+    """Run inside the existing BEGIN IMMEDIATE transaction.
+
+    In-place upgrades never infer missing historical actor identities.
+    """
+    _ensure_column(db, "movements", "actor_id", "INTEGER REFERENCES users(id)")
+    _ensure_column(db, "movements", "source", "TEXT NOT NULL DEFAULT 'manual'")
+    _ensure_column(db, "movements", "source_ref", "TEXT")
+    db.execute("UPDATE movements SET source='print_job' WHERE print_job_id IS NOT NULL AND source='manual'")
+    _ensure_column(db, "print_jobs", "accounting_status",
+                   "TEXT NOT NULL DEFAULT 'pending' CHECK(accounting_status IN ('pending','needs_review','debited','discarded'))")
+    db.execute("""UPDATE print_jobs SET accounting_status =
+        CASE WHEN status='completed' THEN 'debited'
+             WHEN status='needs_review' THEN 'needs_review'
+             WHEN status='cancelled' THEN 'discarded'
+             ELSE accounting_status END
+        WHERE status IN ('completed','needs_review','cancelled')""")
+    db.execute("""CREATE TABLE IF NOT EXISTS print_runs (
+        id INTEGER PRIMARY KEY,
+        printer_id INTEGER NOT NULL REFERENCES printers(id) ON DELETE RESTRICT,
+        job_id INTEGER REFERENCES print_jobs(id) ON DELETE RESTRICT,
+        external_run_id TEXT NOT NULL,
+        state TEXT NOT NULL,
+        first_seen_at TEXT NOT NULL,
+        last_seen_at TEXT NOT NULL,
+        UNIQUE(printer_id, external_run_id)
+    )""")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_print_runs_job ON print_runs(job_id)")
+    db.execute("""CREATE TABLE IF NOT EXISTS printer_commands (
+        id TEXT PRIMARY KEY,
+        printer_id INTEGER NOT NULL REFERENCES printers(id) ON DELETE RESTRICT,
+        job_id INTEGER REFERENCES print_jobs(id) ON DELETE RESTRICT,
+        action TEXT NOT NULL CHECK(action IN ('start','pause','resume','cancel')),
+        state TEXT NOT NULL CHECK(state IN ('sending','acknowledged','unknown','rejected','confirmed','cleared')),
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        http_status INTEGER,
+        detail TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )""")
+    db.execute("""CREATE UNIQUE INDEX IF NOT EXISTS idx_start_command_active
+        ON printer_commands(job_id,action)
+        WHERE action='start' AND state IN ('sending','acknowledged','unknown','confirmed')""")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_commands_printer ON printer_commands(printer_id,created_at DESC)")
+    db.execute("""CREATE TABLE IF NOT EXISTS printer_poll_state (
+        printer_id INTEGER PRIMARY KEY REFERENCES printers(id) ON DELETE CASCADE,
+        last_attempt_at TEXT,
+        last_success_at TEXT,
+        consecutive_failures INTEGER NOT NULL DEFAULT 0,
+        last_error TEXT NOT NULL DEFAULT ''
+    )""")
+    db.execute("""CREATE TABLE IF NOT EXISTS worker_leases (
+        name TEXT PRIMARY KEY,
+        owner TEXT NOT NULL,
+        expires_at INTEGER NOT NULL
+    )""")
+    # Runtime recovery is separate from schema upgrades.
+
+
+def recover_interrupted_commands(db: sqlite3.Connection) -> None:
+    """Fail closed after API restart; never retry a possibly delivered command.
+
+    A single API worker is the supported deployment. A second worker can only
+    mark an in-flight command unknown, never execute it again automatically.
+    """
+    db.execute("""UPDATE printer_commands SET state='unknown',updated_at=?
+                  WHERE state='sending'""",
+               (datetime.now(timezone.utc).isoformat(timespec="seconds"),))

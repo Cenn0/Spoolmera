@@ -15,12 +15,15 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import urlsplit, quote
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Literal
 
+from app.core.policies import require_editor, require_admin
 from app.database import session, utc_now
 from app.auth import audit
+from app.services.command_service import reserve_command, finalize_command, clear_command
+from app.api.contracts import PrinterResponse
 
 TOKEN_PATTERN = re.compile(r"^FILAMENT_PRINTER_TOKEN_[A-Z0-9_]{1,50}$")
 PRIVATE_NETWORKS = tuple(ipaddress.ip_network(value) for value in (
@@ -151,11 +154,31 @@ def moonraker_history(printer) -> list[dict]:
     return jobs
 
 
+def moonraker_job(printer, job_id: str) -> dict | None:
+    """Fetch a known history UID even after the entry left the latest 25."""
+    if not job_id or len(job_id) > 120:
+        raise ValueError("Invalid remote job identity.")
+    data = fetch_json(printer, "/server/history/job?uid=" + quote(job_id, safe=""))
+    # HTTP Moonraker history responses use a top-level "job"; support JSON-RPC
+    # envelopes as well for adapter fixtures and version differences.
+    root = data.get("result", data)
+    entry = response_object(response_object(root, "history").get("job"), "job")
+    if (entry.get("job_id") != job_id or not isinstance(entry.get("filename"), str)
+            or not isinstance(entry.get("status"), str)
+            or type(entry.get("start_time")) not in (int, float)
+            or not math.isfinite(entry["start_time"])):
+        raise ValueError("Invalid Moonraker history identity.")
+    return entry
 
 
 class PrinterCommand(BaseModel):
     model_config = ConfigDict(extra="forbid")
     action: Literal["pause", "resume", "cancel"]
+
+
+class ClearCommand(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    reason: str = Field(min_length=10, max_length=500)
 
 
 SAFE_UPLOAD_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,169}\.(?:gcode|gco|gc)$", re.I)
@@ -227,17 +250,23 @@ def upload_controller_file(printer, filename: str, content: bytes) -> int:
 
 
 def register_printer_routes(app: FastAPI, db_path: Path) -> None:
-    @app.get("/api/printers/capabilities")
+    router = APIRouter()
+    @router.get("/api/printers/capabilities")
     def printer_capabilities():
         return {"write_enabled": control_enabled(), "max_upload_bytes": 16 * 1024 * 1024}
 
-    @app.get("/api/printers")
-    def printers():
+    @router.get("/api/printers", response_model=list[PrinterResponse])
+    def printers(request: Request):
         with session(db_path) as db:
-            return [safe_printer(row) for row in db.execute(
+            rows = [safe_printer(row) for row in db.execute(
                 "SELECT * FROM printers ORDER BY name COLLATE NOCASE").fetchall()]
+        if request.state.user["role"] != "admin":
+            for row in rows:
+                row["base_url"] = ""
+                row["token_env"] = ""
+        return rows
 
-    @app.post("/api/printers", status_code=201)
+    @router.post("/api/printers", status_code=201, dependencies=[Depends(require_admin)])
     def add_printer(payload: PrinterInput, request: Request):
         try:
             base = validate_printer_input(payload)
@@ -253,7 +282,7 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
             audit(db, request.state.user["id"], "printer_create", "printer", printer_id)
         return {"id": printer_id}
 
-    @app.put("/api/printers/{printer_id}")
+    @router.put("/api/printers/{printer_id}", dependencies=[Depends(require_admin)])
     def update_printer(printer_id: int, payload: PrinterInput, request: Request):
         try:
             base = validate_printer_input(payload)
@@ -279,7 +308,7 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
             audit(db, request.state.user["id"], "printer_update", "printer", printer_id)
         return {"id": printer_id}
 
-    @app.post("/api/printers/{printer_id}/probe")
+    @router.post("/api/printers/{printer_id}/probe", dependencies=[Depends(require_admin)])
     def probe(printer_id: int):
         with session(db_path) as db:
             printer = db.execute("SELECT * FROM printers WHERE id=? AND enabled=1", (printer_id,)).fetchone()
@@ -290,7 +319,23 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
         except ValueError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    @app.post("/api/printers/{printer_id}/control")
+    @router.get("/api/printers/{printer_id}/commands", dependencies=[Depends(require_admin)])
+    def printer_command_history(printer_id: int):
+        with session(db_path) as db:
+            if not db.execute("SELECT 1 FROM printers WHERE id=?", (printer_id,)).fetchone():
+                raise HTTPException(status_code=404, detail="Printer not found.")
+            return [dict(row) for row in db.execute(
+                """SELECT id,job_id,action,state,http_status,detail,created_at,updated_at
+                   FROM printer_commands WHERE printer_id=? ORDER BY created_at DESC LIMIT 100""",
+                (printer_id,),
+            ).fetchall()]
+
+    @router.post("/api/printers/commands/{command_id}/clear", dependencies=[Depends(require_admin)])
+    def clear_start_command(command_id: str, payload: ClearCommand, request: Request):
+        clear_command(db_path, command_id, request.state.user["id"], payload.reason)
+        return {"id": command_id, "state": "cleared"}
+
+    @router.post("/api/printers/{printer_id}/control", dependencies=[Depends(require_admin)])
     def control_printer(printer_id: int, payload: PrinterCommand, request: Request):
         require_control()
         with session(db_path) as db:
@@ -299,19 +344,26 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
             ).fetchone()
         if not printer:
             raise HTTPException(status_code=404, detail="Enabled printer not found.")
+        command_id = reserve_command(db_path, printer_id, None, payload.action, request.state.user["id"])
         try:
-            # Operators explicitly request physical changes; never accept raw G-code here.
             status = issue_control(printer, payload.action)
-        except ValueError as exc:
-            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        except BaseException as exc:
+            finalize_command(db_path, command_id, "unknown", detail="Controller outcome unknown; verify physically.")
+            if isinstance(exc, ValueError):
+                raise HTTPException(status_code=502, detail=str(exc)) from exc
+            raise
+        finalize_command(db_path, command_id, "acknowledged", http_status=status)
         with session(db_path, write=True) as db:
             if payload.action == "cancel":
                 db.execute(
-                    """UPDATE print_jobs SET status='needs_review',
+                    """UPDATE print_jobs SET status='needs_review',accounting_status='needs_review',
                               note='Print cancelled at controller; verify actual consumed material.',
                               updated_at=?
                        WHERE printer_id=? AND status='printing'""",
                     (utc_now(), printer_id),
                 )
             audit(db, request.state.user["id"], "printer_" + payload.action, "printer", printer_id)
-        return {"printer_id": printer_id, "action": payload.action, "http_status": status}
+        return {"printer_id": printer_id, "command_id": command_id,
+                "action": payload.action, "http_status": status}
+
+    app.include_router(router)
