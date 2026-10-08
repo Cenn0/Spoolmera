@@ -34,3 +34,12 @@
     } @empty {<div class="placeholder">No accounts.</div>}
   </div>
 </section>
+
+<section class="panel workflow-panel">
+  <div class="panel-heading"><div><span class="eyebrow">RECOVERY</span><h2>Database snapshot</h2></div></div>
+  <div class="workflow-form">
+    <p class="helper">Download a consistent point-in-time SQLite backup of the complete inventory, including user accounts, archived spools and movement history. Protect the file: it contains password hashes and application data. Restoring requires stopping the service and running a verified offline recovery procedure.</p>
+    <a class="btn ghost" href="/api/admin/backup.sqlite3" download>Download verified SQLite backup</a>
+    <p class="helper">For large databases or automated backups use scripts/backup.py. CSV/Spoolman snapshots are not complete backups.</p>
+  </div>
+</section>

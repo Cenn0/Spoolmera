@@ -26,6 +26,7 @@ from app.api.spoolman_import import register_spoolman_import
 from app.api.automation import register_automation_routes
 from app.api.identifiers import register_identifier_routes
 from app.api.backup import register_backup_routes
+from app.api.analytics import register_analytics_routes
 from app.models import MovementInput, ProductInput, SpoolInput, SpoolUpdate
 from app.labels import label_html, qr_svg, spool_public_url
 from app.inventory_csv import export_inventory, import_inventory
@@ -86,6 +87,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     register_automation_routes(app, db_path)
     register_identifier_routes(app, db_path)
     register_backup_routes(app, db_path)
+    register_analytics_routes(app, db_path)
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
     @app.get("/", include_in_schema=False)
