@@ -12,7 +12,8 @@
 
 ## Features
 
-- Responsive dashboard for total stock, opened spools, low-stock warnings, and material distribution.
+- **Angular 22 Material Workspace**: responsive dashboard, searchable spool inventory, product catalog, movement ledger and capability pages.
+- Dashboard for total stock, opened spools, low-stock warnings, and material distribution.
 - Separate product catalogue (brand, material, color, diameter) and physical spool inventory.
 - Per-spool starting weight, remaining weight, storage location, condition, and notes.
 - Transactional consumption and adjustment records with a full, immutable movement history per spool.
@@ -26,7 +27,7 @@ Not implemented: authentication, external printer connections, automatic slicing
 
 ## Quick start (Docker)
 
-Requires Docker with Compose.
+Requires Docker with Compose. The image builds Angular using Node.js and serves it with the existing FastAPI application in a **single runtime container**.
 
 \`\`\`bash
 git clone https://github.com/Cenn0/FilamentManager.git
@@ -91,7 +92,7 @@ These endpoints are not authenticated independently. No printer or slicer connec
 
 ## Local development
 
-Python **3.12+**:
+Python **3.12+** and Angular 22-compatible Node.js (24.15+ recommended):
 
 \`\`\`bash
 python -m venv .venv
@@ -103,7 +104,25 @@ python -m pip install -r requirements-dev.txt
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8765
 \`\`\`
 
-Run tests:
+Start Angular in a second terminal with a development API proxy:
+
+```bash
+cd frontend
+npm install
+npm start
+```
+
+Open **http://127.0.0.1:4200** for development. Directly opening FastAPI's root without compiled Angular assets displays a build-required response. Docker builds the Angular frontend automatically.
+
+Type-check and build Angular:
+
+```bash
+cd frontend
+npm run typecheck
+npm run build
+```
+
+Run backend tests:
 
 \`\`\`bash
 python -m pytest -q
@@ -126,28 +145,38 @@ Back up the SQLite database and associated WAL content consistently, not by copy
 
 ## Architecture
 
-\`\`\`text
+```text
+frontend/
+  src/app/
+    app.component.*      Angular application shell and navigation
+    pages.ts             Standalone route components
+    *.html               Dashboard, spools, products, history, integrations
+    dialogs.component.*  Angular dialogs for all editing, labels, CSV import
+    inventory.service.ts Typed FastAPI client and signal state
+    models.ts            UI/domain types and helpers
+    dialog.service.ts    Dialog and notification state
+  src/styles.css         Responsive design system
+  angular.json           Angular static build configuration
+  package.json           Frontend build dependencies
 app/
-  main.py            HTTP routes and inventory transactions
-  database.py        SQLite schema, v2 migration, connection lifecycle
-  models.py          Input validation
-  inventory_csv.py   Safe inventory CSV import/export
-  labels.py          QR payload and printable label generation
-  integrations.py    Versioned read-only integration boundary
-  static/
-    index.html       Main user interface
-    app.js           Frontend interactions
-    styles.css       Application design
-    label.css        60 × 40 mm label print rules
-tests/               API and regression tests
-docs/                CSV and future adapter contracts
-Dockerfile
-compose.yaml
-.github/workflows/    CI and Docker smoke checks
-LICENSE              Apache License, Version 2.0
-\`\`\`
+  main.py                HTTP API + static Angular SPA hosting
+  database.py            SQLite schema and migrations
+  models.py              Input validation
+  inventory_csv.py       Safe inventory CSV import/export
+  labels.py              QR payloads and physical label HTML
+  integrations.py        Versioned read-only API contract
+  static/label.css       60 × 40 mm label print CSS
+  ui/                   Compiled Angular assets (not committed)
+tests/                   API regressions
+scripts/browser_smoke.py Chromium end-to-end regressions
+docs/ui-ux-concept.md    UX design baseline
+Dockerfile               Angular build + non-root Python runtime
+compose.yaml             Single self-hosted container
+```
 
-Balances are stored as whole grams, not floating-point quantities. Each consumption or adjustment and its corresponding ledger entry are committed in a single SQLite write transaction. The application has no CDN or external frontend dependencies.
+Production serves static Angular assets through FastAPI and requires no Node.js or third-party CDN at runtime. Balances remain whole grams; each inventory update and corresponding movement ledger entry are committed atomically.
+
+**Security:** The application still has no authentication. Compose deliberately binds to loopback only. Do not expose it to untrusted networks; a secured VPN or an authenticating TLS reverse proxy is required for broader access.
 
 ## License
 
