@@ -157,4 +157,4 @@ jobs:
       - name: Check installed PrusaSlicer CLI
         run: |
           docker run --rm --entrypoint /usr/bin/test filament-manager:slicer-ci -x /usr/bin/prusa-slicer
-          docker run --rm --entrypoint /usr/bin/prusa-slicer filament-manager:slicer-ci --version
+          docker run --rm --entrypoint /usr/bin/prusa-slicer filament-manager:slicer-ci --help >/dev/null
