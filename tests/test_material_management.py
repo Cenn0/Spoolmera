@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from app.main import create_app
 from tests.support import authenticate
 from app.database import session, initialize_database
+from app.infrastructure.database.migrations import CURRENT_SCHEMA_VERSION
 
 
 def client_for(tmp_path):
@@ -85,5 +86,5 @@ def test_upgrade_preserves_existing_inventory(tmp_path):
         db.execute("PRAGMA user_version = 5")
     initialize_database(path)
     with session(path) as db:
-        assert db.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert db.execute("PRAGMA user_version").fetchone()[0] == CURRENT_SCHEMA_VERSION
         assert "tare_g" in [r["name"] for r in db.execute("PRAGMA table_info(spools)")]
