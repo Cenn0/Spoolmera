@@ -9,13 +9,15 @@ import json
 import math
 import os
 import re
+import secrets
 import urllib.error
 import urllib.request
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, quote
 
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
+from typing import Literal
 
 from app.database import session, utc_now
 from app.auth import audit
@@ -149,6 +151,81 @@ def moonraker_history(printer) -> list[dict]:
     return jobs
 
 
+
+
+class PrinterCommand(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    action: Literal["pause", "resume", "cancel"]
+
+
+SAFE_UPLOAD_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,169}\.(?:gcode|gco|gc)$", re.I)
+
+
+def control_enabled() -> bool:
+    """Fail closed: sending data or physical commands requires explicit opt-in."""
+    return os.getenv("FILAMENT_PRINTER_CONTROL_ENABLED") == "1"
+
+
+def require_control() -> None:
+    if not control_enabled():
+        raise HTTPException(status_code=403, detail="Printer write access is disabled by the operator.")
+
+
+def write_controller(printer, path: str, *, body: bytes = b"", content_type: str | None = None) -> int:
+    """Limited POST transport with the same IP allowlist, no proxy and no redirects as polling."""
+    base = normalize_printer_url(printer["base_url"])
+    token_var = printer["token_env"]
+    if token_var and not TOKEN_PATTERN.fullmatch(token_var):
+        raise ValueError("Invalid configured printer token.")
+    token = os.getenv(token_var, "") if token_var else ""
+    if token_var and not token:
+        raise ValueError("Printer credentials are not configured.")
+    headers = {"User-Agent": "FilamentManager/0.5"}
+    if token:
+        headers["X-Api-Key"] = token
+    if content_type:
+        headers["Content-Type"] = content_type
+    request = urllib.request.Request(base + path, data=body, headers=headers, method="POST")
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+    try:
+        with opener.open(request, timeout=10.0) as response:
+            if response.status not in (200, 201, 204):
+                raise ValueError("Printer rejected the operation.")
+            if len(response.read(65537)) > 65536:
+                raise ValueError("Printer response is unexpectedly large.")
+            return response.status
+    except urllib.error.HTTPError as exc:
+        # Never expose the remote error body; controllers sometimes echo configuration.
+        raise ValueError("Printer rejected the operation (HTTP " + str(exc.code) + ").") from None
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        raise ValueError("Printer operation failed. Confirm remote state before retrying.") from exc
+
+
+def issue_control(printer, action: str) -> int:
+    if printer["kind"] == "moonraker":
+        return write_controller(printer, "/printer/print/" + action)
+    payload = {"command": "pause", "action": action} if action != "cancel" else {"command": "cancel"}
+    return write_controller(printer, "/api/job", body=json.dumps(payload).encode(),
+                            content_type="application/json")
+
+
+def upload_controller_file(printer, filename: str, content: bytes) -> int:
+    """Upload only to G-code storage, never select or auto-start a print."""
+    if not SAFE_UPLOAD_NAME.fullmatch(filename):
+        raise ValueError("Use a simple ASCII G-code filename without folders.")
+    boundary = "FilamentBoundary" + secrets.token_hex(18)
+    b = boundary.encode("ascii")
+    fields = b""
+    if printer["kind"] == "moonraker":
+        fields = b"--" + b + b'\r\nContent-Disposition: form-data; name="root"\r\n\r\ngcodes\r\n'
+    prefix = (fields + b"--" + b + b'\r\nContent-Disposition: form-data; name="file"; filename="' +
+              filename.encode("ascii") + b'"\r\nContent-Type: application/octet-stream\r\n\r\n')
+    payload = prefix + content + b"\r\n--" + b + b"--\r\n"
+    route = "/server/files/upload" if printer["kind"] == "moonraker" else "/api/files/local"
+    return write_controller(printer, route, body=payload,
+                            content_type="multipart/form-data; boundary=" + boundary)
+
+
 def register_printer_routes(app: FastAPI, db_path: Path) -> None:
     @app.get("/api/printers")
     def printers():
@@ -209,3 +286,28 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
         except ValueError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
 
+    @app.post("/api/printers/{printer_id}/control")
+    def control_printer(printer_id: int, payload: PrinterCommand, request: Request):
+        require_control()
+        with session(db_path) as db:
+            printer = db.execute(
+                "SELECT * FROM printers WHERE id=? AND enabled=1", (printer_id,)
+            ).fetchone()
+        if not printer:
+            raise HTTPException(status_code=404, detail="Enabled printer not found.")
+        try:
+            # Operators explicitly request physical changes; never accept raw G-code here.
+            status = issue_control(printer, payload.action)
+        except ValueError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        with session(db_path, write=True) as db:
+            if payload.action == "cancel":
+                db.execute(
+                    """UPDATE print_jobs SET status='needs_review',
+                              note='Print cancelled at controller; verify actual consumed material.',
+                              updated_at=?
+                       WHERE printer_id=? AND status='printing'""",
+                    (utc_now(), printer_id),
+                )
+            audit(db, request.state.user["id"], "printer_" + payload.action, "printer", printer_id)
+        return {"printer_id": printer_id, "action": payload.action, "http_status": status}

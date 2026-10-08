@@ -17,7 +17,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.auth import audit
 from app.database import session, utc_now
-from app.printers import moonraker_history, printer_status
+from app.printers import (
+    moonraker_history, printer_status, require_control, upload_controller_file,
+    write_controller, SAFE_UPLOAD_NAME
+)
+from urllib.parse import quote
 
 LOG = logging.getLogger(__name__)
 MAX_GCODE = 16 * 1024 * 1024
@@ -402,6 +406,79 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
             if not apply_consumption(db, job, request.state.user["id"]):
                 raise HTTPException(status_code=409, detail="Spool archived or insufficient stock.")
             return {"id": job_id, "status": "completed"}
+
+
+    @app.post("/api/jobs/{job_id}/upload")
+    async def upload_to_printer(job_id: int, request: Request):
+        require_control()
+        if request.headers.get("content-type", "").split(";")[0].strip().lower() not in {
+            "application/octet-stream", "text/plain", "text/x.gcode"
+        }:
+            raise HTTPException(status_code=415, detail="Expected raw G-code bytes.")
+        with session(db_path) as db:
+            job = db.execute(
+                """SELECT j.*,p.kind,p.base_url,p.token_env,p.enabled
+                   FROM print_jobs j JOIN printers p ON p.id=j.printer_id WHERE j.id=?""",
+                (job_id,),
+            ).fetchone()
+        if not job or not job["enabled"]:
+            raise HTTPException(status_code=404, detail="Enabled printer job not found.")
+        if job["status"] != "pending":
+            raise HTTPException(status_code=409, detail="Only pending jobs can receive a file.")
+        if not SAFE_UPLOAD_NAME.fullmatch(job["file_name"]):
+            raise HTTPException(status_code=422, detail="Upload requires a flat ASCII G-code filename.")
+        chunks = []
+        size = 0
+        async for chunk in request.stream():
+            size += len(chunk)
+            if size > MAX_GCODE:
+                raise HTTPException(status_code=413, detail="G-code exceeds the 16 MiB limit.")
+            chunks.append(chunk)
+        if size == 0 or b"\x00" in b"".join(chunks)[:4096]:
+            raise HTTPException(status_code=422, detail="G-code must be non-empty plain text.")
+        try:
+            state = await asyncio.to_thread(printer_status, job)
+            if state["state"].lower() in ("printing", "paused", "pausing"):
+                raise HTTPException(status_code=409, detail="Do not upload while the printer is active.")
+            status = await asyncio.to_thread(upload_controller_file, job, job["file_name"], b"".join(chunks))
+        except ValueError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        with session(db_path, write=True) as db:
+            audit(db, request.state.user["id"], "job_file_upload", "print_job", job_id)
+        return {"job_id": job_id, "uploaded": True, "http_status": status,
+                "note": "File transferred only; print has not been started."}
+
+    @app.post("/api/jobs/{job_id}/start")
+    def start_printer_job(job_id: int, request: Request):
+        require_control()
+        with session(db_path) as db:
+            job = db.execute(
+                """SELECT j.*,p.kind,p.base_url,p.token_env,p.enabled
+                   FROM print_jobs j JOIN printers p ON p.id=j.printer_id WHERE j.id=?""",
+                (job_id,),
+            ).fetchone()
+        if not job or not job["enabled"]:
+            raise HTTPException(status_code=404, detail="Enabled printer job not found.")
+        if job["status"] != "pending":
+            raise HTTPException(status_code=409, detail="Only pending jobs can be started.")
+        try:
+            state = printer_status(job)["state"].lower()
+            ready = {"standby", "complete", "cancelled"} if job["kind"] == "moonraker" else {"operational"}
+            if state not in ready:
+                raise HTTPException(status_code=409, detail="Printer is not in a known idle state.")
+            if job["kind"] == "moonraker":
+                route = "/printer/print/start?filename=" + quote(job["file_name"], safe="/")
+                status = write_controller(job, route)
+            else:
+                route = "/api/files/local/" + quote(job["file_name"], safe="/")
+                status = write_controller(job, route, body=b'{"command":"select","print":true}',
+                                          content_type="application/json")
+        except ValueError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        with session(db_path, write=True) as db:
+            audit(db, request.state.user["id"], "job_print_start", "print_job", job_id)
+        return {"job_id": job_id, "started": True, "http_status": status,
+                "note": "Tracking waits for independently observed controller state."}
 
     @app.post("/api/jobs/{job_id}/cancel")
     def cancel(job_id: int, request: Request):
