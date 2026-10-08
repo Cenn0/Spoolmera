@@ -303,7 +303,7 @@ function setMovementKind() {
   $("#movement-amount-label").textContent = correction ? "Stock change in g (+ or −)" : "Consumed weight (g)";
   $("#movement-note-label").textContent = correction ? "Reason for adjustment (required)" : "Note (optional)";
   $("#movement-note").required = correction;
-  $("#movement-note").placeholder = correction ? "z. B. Nach dem Wiegen berichtigt" : "e.g. printed a bracket";
+  $("#movement-note").placeholder = correction ? "e.g. corrected after weighing" : "e.g. printed a bracket";
   $("#movement-helper").textContent = correction
     ? "A negative amount reduces stock; a positive amount raises it up to the original weight."
     : "The consumed amount is deducted from remaining stock.";

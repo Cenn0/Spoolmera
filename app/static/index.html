@@ -99,7 +99,7 @@
 
         <section id="view-products" class="view" aria-labelledby="products-title" hidden>
           <div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> FILAMENT CATALOG</div><h1 id="products-title">Your <em>Materials.</em></h1><p>Manage brands, colors, and material types in one place.</p></div><button type="button" class="button button-primary" data-action="new-product">+ Add filament</button></div>
-          <div class="panel list-panel"><div class="list-toolbar"><div class="search-wrapper"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4 4"/></svg><input id="product-search" type="search" placeholder="Brand, filament, material, color …" aria-label="Search filament products"></div><span id="product-results" class="result-label">0 Filaments</span></div><div class="table-scroll"><table class="data-table"><thead><tr><th>FILAMENT</th><th>MATERIAL</th><th>COLOR</th><th>ROLLEN</th><th>STOCK</th><th class="right-align">ACTION</th></tr></thead><tbody id="product-table-body"></tbody></table></div></div>
+          <div class="panel list-panel"><div class="list-toolbar"><div class="search-wrapper"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4 4"/></svg><input id="product-search" type="search" placeholder="Brand, filament, material, color …" aria-label="Search filament products"></div><span id="product-results" class="result-label">0 Filaments</span></div><div class="table-scroll"><table class="data-table"><thead><tr><th>FILAMENT</th><th>MATERIAL</th><th>COLOR</th><th>SPOOLS</th><th>STOCK</th><th class="right-align">ACTION</th></tr></thead><tbody id="product-table-body"></tbody></table></div></div>
         </section>
 
         <section id="view-history" class="view" aria-labelledby="history-title" hidden>
@@ -129,7 +129,7 @@
   </div>
 
   <dialog id="product-dialog" class="dialog" aria-labelledby="product-dialog-title">
-    <div class="dialog-header"><div><div class="section-kicker">MATERIAL CATALOG</div><h2 id="product-dialog-title">Add filament</h2><p>One filament product can have multiple physical spools.</p></div><button type="button" class="close-button" data-close-dialog aria-label="Dialog schließen">×</button></div>
+    <div class="dialog-header"><div><div class="section-kicker">MATERIAL CATALOG</div><h2 id="product-dialog-title">Add filament</h2><p>One filament product can have multiple physical spools.</p></div><button type="button" class="close-button" data-close-dialog aria-label="Close dialog">×</button></div>
     <form id="product-form" class="dialog-form">
       <input type="hidden" name="id">
       <div class="form-grid">
@@ -146,7 +146,7 @@
   </dialog>
 
   <dialog id="spool-dialog" class="dialog" aria-labelledby="spool-dialog-title">
-    <div class="dialog-header"><div><div class="section-kicker">SPOOL INVENTORY</div><h2 id="spool-dialog-title">Add spool</h2><p>Enter the original and current remaining weights.</p></div><button type="button" class="close-button" data-close-dialog aria-label="Dialog schließen">×</button></div>
+    <div class="dialog-header"><div><div class="section-kicker">SPOOL INVENTORY</div><h2 id="spool-dialog-title">Add spool</h2><p>Enter the original and current remaining weights.</p></div><button type="button" class="close-button" data-close-dialog aria-label="Close dialog">×</button></div>
     <form id="spool-form" class="dialog-form">
       <div class="form-grid">
         <label class="full-width">Filament product <select name="product_id" id="spool-product-select" required></select></label>
@@ -161,7 +161,7 @@
   </dialog>
 
   <dialog id="movement-dialog" class="dialog dialog-small" aria-labelledby="movement-dialog-title">
-    <div class="dialog-header"><div><div class="section-kicker">STOCK MOVEMENT</div><h2 id="movement-dialog-title">Record consumption</h2><p id="movement-spool-label">Spool</p></div><button type="button" class="close-button" data-close-dialog aria-label="Dialog schließen">×</button></div>
+    <div class="dialog-header"><div><div class="section-kicker">STOCK MOVEMENT</div><h2 id="movement-dialog-title">Record consumption</h2><p id="movement-spool-label">Spool</p></div><button type="button" class="close-button" data-close-dialog aria-label="Close dialog">×</button></div>
     <form id="movement-form" class="dialog-form">
       <input type="hidden" name="spool_id">
       <div class="form-grid">
@@ -175,7 +175,7 @@
   </dialog>
 
   <dialog id="edit-spool-dialog" class="dialog" aria-labelledby="edit-spool-title">
-    <div class="dialog-header"><div><div class="section-kicker">SPOOL DETAILS</div><h2 id="edit-spool-title">Manage spool</h2><p id="edit-spool-subtitle">Filament</p></div><button type="button" class="close-button" data-close-dialog aria-label="Dialog schließen">×</button></div>
+    <div class="dialog-header"><div><div class="section-kicker">SPOOL DETAILS</div><h2 id="edit-spool-title">Manage spool</h2><p id="edit-spool-subtitle">Filament</p></div><button type="button" class="close-button" data-close-dialog aria-label="Close dialog">×</button></div>
     <div class="spool-detail-summary" id="spool-detail-summary"></div>
     <form id="edit-spool-form" class="dialog-form">
       <input type="hidden" name="spool_id">
