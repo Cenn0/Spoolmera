@@ -307,7 +307,7 @@ def test_upgrade_from_v1_retains_numeric_ids_stock_and_history(tmp_path):
         first_spool_uid = db.execute("SELECT uid FROM spools WHERE id=23").fetchone()[0]
         assert str(UUID(first_product_uid)) == first_product_uid
         assert str(UUID(first_spool_uid)) == first_spool_uid
-        assert db.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert db.execute("PRAGMA user_version").fetchone()[0] == 3
     initialize_database(path)
     with TestClient(create_app(path)) as migrated:
         authenticate(migrated)
