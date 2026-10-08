@@ -162,3 +162,23 @@ jobs:
         run: |
           docker run --rm --entrypoint /usr/bin/test filament-manager:slicer-ci -x /usr/bin/prusa-slicer
           docker run --rm --entrypoint /usr/bin/prusa-slicer filament-manager:slicer-ci --help >/dev/null
+
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Audit locked Python runtime dependencies
+        run: |
+          python -m pip install pip-audit==2.10.1
+          python -m pip_audit -r requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Audit Angular runtime dependencies
+        working-directory: frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm audit --omit=dev --audit-level=high
