@@ -3,7 +3,7 @@ import sqlite3
 from uuid import uuid4
 from datetime import datetime, timezone
 
-CURRENT_SCHEMA_VERSION = 7
+CURRENT_SCHEMA_VERSION = 8
 
 def migrate_v2_v4(connection: sqlite3.Connection) -> None:
     """Preserve legacy IDs and write an idempotent material mapping upgrade."""
@@ -166,3 +166,31 @@ def migrate_v7(db: sqlite3.Connection) -> None:
         updated_at TEXT NOT NULL,
         PRIMARY KEY(printer_id,tool)
     )""")
+
+
+def migrate_v8(db: sqlite3.Connection) -> None:
+    """Scoped machine tokens, portable external IDs, and NFC/QR tag references."""
+    db.execute("""CREATE TABLE IF NOT EXISTS automation_tokens (
+        id INTEGER PRIMARY KEY,
+        label TEXT NOT NULL,
+        token_hash TEXT NOT NULL UNIQUE,
+        scope TEXT NOT NULL CHECK(scope IN ('inventory_read','events_read')),
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TEXT NOT NULL,
+        revoked_at TEXT
+    )""")
+    db.execute("""CREATE TABLE IF NOT EXISTS external_import_map (
+        source TEXT NOT NULL,
+        entity_type TEXT NOT NULL CHECK(entity_type IN ('spool','filament')),
+        external_id INTEGER NOT NULL CHECK(external_id > 0),
+        local_id INTEGER NOT NULL,
+        PRIMARY KEY(source,entity_type,external_id)
+    )""")
+    db.execute("""CREATE TABLE IF NOT EXISTS spool_identifiers (
+        namespace TEXT NOT NULL CHECK(namespace IN ('nfc','openprinttag','custom')),
+        external_id TEXT NOT NULL,
+        spool_id INTEGER NOT NULL REFERENCES spools(id) ON DELETE RESTRICT,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY(namespace,external_id)
+    )""")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_identifiers_spool ON spool_identifiers(spool_id)")

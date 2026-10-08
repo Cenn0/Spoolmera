@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
 from app.infrastructure.database.migrations import (
-    CURRENT_SCHEMA_VERSION, migrate_v2_v4, migrate_v5, migrate_v6, migrate_v7, recover_interrupted_commands,
+    CURRENT_SCHEMA_VERSION, migrate_v2_v4, migrate_v5, migrate_v6, migrate_v7, migrate_v8, recover_interrupted_commands,
 )
 
 SCHEMA = """
@@ -169,6 +169,8 @@ def initialize_database(path: str | Path) -> None:
                 migrate_v6(connection)
             if version < 7:
                 migrate_v7(connection)
+            if version < 8:
+                migrate_v8(connection)
             recover_interrupted_commands(connection)
             connection.execute(f"PRAGMA user_version = {CURRENT_SCHEMA_VERSION}")
             connection.execute("COMMIT")
