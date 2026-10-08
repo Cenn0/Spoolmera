@@ -29,6 +29,17 @@ export interface PrintJob {
   start_command_state:PrinterCommand['state']|null;
   materials:JobMaterial[];
 }
+export interface JobReadiness {
+  job_id:number;status:string;ready:boolean;reserved:boolean;
+  materials:{tool:number;spool_id:number;estimated_g:number;remaining_g:number;
+    available_g:number;others_reserved_g:number;own_reservation_g:number|null;
+    brand:string;product_name:string;ready:boolean;loaded_match:boolean}[];
+}
+export interface PrinterSlot {tool:number;spool_id:number;spool_uid:string;brand:string;product_name:string;}
+export interface FileInspection {
+  file_stored:boolean;verified:boolean;source:string;needs_manual_estimate:boolean;
+  plates:{plate:number;materials:{tool:number;estimated_g:number}[]}[];
+}
 export interface PrinterInput {name:string;kind:string;base_url:string;token_env:string;enabled:boolean;}
 @Injectable({providedIn:'root'})
 export class WorkspaceService {
@@ -67,6 +78,30 @@ export class WorkspaceService {
   createMultiJob(body:{printer_id:number;file_name:string;note:string;
     materials:{tool:number;spool_id:number;estimated_g:number}[]}):Promise<{id:number}>{
     return firstValueFrom(this.http.post<{id:number}>('/api/jobs/multi',body));
+  }
+  readiness(jobId:number):Promise<JobReadiness> {
+    return firstValueFrom(this.http.get<JobReadiness>('/api/jobs/'+jobId+'/readiness'));
+  }
+  reserve(jobId:number):Promise<JobReadiness> {
+    return firstValueFrom(this.http.post<JobReadiness>('/api/jobs/'+jobId+'/reservation',{}));
+  }
+  release(jobId:number):Promise<JobReadiness> {
+    return firstValueFrom(this.http.delete<JobReadiness>('/api/jobs/'+jobId+'/reservation'));
+  }
+  printerSlots(printerId:number):Promise<PrinterSlot[]> {
+    return firstValueFrom(this.http.get<PrinterSlot[]>('/api/printers/'+printerId+'/slots'));
+  }
+  assignSlot(printerId:number,tool:number,spoolId:number):Promise<void> {
+    return firstValueFrom(this.http.put<void>('/api/printers/'+printerId+'/slots/'+tool,
+      {spool_id:spoolId}));
+  }
+  unloadSlot(printerId:number,tool:number):Promise<void> {
+    return firstValueFrom(this.http.delete<void>('/api/printers/'+printerId+'/slots/'+tool));
+  }
+  inspectFile(file:File):Promise<FileInspection> {
+    return firstValueFrom(this.http.post<FileInspection>(
+      '/api/jobs/inspect?name='+encodeURIComponent(file.name),file,
+      {headers:new HttpHeaders({'Content-Type':'application/octet-stream'})}));
   }
   printers():Promise<Printer[]> {return firstValueFrom(this.http.get<Printer[]>('/api/printers'));}
   jobs():Promise<PrintJob[]> {return firstValueFrom(this.http.get<PrintJob[]>('/api/jobs'));}
