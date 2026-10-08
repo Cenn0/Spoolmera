@@ -27,8 +27,7 @@ jobs:
       - name: Validate Angular frontend
         working-directory: frontend
         run: |
-          npm install --no-audit --no-fund
-          python -c 'import base64,pathlib; b=base64.b64encode(pathlib.Path("package-lock.json").read_bytes()).decode(); print("LOCKFILE-START"); [print("LOCKCHUNK:"+b[i:i+700]) for i in range(0,len(b),700)]; print("LOCKFILE-END")'
+          npm ci --no-audit --no-fund
           npm run typecheck
           npm run build
       - name: Stage compiled frontend for backend tests
@@ -79,7 +78,7 @@ jobs:
           node-version: '24'
       - name: Build Angular for browser tests
         working-directory: frontend
-        run: npm install --no-audit --no-fund && npm run build
+        run: npm ci --no-audit --no-fund && npm run build
       - name: Stage Angular application
         run: mkdir -p app/ui && cp -a frontend/dist/filament-manager/browser/. app/ui/
       - name: Install application and browser test dependencies
