@@ -43,6 +43,11 @@ export interface FileInspection {
 export interface AutomationToken {id:number;label:string;scope:'inventory_read'|'events_read';
   created_at:string;revoked_at:string|null;}
 export interface IssuedToken {id:number;label:string;scope:'inventory_read'|'events_read';token:string;warning:string;}
+export interface ScaleMeasurement {
+  id:number;source:string;event_id:string;spool_uid:string;gross_g:number;
+  tare_g:number|null;current_tare_g:number;remaining_g:number;received_at:string;
+  brand:string;product_name:string;status:string;
+}
 export interface PrinterInput {name:string;kind:string;base_url:string;token_env:string;enabled:boolean;}
 @Injectable({providedIn:'root'})
 export class WorkspaceService {
@@ -114,6 +119,12 @@ export class WorkspaceService {
   }
   revokeAutomationToken(id:number):Promise<void>{
     return firstValueFrom(this.http.delete<void>('/api/admin/automation-tokens/'+id));
+  }
+  scaleMeasurements():Promise<ScaleMeasurement[]>{
+    return firstValueFrom(this.http.get<ScaleMeasurement[]>('/api/scales/measurements'));
+  }
+  reviewScale(id:number,action:'approve'|'discard',note:string):Promise<void>{
+    return firstValueFrom(this.http.post<void>('/api/scales/measurements/'+id+'/review',{action,note}));
   }
   printers():Promise<Printer[]> {return firstValueFrom(this.http.get<Printer[]>('/api/printers'));}
   jobs():Promise<PrintJob[]> {return firstValueFrom(this.http.get<PrintJob[]>('/api/jobs'));}
