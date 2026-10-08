@@ -100,8 +100,11 @@ def issue_session(db, user_id: int, response: JSONResponse) -> str:
     csrf = secrets.token_urlsafe(32)
     db.execute("INSERT INTO auth_sessions(token_hash,user_id,csrf_token,expires_at) VALUES(?,?,?,?)",
                (hashlib.sha256(token.encode()).hexdigest(), user_id, csrf, int(time.time()) + SESSION_SECONDS))
+    # Never issue an insecure cookie for an HTTPS-configured public origin.
+    secure = (os.getenv("FILAMENT_COOKIE_SECURE", "0") == "1"
+              or os.getenv("FILAMENT_PUBLIC_BASE_URL", "").lower().startswith("https://"))
     response.set_cookie(
-        COOKIE, token, max_age=SESSION_SECONDS, httponly=True, secure=os.getenv("FILAMENT_COOKIE_SECURE", "0") == "1",
+        COOKIE, token, max_age=SESSION_SECONDS, httponly=True, secure=secure,
         samesite="lax", path="/",
     )
     return csrf
