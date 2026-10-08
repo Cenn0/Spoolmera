@@ -1,4 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { AuthService } from './auth.service';
+import { Printer, WorkspaceService } from './workspace.service';
 import { RouterLink } from '@angular/router';
 import { DialogService, NoticeService } from './dialog.service';
 import { InventoryService, apiError } from './inventory.service';
@@ -12,6 +14,7 @@ import { Capabilities, dateText, grams, stockPercent } from './models';
 export class DashboardComponent {
   readonly data = inject(InventoryService);
   readonly dialogs = inject(DialogService);
+  readonly auth = inject(AuthService);
   readonly grams = grams;
   readonly dateText = dateText;
   readonly percent = stockPercent;
@@ -34,6 +37,7 @@ export class DashboardComponent {
 export class SpoolsComponent {
   readonly data = inject(InventoryService);
   readonly dialogs = inject(DialogService);
+  readonly auth = inject(AuthService);
   readonly grams = grams;
   readonly percent = stockPercent;
   readonly query = signal('');
@@ -54,6 +58,7 @@ export class SpoolsComponent {
 export class ProductsComponent {
   readonly data = inject(InventoryService);
   readonly dialogs = inject(DialogService);
+  readonly auth = inject(AuthService);
   readonly grams = grams;
   readonly query = signal('');
   readonly filtered = computed(() => {
@@ -80,9 +85,18 @@ export class HistoryComponent {
 export class IntegrationsComponent implements OnInit {
   private readonly data = inject(InventoryService);
   private readonly notices = inject(NoticeService);
+  private readonly workspace = inject(WorkspaceService);
+  readonly printers = signal<Printer[]>([]);
+  readonly enabledPrinters = computed(() => this.printers().filter(printer => printer.enabled).length);
   readonly capabilities = signal<Capabilities | null>(null);
   async ngOnInit(): Promise<void> {
-    try { this.capabilities.set(await this.data.capabilities()); }
+    try {
+      const [capabilities, printers] = await Promise.all([
+        this.data.capabilities(), this.workspace.printers(),
+      ]);
+      this.capabilities.set(capabilities);
+      this.printers.set(printers);
+    }
     catch (error) { this.notices.show('Unable to load integration capabilities: ' + apiError(error),true); }
   }
 }

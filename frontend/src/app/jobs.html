@@ -1,0 +1,55 @@
+<section class="page-head">
+  <div><span class="eyebrow">PRINT ACTIVITY</span><h1>Tracked <em>print jobs.</em></h1>
+    <p>Link a printer file to a physical spool; verified completions update stock exactly once.</p></div>
+  <button class="btn ghost" type="button" (click)="refresh()">Refresh jobs</button>
+</section>
+@if(error()){<p class="form-error" role="alert">{{error()}}</p>}
+@if(auth.canEdit()){
+<section class="panel workflow-panel">
+  <div class="panel-heading"><div><span class="eyebrow">REGISTER PRINT</span><h2>Import job metadata</h2></div></div>
+  <form class="workflow-form" #jobForm="ngForm" (ngSubmit)="submit()">
+    <div class="form-grid">
+      <label>Printer<select name="printer" [(ngModel)]="printerId" required>
+        @for(p of printers();track p.id){@if(p.enabled){<option [ngValue]="p.id">{{p.name}} · {{p.kind}}</option>}}
+      </select></label>
+      <label>Physical spool<select name="spool" [(ngModel)]="spoolId" required>
+        @for(s of data.spools();track s.id){@if(s.remaining_g>0){
+          <option [ngValue]="s.id">{{s.brand}} · {{s.product_name}} · {{grams(s.remaining_g)}}</option>
+        }}
+      </select></label>
+      <label class="full">Import G-code metadata (optional)<input type="file" accept=".gcode,.gco,.gc" (change)="choose($event)"></label>
+      <label class="full">Filename already on printer<input name="fileName" [(ngModel)]="fileName" required maxlength="180" placeholder="e.g. bracket.gcode" [readonly]="!!upload"></label>
+      <label>Estimated filament (g)<input name="estimatedG" type="number" [(ngModel)]="estimatedG" min="1" max="100000" step="1" placeholder="Use G-code metadata when blank"></label>
+      <label>Note (manual mapping only)<input name="note" [(ngModel)]="note" maxlength="300" placeholder="Optional reference"></label>
+    </div>
+    <p class="helper">Only metadata is imported; G-code is never executed, stored or transferred. One job maps to one spool. Moonraker history must be enabled for automatic debit. OctoPrint completion requires review.</p>
+    <button class="btn primary" type="submit" [disabled]="busy()||jobForm.invalid||!printerId||!spoolId">Register print job</button>
+  </form>
+</section>
+}
+<section class="panel workflow-panel">
+  <div class="panel-heading"><div><span class="eyebrow">JOB MONITOR</span><h2>Recent jobs</h2></div></div>
+  <div class="workflow-list">
+    @for(job of jobs();track job.id){
+      <article class="workflow-row">
+        <div class="workflow-main"><strong>#{{job.id}} · {{job.file_name}}</strong>
+          <span>{{job.printer_name}} · {{job.brand}} {{job.product_name}} · {{grams(job.estimated_g)}}</span>
+          @if(job.note){<small>{{job.note}}</small>}
+        </div>
+        <span class="status" [class.opened]="job.status==='completed'" [class.sealed]="job.status==='printing'">{{job.status.replace('_',' ')}}</span>
+        @if(auth.canEdit()){
+          <div class="workflow-buttons">
+            @if(job.status==='pending'||job.status==='printing'){
+              <button type="button" class="btn ghost" [disabled]="busy()" (click)="poll(job.printer_id)">Poll</button>
+              <button type="button" class="btn ghost" [disabled]="busy()" (click)="cancel(job)">Stop tracking</button>
+            }
+            @if(job.status==='needs_review'){
+              <button type="button" class="btn primary" [disabled]="busy()" (click)="resolve(job,'debit')">Confirm consumption</button>
+              <button type="button" class="btn ghost" [disabled]="busy()" (click)="resolve(job,'discard')">Discard</button>
+            }
+          </div>
+        }
+      </article>
+    } @empty {<div class="placeholder">No linked print jobs. Register a G-code filename and spool first.</div>}
+  </div>
+</section>
