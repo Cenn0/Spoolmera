@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.database import initialize_database, session, utc_now
 from app.models import MovementInput, ProductInput, SpoolInput, SpoolUpdate
@@ -15,6 +16,24 @@ from app.inventory_csv import export_inventory, import_inventory
 from app.integrations import get_inventory_snapshot, get_integration_capabilities
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+UI_DIR = Path(__file__).resolve().parent / "ui"
+
+
+class SPAStaticFiles(StaticFiles):
+    """Serve compiled Angular assets and fall back to index.html for UI routes."""
+
+    async def get_response(self, path, scope):
+        try:
+            response = await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if (exc.status_code != 404 or "." in Path(path).name
+                    or path.startswith(("api/", "labels/", "static/", "s/"))):
+                raise
+            response = await super().get_response("index.html", scope)
+        if response.media_type == "text/html":
+            response.headers["Cache-Control"] = "no-store"
+        return response
+
 
 
 def spool_as_dict(row) -> dict:
@@ -46,7 +65,13 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/", include_in_schema=False)
     def index():
-        return FileResponse(STATIC_DIR / "index.html", headers={"Cache-Control": "no-store"})
+        if not (UI_DIR / "index.html").is_file():
+            return HTMLResponse(
+                "<h1>Filament Manager</h1><p>Angular frontend not built. "
+                "Use npm start in frontend/ during development.</p>",
+                status_code=503,
+            )
+        return FileResponse(UI_DIR / "index.html", headers={"Cache-Control": "no-store"})
 
     @app.get("/api/health")
     def health():
@@ -324,6 +349,9 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     def integration_spools():
         with session(db_path) as db:
             return get_inventory_snapshot(db)
+
+    if UI_DIR.is_dir():
+        app.mount("/", SPAStaticFiles(directory=str(UI_DIR), html=True), name="angular")
 
     return app
 
