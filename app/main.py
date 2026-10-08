@@ -1,14 +1,18 @@
 """Filament Manager REST API and local web frontend."""
 import os
+from uuid import uuid4
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.database import initialize_database, session, utc_now
 from app.models import MovementInput, ProductInput, SpoolInput, SpoolUpdate
+from app.labels import label_html, qr_svg, spool_public_url
+from app.inventory_csv import export_inventory, import_inventory
+from app.integrations import get_inventory_snapshot, get_integration_capabilities
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -34,8 +38,8 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
 
     app = FastAPI(
         title="Filament Manager API",
-        version="0.1.0",
-        description="Lokale Verwaltung von Filamentprodukten, Rollen und Bestandsbewegungen.",
+        version="0.2.0",
+        description="Local management of filament products, physical spools and inventory movements.",
         lifespan=lifespan,
     )
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -83,11 +87,12 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
         timestamp = utc_now()
         with session(db_path, write=True) as db:
             cursor = db.execute(
-                """INSERT INTO products (brand, name, material, color_name, color_hex,
+                """INSERT INTO products (uid, brand, name, material, color_name, color_hex,
                                          diameter_mm, notes, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (payload.brand, payload.name, payload.material, payload.color_name,
-                 payload.color_hex, payload.diameter_mm, payload.notes, timestamp, timestamp),
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (str(uuid4()), payload.brand, payload.name, payload.material,
+                 payload.color_name, payload.color_hex, payload.diameter_mm,
+                 payload.notes, timestamp, timestamp),
             )
             product_id = cursor.lastrowid
         return {"id": product_id}
@@ -104,7 +109,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
                  payload.color_hex, payload.diameter_mm, payload.notes, utc_now(), product_id),
             )
             if result.rowcount == 0:
-                raise HTTPException(status_code=404, detail="Filamentprodukt nicht gefunden.")
+                raise HTTPException(status_code=404, detail="Filament product not found.")
         return {"id": product_id}
 
     @app.get("/api/spools")
@@ -122,25 +127,25 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     def add_spool(payload: SpoolInput):
         remaining = payload.initial_g if payload.remaining_g is None else payload.remaining_g
         if remaining > payload.initial_g:
-            raise HTTPException(status_code=422, detail="Restbestand darf den Startbestand nicht übersteigen.")
+            raise HTTPException(status_code=422, detail="Remaining weight cannot exceed the original spool weight.")
         opened = payload.opened or remaining < payload.initial_g
         timestamp = utc_now()
         with session(db_path, write=True) as db:
             if db.execute("SELECT 1 FROM products WHERE id=?", (payload.product_id,)).fetchone() is None:
-                raise HTTPException(status_code=404, detail="Filamentprodukt nicht gefunden.")
+                raise HTTPException(status_code=404, detail="Filament product not found.")
             cursor = db.execute(
                 """INSERT INTO spools
-                   (product_id, initial_g, remaining_g, opened, location, notes, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (payload.product_id, payload.initial_g, remaining, int(opened),
-                 payload.location, payload.notes, timestamp),
+                   (uid, product_id, initial_g, remaining_g, opened, location, notes, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (str(uuid4()), payload.product_id, payload.initial_g, remaining,
+                 int(opened), payload.location, payload.notes, timestamp),
             )
             spool_id = cursor.lastrowid
             db.execute(
                 """INSERT INTO movements
                    (spool_id, kind, delta_g, remaining_after_g, note, created_at)
                    VALUES (?, 'initial', ?, ?, ?, ?)""",
-                (spool_id, remaining, remaining, "Rolle erfasst", timestamp),
+                (spool_id, remaining, remaining, "Spool registered", timestamp),
             )
         return {"id": spool_id}
 
@@ -148,7 +153,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     def update_spool(spool_id: int, payload: SpoolUpdate):
         changes = payload.model_dump(exclude_unset=True)
         if not changes or any(value is None for value in changes.values()):
-            raise HTTPException(status_code=422, detail="Mindestens ein gültiges Feld ist erforderlich.")
+            raise HTTPException(status_code=422, detail="At least one valid field is required.")
         if "opened" in changes:
             changes["opened"] = int(changes["opened"])
         assignments = ", ".join(f"{name}=?" for name in changes)
@@ -159,26 +164,26 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
                     (spool_id,),
                 ).fetchone()
                 if spool is None:
-                    raise HTTPException(status_code=404, detail="Rolle nicht gefunden.")
+                    raise HTTPException(status_code=404, detail="Spool not found.")
                 if spool["remaining_g"] != spool["initial_g"]:
                     raise HTTPException(
                         status_code=409,
-                        detail="Eine benutzte Rolle kann nicht als ungeöffnet markiert werden.",
+                        detail="A used spool cannot be marked as sealed.",
                     )
             result = db.execute(
                 f"UPDATE spools SET {assignments} WHERE id=? AND archived_at IS NULL",
                 (*changes.values(), spool_id),
             )
             if result.rowcount == 0:
-                raise HTTPException(status_code=404, detail="Rolle nicht gefunden.")
+                raise HTTPException(status_code=404, detail="Spool not found.")
         return {"id": spool_id}
 
     @app.post("/api/spools/{spool_id}/movements", status_code=201)
     def add_movement(spool_id: int, payload: MovementInput):
         if payload.kind == "consume" and payload.grams <= 0:
-            raise HTTPException(status_code=422, detail="Verbrauch muss positiv sein.")
+            raise HTTPException(status_code=422, detail="Consumption must be greater than zero.")
         if payload.kind == "adjust" and (payload.grams == 0 or not payload.note):
-            raise HTTPException(status_code=422, detail="Korrekturen benötigen eine Menge und einen Grund.")
+            raise HTTPException(status_code=422, detail="Adjustments require a nonzero amount and an explanation.")
         delta = -payload.grams if payload.kind == "consume" else payload.grams
         with session(db_path, write=True) as db:
             spool = db.execute(
@@ -186,12 +191,12 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
                 (spool_id,),
             ).fetchone()
             if spool is None:
-                raise HTTPException(status_code=404, detail="Rolle nicht gefunden.")
+                raise HTTPException(status_code=404, detail="Spool not found.")
             remaining = spool["remaining_g"] + delta
             if remaining < 0 or remaining > spool["initial_g"]:
                 raise HTTPException(
                     status_code=409,
-                    detail="Buchung außerhalb des möglichen Bestands (0 bis Startmenge).",
+                    detail="Movement would exceed the allowed stock range (0 to original weight).",
                 )
             db.execute(
                 """UPDATE spools
@@ -211,7 +216,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     def spool_movements(spool_id: int):
         with session(db_path) as db:
             if db.execute("SELECT 1 FROM spools WHERE id=?", (spool_id,)).fetchone() is None:
-                raise HTTPException(status_code=404, detail="Rolle nicht gefunden.")
+                raise HTTPException(status_code=404, detail="Spool not found.")
             rows = db.execute(
                 """SELECT id, spool_id, kind, delta_g, remaining_after_g, note, created_at
                    FROM movements WHERE spool_id=? ORDER BY id DESC""",
@@ -240,8 +245,85 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
                 (utc_now(), spool_id),
             )
             if result.rowcount == 0:
-                raise HTTPException(status_code=404, detail="Aktive Rolle nicht gefunden.")
+                raise HTTPException(status_code=404, detail="Active spool not found.")
         return {"id": spool_id, "archived": True}
+
+    # Stable UUIDs identify spools, but are NOT authentication tokens.
+    @app.get("/s/{spool_uid}", include_in_schema=False)
+    def open_spool(spool_uid: str):
+        with session(db_path) as db:
+            row = db.execute("SELECT uid FROM spools WHERE uid=?", (spool_uid,)).fetchone()
+            if row is None:
+                raise HTTPException(status_code=404, detail="Spool not found.")
+        return RedirectResponse(url="/?spool=" + spool_uid, status_code=302)
+
+    @app.get("/api/spools/{spool_uid}/qr.svg", include_in_schema=False)
+    def spool_qr(spool_uid: str):
+        with session(db_path) as db:
+            row = db.execute("SELECT uid FROM spools WHERE uid=?", (spool_uid,)).fetchone()
+            if row is None:
+                raise HTTPException(status_code=404, detail="Spool not found.")
+        return Response(
+            content=qr_svg(spool_public_url(spool_uid)),
+            media_type="image/svg+xml",
+            headers={"Cache-Control": "no-store",
+                     "Content-Security-Policy": "default-src 'none'; sandbox"},
+        )
+
+    @app.get("/labels/{spool_uid}", response_class=HTMLResponse, include_in_schema=False)
+    def print_label(spool_uid: str):
+        with session(db_path) as db:
+            row = db.execute(
+                """SELECT s.uid, s.id, s.remaining_g, s.initial_g,
+                          p.brand, p.name, p.material, p.color_name
+                   FROM spools s JOIN products p ON p.id=s.product_id
+                   WHERE s.uid=?""", (spool_uid,),
+            ).fetchone()
+            if row is None:
+                raise HTTPException(status_code=404, detail="Spool not found.")
+        return HTMLResponse(
+            content=label_html(dict(row)),
+            headers={"Cache-Control": "no-store",
+                     "Content-Security-Policy": "default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'"},
+        )
+
+    @app.get("/api/export/inventory.csv")
+    def download_inventory():
+        with session(db_path) as db:
+            content = export_inventory(db)
+        return Response(
+            content=content,
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="filament-inventory-v1.csv"',
+                     "Cache-Control": "no-store"},
+        )
+
+    @app.post("/api/import/inventory.csv")
+    async def upload_inventory(request: Request, dry_run: bool = Query(default=True)):
+        if request.headers.get("content-type", "").split(";")[0].strip().lower() != "text/csv":
+            raise HTTPException(status_code=415, detail="The request must use Content-Type: text/csv.")
+        size = 0
+        parts = []
+        async for part in request.stream():
+            size += len(part)
+            if size > 2 * 1024 * 1024:
+                raise HTTPException(status_code=413, detail="CSV exceeds the 2 MiB limit.")
+            parts.append(part)
+        try:
+            csv_data = b"".join(parts).decode("utf-8-sig")
+        except UnicodeDecodeError:
+            raise HTTPException(status_code=422, detail="CSV must be UTF-8 encoded.") from None
+        with session(db_path, write=True) as db:
+            return import_inventory(db, csv_data, dry_run=dry_run)
+
+    @app.get("/api/integrations/v1/capabilities")
+    def integration_capabilities():
+        return get_integration_capabilities()
+
+    @app.get("/api/integrations/v1/spools")
+    def integration_spools():
+        with session(db_path) as db:
+            return get_inventory_snapshot(db)
 
     return app
 
