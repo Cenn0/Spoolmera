@@ -87,6 +87,7 @@ export class IntegrationsComponent implements OnInit {
   private readonly notices = inject(NoticeService);
   private readonly workspace = inject(WorkspaceService);
   readonly printers = signal<Printer[]>([]);
+  readonly enabledPrinters = computed(() => this.printers().filter(printer => printer.enabled).length);
   readonly capabilities = signal<Capabilities | null>(null);
   async ngOnInit(): Promise<void> {
     try {

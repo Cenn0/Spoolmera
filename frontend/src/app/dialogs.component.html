@@ -40,18 +40,18 @@
       <div class="modal-body">
         <div class="detail-summary"><span class="swatch xlarge" [style.background-color]="item.color_hex"></span><div><h3>{{item.brand}} · {{item.product_name}}</h3><p>{{item.material}} · {{item.color_name}} · {{item.diameter_mm}} mm</p></div><span class="status" [class]="'status '+item.status">{{item.status}}</span></div>
         <div class="detail-stats"><div><span>Remaining</span><strong>{{grams(item.remaining_g)}}</strong><div class="progress"><span [style.width.%]="percent(item)"></span></div></div><div><span>Original</span><strong>{{grams(item.initial_g)}}</strong></div></div>
-        <div class="detail-actions"><button class="btn primary" type="button" [disabled]="item.remaining_g===0" (click)="dialogs.open({kind:'movement',id:item.id,mode:'consume'})">Record use</button><button class="btn ghost" type="button" (click)="dialogs.open({kind:'movement',id:item.id,mode:'adjust'})">Adjust stock</button><a class="btn ghost" [href]="'/labels/'+item.uid" target="_blank" rel="noopener noreferrer">Print QR label ↗</a></div>
-        <form #detailForm="ngForm" (ngSubmit)="saveDetails()">
+        <div class="detail-actions">@if(auth.canEdit()){<button class="btn primary" type="button" [disabled]="item.remaining_g===0" (click)="dialogs.open({kind:'movement',id:item.id,mode:'consume'})">Record use</button><button class="btn ghost" type="button" (click)="dialogs.open({kind:'movement',id:item.id,mode:'adjust'})">Adjust stock</button>}<a class="btn ghost" [href]="'/labels/'+item.uid" target="_blank" rel="noopener noreferrer">Print QR label ↗</a></div>
+        @if(auth.canEdit()){<form #detailForm="ngForm" (ngSubmit)="saveDetails()">
           <h3 class="modal-section-title">Spool information</h3>
           <div class="form-grid"><label class="full">Storage location <input name="location" [(ngModel)]="detail.location" maxlength="120"></label><label class="full">Notes <textarea name="notes" [(ngModel)]="detail.notes" maxlength="1000" rows="2"></textarea></label><label class="checkbox-row full"><input name="opened" type="checkbox" [(ngModel)]="detail.opened" [disabled]="item.remaining_g<item.initial_g"> Opened</label></div>
           <div class="inline-form-actions"><button type="submit" class="btn ghost" [disabled]="busy() || detailForm.invalid">Save spool details</button></div>
-        </form>
+        </form>}
         <div class="details-footer">
           <h3 class="modal-section-title">Movement history</h3>
           @for (entry of history();track entry.id) {
             <div class="detail-movement"><span>{{dateText(entry.created_at)}}</span><strong>{{entry.kind}}</strong><b>{{entry.delta_g>0?'+':''}}{{grams(entry.delta_g)}}</b><small>{{entry.note || '—'}}</small></div>
           } @empty {<p class="helper">Loading or no movement history.</p>}
-          <div class="archive-zone">
+          @if(auth.canEdit()){<div class="archive-zone">
             @if (!archiveCheck()) {
               <button class="danger-link" type="button" (click)="archiveCheck.set(true)">Archive spool…</button>
             } @else {
@@ -59,7 +59,7 @@
               <button type="button" class="btn ghost" (click)="archiveCheck.set(false)">Keep spool</button>
               <button type="button" class="btn danger" (click)="archive()" [disabled]="busy()">Confirm archive</button>
             }
-          </div>
+          </div>}
         </div>
       </div>
     } @else {<div class="modal-body"><p class="helper">The spool is no longer available.</p></div>}
