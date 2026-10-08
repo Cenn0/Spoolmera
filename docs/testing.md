@@ -107,3 +107,11 @@ The test suite additionally checks schema v5 migration, online SQLite backups, d
 No automated tests certify a printer model, its firmware or safe physical G-code. Test a real machine while supervised before enabling write controls. The application is free/open source experimental software without a warranty.
 
 The architecture suite also verifies that interrupted physical start commands change to an unknown, non-retryable state on restart and that repeated v5 initializations do not overwrite independent accounting decisions.
+
+## v0.9 additional checks
+
+New regressions cover schema upgrades, material properties, physical scale weighing, drying, spool reservations, per-tool G-code/3MF metadata, imported Spoolman snapshots, token scopes/revocation, tag uniqueness, signed scale receipts and review, cost estimates, label formats, verified online backup and offline restore, and durable notification cursors.
+
+Device tests are mocked: they are **not** evidence of physical NFC/ESP32 compatibility, firmware version certification, native cloud-provider support or a penetration test. Test optional notification Compose with:
+
+    docker compose -f compose.yaml -f compose.notifications.yaml config --quiet

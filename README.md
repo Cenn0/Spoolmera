@@ -19,11 +19,27 @@
 - Transactional consumption and adjustment records with a full, immutable movement history per spool.
 - Archive spools without deleting their history.
 - Stable UUIDs for products and spools, including automatic migration of existing databases.
-- Printable **60 × 40 mm QR labels** for individual spools. QR codes open the matching spool in this app.
+- Printable **60 × 40 mm or 50 × 30 mm QR labels** for individual spools. QR codes open the matching spool in this app.
 - **Versioned CSV export and import** with preview, validation, transaction rollback on errors, and idempotent UUID-based matching.
 - **Read-only integration API v1** as a foundation for later printer or slicer adapters.
 
 Available in v0.6: session-based authentication and role-based users; local Moonraker/OctoPrint connections with **optional** printer commands, G-code upload and print start; **opt-in** PrusaSlicer CLI for STL slicing with operator-approved profiles; **HMAC-signed vendor-neutral cloud event ingestion**; and explicit multi-material tool-to-spool mapping with atomic accounting. Control and slicing are disabled by default. **Not implemented:** native vendor-specific cloud login/control, SSO/OIDC or automatic slicer tool mapping. Opt-in slicing now uses a separate internal-only worker. See [Print operations and setup](docs/operations.md) and [Security and printer operation](docs/security-and-printers.md).
+
+### v0.9 feature expansion (experimental)
+
+- Extended per-product filament properties and per-physical-roll tare, purchase details, batch and drying history.
+- Manual scale weighing with atomic stock adjustments, optional signed remote scale report and required review.
+- Optional Open Filament Database catalog browser with local cache; no automatic overwrite of products.
+- Spoolman JSON spool snapshot import with preview, validation, create-only source-ID matching and rollback.
+- Readiness checking, advisory print reservations, physical printer-slot mapping, and operator-approved material suggestions.
+- Read-only G-code and sliced 3MF per-tool quantity inspection; imported machine code is never executed.
+- Optional NFC/OpenPrintTag identifier lookup, progressive Web NFC support in compatible browsers, and QR labels.
+- Scoped revocable machine tokens, cursor-based inventory and movement APIs, and a separately deployable local notification sidecar.
+- Currency-aware purchase-cost estimates, admin SQLite backup download and fail-closed offline restore.
+
+See [feature details and status](docs/roadmap-implementation.md).
+
+**Hardware and interoperability limits:** Native Bambu/Prusa cloud control, complete Spoolman API emulation, unassisted OpenPrintTag decoding, OIDC/SSO and direct USB load-cell drivers are **not implemented**. No real device has been certified. The default one-container deployment works without the optional integrations.
 
 ## Quick start (Docker)
 
