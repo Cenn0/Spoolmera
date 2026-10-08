@@ -27,3 +27,18 @@ def test_catalog_brand_validation_and_read_only_preview(tmp_path, monkeypatch):
         assert client.get("/api/catalog/brands/%2e%2e").status_code in (404, 422)
         assert paths == ["index.json", "test/index.json"]
         assert client.get("/api/products").json() == []
+
+
+def test_catalog_navigation_validates_every_path_segment(tmp_path, monkeypatch):
+    from app.api import catalog
+    monkeypatch.setenv("FILAMENT_CATALOG_ENABLED", "1")
+    paths=[]
+    monkeypatch.setattr(catalog, "fetch_catalog_json", lambda path: paths.append(path) or {"ok":True})
+    with TestClient(create_app(tmp_path / "catalog.sqlite3")) as client:
+        authenticate(client)
+        assert client.get("/api/catalog/brands/test/materials/PLA").status_code==200
+        assert client.get("/api/catalog/brands/test/materials/PLA/filaments/basic").status_code==200
+        assert client.get("/api/catalog/brands/test/materials/PLA/filaments/basic/variants/red").status_code==200
+        assert paths==["test/materials/PLA/index.json",
+                       "test/materials/PLA/filaments/basic/index.json",
+                       "test/materials/PLA/filaments/basic/variants/red.json"]
