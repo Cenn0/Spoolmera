@@ -122,6 +122,7 @@ def run() -> None:
 
         # Passwords are exact secrets, including leading/trailing spaces.
         page.locator('.side-nav a[href="/account"]').click()
+        expect(page.locator('form.workflow-form')).to_have_class(re.compile('.*ng-invalid.*'))
         page.locator('input[name="old"]').fill("browser-test-password-strong-2026")
         page.locator('input[name="new"]').fill("  browser-new-password-2026  ")
         page.locator('input[name="confirm"]').fill("  browser-new-password-2026  ")
