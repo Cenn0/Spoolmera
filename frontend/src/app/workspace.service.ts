@@ -40,6 +40,9 @@ export interface FileInspection {
   file_stored:boolean;verified:boolean;source:string;needs_manual_estimate:boolean;
   plates:{plate:number;materials:{tool:number;estimated_g:number}[]}[];
 }
+export interface AutomationToken {id:number;label:string;scope:'inventory_read'|'events_read';
+  created_at:string;revoked_at:string|null;}
+export interface IssuedToken {id:number;label:string;scope:'inventory_read'|'events_read';token:string;warning:string;}
 export interface PrinterInput {name:string;kind:string;base_url:string;token_env:string;enabled:boolean;}
 @Injectable({providedIn:'root'})
 export class WorkspaceService {
@@ -102,6 +105,15 @@ export class WorkspaceService {
     return firstValueFrom(this.http.post<FileInspection>(
       '/api/jobs/inspect?name='+encodeURIComponent(file.name),file,
       {headers:new HttpHeaders({'Content-Type':'application/octet-stream'})}));
+  }
+  automationTokens():Promise<AutomationToken[]>{
+    return firstValueFrom(this.http.get<AutomationToken[]>('/api/admin/automation-tokens'));
+  }
+  createAutomationToken(label:string,scope:'inventory_read'|'events_read'):Promise<IssuedToken>{
+    return firstValueFrom(this.http.post<IssuedToken>('/api/admin/automation-tokens',{label,scope}));
+  }
+  revokeAutomationToken(id:number):Promise<void>{
+    return firstValueFrom(this.http.delete<void>('/api/admin/automation-tokens/'+id));
   }
   printers():Promise<Printer[]> {return firstValueFrom(this.http.get<Printer[]>('/api/printers'));}
   jobs():Promise<PrintJob[]> {return firstValueFrom(this.http.get<PrintJob[]>('/api/jobs'));}
