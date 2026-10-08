@@ -112,7 +112,7 @@ def test_v3_material_migration_preserves_existing_records(workspace):
     with session(path) as db:
         mat = db.execute("SELECT tool,spool_id,estimated_g FROM job_materials WHERE job_id=?", (job_id,)).fetchone()
         assert tuple(mat) == (0, s0, 44)
-        assert db.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert db.execute("PRAGMA user_version").fetchone()[0] == 5
 
 
 def test_printer_control_default_off_and_admin_only(workspace, monkeypatch):

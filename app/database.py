@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 from typing import Iterator
+from app.infrastructure.database.migrations import migrate_v5
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS products (
@@ -154,6 +155,8 @@ def initialize_database(path: str | Path) -> None:
     with session(path) as connection:
         connection.execute("PRAGMA journal_mode = WAL")
         connection.executescript(SCHEMA)
+        if connection.execute("PRAGMA user_version").fetchone()[0] > 5:
+            raise RuntimeError("Database schema is newer than this Filament Manager version.")
         # Migration v2 preserves existing numeric IDs while assigning stable UUIDs.
         connection.execute("BEGIN IMMEDIATE")
         try:
@@ -187,7 +190,8 @@ def initialize_database(path: str | Path) -> None:
                 """INSERT OR IGNORE INTO job_materials(job_id,tool,spool_id,estimated_g,movement_id)
                    SELECT id,0,spool_id,estimated_g,movement_id FROM print_jobs"""
             )
-            connection.execute("PRAGMA user_version = 4")
+            migrate_v5(connection)
+            connection.execute("PRAGMA user_version = 5")
             connection.execute("COMMIT")
         except BaseException:
             if connection.in_transaction:

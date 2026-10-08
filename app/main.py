@@ -5,11 +5,12 @@ from uuid import uuid4
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.core.policies import require_editor, require_admin
 from app.database import initialize_database, session, utc_now
 from app.auth import protect
 from app.printers import register_printer_routes
@@ -126,7 +127,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
             ).fetchall()
         return [dict(row) for row in rows]
 
-    @app.post("/api/products", status_code=201)
+    @app.post("/api/products", status_code=201, dependencies=[Depends(require_editor)])
     def add_product(payload: ProductInput):
         timestamp = utc_now()
         with session(db_path, write=True) as db:
@@ -141,7 +142,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
             product_id = cursor.lastrowid
         return {"id": product_id}
 
-    @app.put("/api/products/{product_id}")
+    @app.put("/api/products/{product_id}", dependencies=[Depends(require_editor)])
     def update_product(product_id: int, payload: ProductInput):
         with session(db_path, write=True) as db:
             result = db.execute(
@@ -167,7 +168,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
             ).fetchall()
         return [spool_as_dict(row) for row in rows]
 
-    @app.post("/api/spools", status_code=201)
+    @app.post("/api/spools", status_code=201, dependencies=[Depends(require_editor)])
     def add_spool(payload: SpoolInput):
         remaining = payload.initial_g if payload.remaining_g is None else payload.remaining_g
         if remaining > payload.initial_g:
@@ -193,7 +194,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
             )
         return {"id": spool_id}
 
-    @app.patch("/api/spools/{spool_id}")
+    @app.patch("/api/spools/{spool_id}", dependencies=[Depends(require_editor)])
     def update_spool(spool_id: int, payload: SpoolUpdate):
         changes = payload.model_dump(exclude_unset=True)
         if not changes or any(value is None for value in changes.values()):
@@ -222,7 +223,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
                 raise HTTPException(status_code=404, detail="Spool not found.")
         return {"id": spool_id}
 
-    @app.post("/api/spools/{spool_id}/movements", status_code=201)
+    @app.post("/api/spools/{spool_id}/movements", status_code=201, dependencies=[Depends(require_editor)])
     def add_movement(spool_id: int, payload: MovementInput):
         if payload.kind == "consume" and payload.grams <= 0:
             raise HTTPException(status_code=422, detail="Consumption must be greater than zero.")
@@ -281,7 +282,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
             ).fetchall()
         return [dict(row) for row in rows]
 
-    @app.post("/api/spools/{spool_id}/archive")
+    @app.post("/api/spools/{spool_id}/archive", dependencies=[Depends(require_editor)])
     def archive_spool(spool_id: int):
         with session(db_path, write=True) as db:
             result = db.execute(
@@ -342,7 +343,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
                      "Cache-Control": "no-store"},
         )
 
-    @app.post("/api/import/inventory.csv")
+    @app.post("/api/import/inventory.csv", dependencies=[Depends(require_editor)])
     async def upload_inventory(request: Request, dry_run: bool = Query(default=True)):
         if request.headers.get("content-type", "").split(";")[0].strip().lower() != "text/csv":
             raise HTTPException(status_code=415, detail="The request must use Content-Type: text/csv.")

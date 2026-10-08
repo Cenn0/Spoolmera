@@ -15,11 +15,12 @@ from argon2 import PasswordHasher, Type
 from argon2.exceptions import VerificationError, InvalidHashError
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.database import session, utc_now
+from app.core.policies import require_admin
 
 COOKIE = "filament_session"
 SESSION_SECONDS = 7 * 24 * 3600
@@ -156,21 +157,6 @@ def protect(app: FastAPI, db_path: Path) -> None:
                 return JSONResponse({"detail": "Authentication required."}, status_code=401,
                                     headers={"Cache-Control": "no-store"})
             request.state.user = user
-            if (path.startswith("/api/cloud/events") or path.startswith("/api/slicing/")
-                    or (path.startswith("/api/jobs/") and path.endswith(("/upload", "/start")))) and user["role"] != "admin":
-                return JSONResponse({"detail": "Administrator role required."}, status_code=403)
-            if path.startswith("/api/auth/users") and user["role"] != "admin":
-                return JSONResponse({"detail": "Administrator role required."}, status_code=403)
-            if path.startswith("/api/printers") and method not in {"GET", "HEAD"}:
-                # Editors may request a read-only status poll; only admins configure devices.
-                poll = method == "POST" and path.endswith("/poll")
-                required = "editor" if poll else "admin"
-                if ROLE_ORDER[user["role"]] < ROLE_ORDER[required]:
-                    return JSONResponse({"detail": required + " role required."}, status_code=403)
-            elif method not in {"GET", "HEAD", "OPTIONS"} and ROLE_ORDER[user["role"]] < ROLE_ORDER["editor"]:
-                # Password/logout for viewer must still be allowed.
-                if path not in ("/api/auth/logout", "/api/auth/password"):
-                    return JSONResponse({"detail": "Editor role required."}, status_code=403)
             if method not in {"GET", "HEAD", "OPTIONS"} and (
                 not hmac.compare_digest(request.headers.get("x-csrf-token", "").encode("utf-8"),
                                         user["csrf_token"].encode("utf-8"))
@@ -210,40 +196,47 @@ def protect(app: FastAPI, db_path: Path) -> None:
 
     @app.post("/api/auth/login")
     def login(payload: LoginForm, request: Request):
+        """Costly password verification runs outside SQLite's write transaction."""
         subject = hashlib.sha256((payload.username.casefold() + "|" +
                    (request.client.host if request.client else "unknown")).encode()).hexdigest()
         now = int(time.time())
-        denied = 0
-        result = None
         with session(db_path, write=True) as db:
             db.execute("DELETE FROM auth_failures WHERE created_at < ?", (now - 900,))
             count = db.execute("SELECT COUNT(*) FROM auth_failures WHERE subject=?", (subject,)).fetchone()[0]
-            if count >= 5:
-                denied = 429
+        if count >= 5:
+            raise HTTPException(status_code=429, detail="Too many attempts. Try again later.")
+        with session(db_path) as db:
+            row = db.execute("SELECT * FROM users WHERE username=?", (payload.username,)).fetchone()
+            candidate = dict(row) if row else None
+        valid = verify_password(payload.password, candidate["password_hash"] if candidate else None)
+        if not valid or not candidate or not candidate["enabled"]:
+            with session(db_path, write=True) as db:
+                db.execute("INSERT INTO auth_failures(subject,created_at) VALUES(?,?)", (subject, now))
+            raise HTTPException(status_code=401, detail="Invalid credentials.")
+        rehash = (candidate["password_hash"].startswith("scrypt$")
+                  or PASSWORD_HASHER.check_needs_rehash(candidate["password_hash"]))
+        next_hash = hash_password(payload.password) if rehash else None
+        # Check again under the write lock: concurrent disabling or password changes
+        # must not issue a session based on stale credentials.
+        with session(db_path, write=True) as db:
+            current = db.execute("SELECT * FROM users WHERE id=?", (candidate["id"],)).fetchone()
+            if (not current or not current["enabled"] or
+                    current["password_hash"] != candidate["password_hash"]):
+                db.execute("INSERT INTO auth_failures(subject,created_at) VALUES(?,?)", (subject, now))
+                denied = True
             else:
-                row = db.execute("SELECT * FROM users WHERE username=?", (payload.username,)).fetchone()
-                valid = verify_password(payload.password, row["password_hash"] if row is not None else None)
-                if not valid or not row["enabled"]:
-                    db.execute("INSERT INTO auth_failures(subject,created_at) VALUES(?,?)", (subject, now))
-                    denied = 401
-                else:
-                    if row["password_hash"].startswith("scrypt$") or PASSWORD_HASHER.check_needs_rehash(row["password_hash"]):
-                        db.execute("UPDATE users SET password_hash=? WHERE id=?",
-                                   (hash_password(payload.password), row["id"]))
-                    db.execute("DELETE FROM auth_failures WHERE subject=?", (subject,))
-                    response = JSONResponse(public_user(row))
-                    csrf = issue_session(db, row["id"], response)
-                    response.body = response.render(public_user(row, csrf))
-                    response.headers["content-length"] = str(len(response.body))
-                    audit(db, row["id"], "login", "user", row["id"])
-                    result = response
-        # Do not raise within the write context: failures must be committed
-        # for throttling to persist, rather than rolled back on exception.
+                denied = False
+                if next_hash:
+                    db.execute("UPDATE users SET password_hash=? WHERE id=?", (next_hash, current["id"]))
+                db.execute("DELETE FROM auth_failures WHERE subject=?", (subject,))
+                response = JSONResponse(public_user(current))
+                csrf = issue_session(db, current["id"], response)
+                response.body = response.render(public_user(current, csrf))
+                response.headers["content-length"] = str(len(response.body))
+                audit(db, current["id"], "login", "user", current["id"])
         if denied:
-            raise HTTPException(status_code=denied, detail=(
-                "Too many attempts. Try again later." if denied == 429 else "Invalid credentials."
-            ))
-        return result
+            raise HTTPException(status_code=401, detail="Invalid credentials.")
+        return response
 
     @app.get("/api/auth/me")
     def me(request: Request):
@@ -275,14 +268,14 @@ def protect(app: FastAPI, db_path: Path) -> None:
             audit(db, actor, "password_change", "user", actor)
         return response
 
-    @app.get("/api/auth/users")
+    @app.get("/api/auth/users", dependencies=[Depends(require_admin)])
     def list_users():
         with session(db_path) as db:
             return [dict(row) for row in db.execute(
                 "SELECT id,username,role,enabled,created_at FROM users ORDER BY username COLLATE NOCASE"
             ).fetchall()]
 
-    @app.post("/api/auth/users", status_code=201)
+    @app.post("/api/auth/users", status_code=201, dependencies=[Depends(require_admin)])
     def create_user(request: Request, payload: NewUser):
         with session(db_path, write=True) as db:
             if db.execute("SELECT 1 FROM users WHERE username=?", (payload.username,)).fetchone():
@@ -294,7 +287,7 @@ def protect(app: FastAPI, db_path: Path) -> None:
             audit(db, request.state.user["id"], "user_create", "user", user_id)
         return {"id": user_id}
 
-    @app.patch("/api/auth/users/{user_id}")
+    @app.patch("/api/auth/users/{user_id}", dependencies=[Depends(require_admin)])
     def update_user(user_id: int, payload: UserUpdate, request: Request):
         changes = payload.model_dump(exclude_unset=True)
         if not changes or any(value is None for value in changes.values()):

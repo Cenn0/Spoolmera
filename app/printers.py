@@ -15,10 +15,11 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import urlsplit, quote
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Literal
 
+from app.core.policies import require_editor, require_admin
 from app.database import session, utc_now
 from app.auth import audit
 
@@ -237,7 +238,7 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
             return [safe_printer(row) for row in db.execute(
                 "SELECT * FROM printers ORDER BY name COLLATE NOCASE").fetchall()]
 
-    @app.post("/api/printers", status_code=201)
+    @app.post("/api/printers", status_code=201, dependencies=[Depends(require_admin)])
     def add_printer(payload: PrinterInput, request: Request):
         try:
             base = validate_printer_input(payload)
@@ -253,7 +254,7 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
             audit(db, request.state.user["id"], "printer_create", "printer", printer_id)
         return {"id": printer_id}
 
-    @app.put("/api/printers/{printer_id}")
+    @app.put("/api/printers/{printer_id}", dependencies=[Depends(require_admin)])
     def update_printer(printer_id: int, payload: PrinterInput, request: Request):
         try:
             base = validate_printer_input(payload)
@@ -279,7 +280,7 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
             audit(db, request.state.user["id"], "printer_update", "printer", printer_id)
         return {"id": printer_id}
 
-    @app.post("/api/printers/{printer_id}/probe")
+    @app.post("/api/printers/{printer_id}/probe", dependencies=[Depends(require_admin)])
     def probe(printer_id: int):
         with session(db_path) as db:
             printer = db.execute("SELECT * FROM printers WHERE id=? AND enabled=1", (printer_id,)).fetchone()
@@ -290,7 +291,7 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
         except ValueError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    @app.post("/api/printers/{printer_id}/control")
+    @app.post("/api/printers/{printer_id}/control", dependencies=[Depends(require_admin)])
     def control_printer(printer_id: int, payload: PrinterCommand, request: Request):
         require_control()
         with session(db_path) as db:

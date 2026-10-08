@@ -7,10 +7,11 @@ import tempfile
 import threading
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import Response
 
 from app.auth import audit
+from app.core.policies import require_editor, require_admin
 from app.database import session
 from app.jobs import estimate_gcode
 
@@ -88,11 +89,11 @@ def slice_stl(data: bytes, name: str) -> tuple[bytes, int | None]:
 
 
 def register_slicing_routes(app: FastAPI, db_path: Path) -> None:
-    @app.get("/api/slicing/profiles")
+    @app.get("/api/slicing/profiles", dependencies=[Depends(require_admin)])
     def profiles():
         return {"enabled": slicer_enabled(), "profiles": list_profiles()}
 
-    @app.post("/api/slicing/slice")
+    @app.post("/api/slicing/slice", dependencies=[Depends(require_admin)])
     async def slice_model(request: Request, profile: str = Query(min_length=1, max_length=64)):
         if not slicer_enabled():
             raise HTTPException(status_code=403, detail="Slicing is disabled by the operator.")

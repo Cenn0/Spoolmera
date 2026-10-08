@@ -11,10 +11,11 @@ import time
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.auth import audit
+from app.core.policies import require_editor, require_admin
 from app.database import session, utc_now
 
 SOURCE = re.compile(r"^[A-Z][A-Z0-9_]{0,30}$")
@@ -96,7 +97,7 @@ def register_cloud_routes(app: FastAPI, db_path: Path) -> None:
             audit(db, None, "cloud_" + event.status, "print_job", event.job_id)
         return {"duplicate": False, "disposition": disposition}
 
-    @app.get("/api/cloud/events")
+    @app.get("/api/cloud/events", dependencies=[Depends(require_admin)])
     def list_cloud_events():
         with session(db_path) as db:
             return [dict(row) for row in db.execute(
