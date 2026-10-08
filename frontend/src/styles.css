@@ -337,3 +337,7 @@ h1 em{font-family:Georgia,Times,serif;font-size:1.035em;font-weight:400;color:#9
   .login-screen{padding:13px}
   .workflow-buttons .btn{flex:1}
 }
+
+.inline-reset{flex-basis:100%;display:flex;align-items:flex-end;flex-wrap:wrap;gap:9px;padding:13px;border:1px solid #deebe4;background:#f7faf7;border-radius:9px}
+.inline-reset label{font-size:12px;display:flex;flex-direction:column;gap:6px;flex:1;min-width:170px}
+.inline-reset input{padding:10px 13px;border-radius:7px;border:1px solid #cadbd3;width:100%;background:white}
