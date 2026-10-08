@@ -14,6 +14,7 @@ export class JobsComponent implements OnInit {
   readonly busy=signal(false);
   readonly readiness=signal<Record<number,JobReadiness>>({});
   readonly inspection=signal<FileInspection|null>(null);
+  readonly slotSuggestions=signal<{tool:number;spool_id:number;name:string;estimated_g:number}[]>([]);
   plateIndex=0; firstTool=0;readonly error=signal('');readonly grams=grams;
   printerId=0;spoolId=0;fileName='';estimatedG:number|null=null;upload:File|null=null;note='';
   readonly slicer=signal<SliceProfiles>({enabled:false,profiles:[]});
@@ -39,7 +40,7 @@ export class JobsComponent implements OnInit {
   choose(event:Event){
     const f=(event.target as HTMLInputElement).files?.[0] || null;
     this.upload=f;if(f)this.fileName=f.name;
-    this.inspection.set(null);this.firstTool=0;
+    this.inspection.set(null);this.slotSuggestions.set([]);this.firstTool=0;
   }
   addMaterial():void {
     const materials=this.extraMaterials();
@@ -59,7 +60,7 @@ export class JobsComponent implements OnInit {
     this.busy.set(true);this.error.set('');this.inspection.set(null);
     try{
       const result=await this.api.inspectFile(this.upload);
-      this.inspection.set(result);this.plateIndex=0;
+      this.inspection.set(result);this.plateIndex=0;this.slotSuggestions.set([]);
       if(result.needs_manual_estimate){
         this.notice.show('No reliable slicer material weights found. Enter an estimate manually.');
       }
@@ -71,12 +72,51 @@ export class JobsComponent implements OnInit {
     const plate=preview?.plates[this.plateIndex];
     if(!plate?.materials.length)return;
     const items=[...plate.materials].sort((a,b)=>a.tool-b.tool);
+    this.slotSuggestions.set([]);
     this.firstTool=items[0].tool;this.estimatedG=items[0].estimated_g;
     this.spoolId=0;  // operator must select the actual physical roll
     this.extraMaterials.set(items.slice(1).map(m=>({...m,spool_id:0})));
     // 3MF and multi-tool files are inspection-only; no implicit printer upload.
     if(items.length>1 || this.upload?.name.toLowerCase().endsWith('.3mf'))this.upload=null;
     this.notice.show('Weights loaded. Explicitly select each physical spool and confirm before saving.');
+  }
+  async suggestLoadedSpools():Promise<void>{
+    if(this.busy()||!this.printerId)return;
+    const mappings=[{tool:this.firstTool,estimated_g:this.estimatedG||0},
+      ...this.extraMaterials().map(x=>({tool:x.tool,estimated_g:x.estimated_g||0}))];
+    if(mappings.some(m=>m.estimated_g<=0)){
+      this.error.set('Import valid estimates or enter all tool weights first.');return;
+    }
+    this.busy.set(true);this.error.set('');this.slotSuggestions.set([]);
+    try {
+      const slots=await this.api.printerSlots(this.printerId);
+      const proposals=mappings.flatMap(m=>{
+        const slot=slots.find(s=>s.tool===m.tool);
+        const spool=this.data.spools().find(s=>s.id===slot?.spool_id);
+        if(!slot||!spool||spool.remaining_g<m.estimated_g)return [];
+        return [{tool:m.tool,spool_id:spool.id,name:spool.brand+' · '+spool.product_name,
+          estimated_g:m.estimated_g}];
+      });
+      if(proposals.length!==mappings.length){
+        this.error.set('Some tools have no recorded loaded spool or insufficient remaining weight. Assign them manually.');
+        return;
+      }
+      this.slotSuggestions.set(proposals);
+    }catch(e){this.error.set(apiError(e));}
+    finally{this.busy.set(false);}
+  }
+  applyLoadedSpools():void{
+    const suggestions=this.slotSuggestions();
+    if(!suggestions.length||!window.confirm(
+       'Use the recorded printer slot assignments? Physically verify the loaded spools before printing.'))return;
+    const first=suggestions.find(s=>s.tool===this.firstTool);
+    if(!first)return;
+    this.spoolId=first.spool_id;
+    this.extraMaterials.update(items=>items.map(item=>({
+      ...item,spool_id:suggestions.find(s=>s.tool===item.tool)?.spool_id||0
+    })));
+    this.slotSuggestions.set([]);
+    this.notice.show('Suggested loaded spools assigned; verify material and quantities.');
   }
   async checkReadiness(job:PrintJob):Promise<void>{
     this.busy.set(true);this.error.set('');
@@ -176,7 +216,7 @@ export class JobsComponent implements OnInit {
       }
       this.notice.show('Print-job mapping registered. Transfer a file separately if needed.');
       this.fileName='';this.upload=null;this.estimatedG=null;this.note='';this.firstTool=0;
-      this.extraMaterials.set([]);this.inspection.set(null);
+      this.extraMaterials.set([]);this.inspection.set(null);this.slotSuggestions.set([]);
       await this.refresh();
     }catch(error){this.error.set(apiError(error));}
     finally{this.busy.set(false);}

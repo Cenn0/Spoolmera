@@ -51,6 +51,18 @@
       </div>
     }
     <button class="btn ghost" type="button" [disabled]="extraMaterials().length>=7||!!upload" (click)="addMaterial()">Add another material/tool</button>
+    @if(!upload){
+      <button class="btn ghost" type="button" [disabled]="busy()||!printerId||!estimatedG" (click)="suggestLoadedSpools()">Suggest rolls from recorded printer slots</button>
+      @if(slotSuggestions().length){
+        <div class="detail-summary">
+          <div><strong>Suggested physical roll mappings — review before accepting</strong>
+            @for(s of slotSuggestions();track s.tool){<p class="helper">Tool {{s.tool}}: {{s.name}} · {{grams(s.estimated_g)}}</p>}
+            <small>Assignments are based on manually recorded slot data, not automatically verified hardware state.</small>
+          </div>
+        </div>
+        <button class="btn ghost" type="button" (click)="applyLoadedSpools()">Use these suggested rolls</button>
+      }
+    }
     <p class="helper">The first spool is tool {{firstTool}}. All additional tools must have unique numbers and explicit weights. Multi-material jobs cannot use automatic weight inference from an imported G-code file. The combined amount is deducted atomically after verified completion or manual approval.</p>
     <p class="helper">Importing a G-code file here registers metadata only. Uploading to a printer is a separate administrator action; it never starts automatically. Moonraker history-confirmed jobs may debit automatically; OctoPrint always requires review.</p>
     <button class="btn primary" type="submit" [disabled]="busy()||jobForm.invalid||!printerId||!spoolId">Register print job</button>
