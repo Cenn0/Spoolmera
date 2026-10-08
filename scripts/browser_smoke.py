@@ -114,7 +114,7 @@ def run() -> None:
         page.get_by_role('spinbutton', name='Estimated g').fill('5')
         # Additional tool assignments deliberately start unselected; an operator
         # must choose the physical spool before submitting a print job.
-        page.locator('select[name="materialSpool0"]').select_option(index=1)
+        page.locator('.material-mapping-list select').select_option(index=1)
         page.get_by_role("button", name="Register print job").click()
         expect(page.locator(".workflow-list")).to_contain_text("two-tools.gcode")
         mapped = next(job for job in page.request.get(BASE + "/api/jobs").json()
