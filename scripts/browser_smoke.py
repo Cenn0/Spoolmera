@@ -9,6 +9,11 @@ def run() -> None:
         browser = playwright.chromium.launch(headless=True)
         page = browser.new_page(accept_downloads=True)
         page.goto(BASE + "/", wait_until="networkidle")
+        expect(page.locator("h1")).to_contain_text("Create the first administrator")
+        page.locator('fm-login input[name="username"]').fill("browser-admin")
+        page.locator('fm-login input[name="password"]').fill("browser-test-password-strong-2026")
+        page.locator('fm-login input[name="token"]').fill("test-only-bootstrap-token-long-enough")
+        page.get_by_role("button", name="Create administrator").click()
         expect(page.locator("h1")).to_contain_text("Every spool")
 
         page.get_by_role("button", name="New filament").click()

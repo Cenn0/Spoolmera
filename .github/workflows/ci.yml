@@ -90,6 +90,7 @@ jobs:
         run: |
           set -euo pipefail
           export FILAMENT_DB_PATH="$RUNNER_TEMP/browser-inventory.sqlite3"
+          export FILAMENT_BOOTSTRAP_TOKEN="test-only-bootstrap-token-long-enough"
           python -m uvicorn app.main:app --host 127.0.0.1 --port 8765 >"$RUNNER_TEMP/browser-server.log" 2>&1 &
           server=$!
           trap 'kill "$server" >/dev/null 2>&1 || true; cat "$RUNNER_TEMP/browser-server.log"' EXIT

@@ -11,11 +11,13 @@ from fastapi.testclient import TestClient
 from app.database import SCHEMA, initialize_database
 from app.labels import public_base_url
 from app.main import create_app
+from tests.support import authenticate
 
 
 @pytest.fixture
 def client(tmp_path):
     with TestClient(create_app(tmp_path / "inventory.db")) as app:
+        authenticate(app)
         yield app
 
 
@@ -149,6 +151,7 @@ def test_csv_round_trip_preview_and_idempotent_reimport(client, tmp_path):
     source = client.get("/api/export/inventory.csv").content
 
     with TestClient(create_app(tmp_path / "target.db")) as imported:
+        authenticate(imported)
         before = import_file(imported, source)
         assert before.status_code == 200
         assert before.json() == {
@@ -185,6 +188,7 @@ def test_invalid_import_rejected_before_any_rows_are_written(client, tmp_path):
     rows[-1]["remaining_g"] = "1001"
     corrupted = to_csv(rows)
     with TestClient(create_app(tmp_path / "empty.db")) as target:
+        authenticate(target)
         response = import_file(target, corrupted, dry_run=False)
         assert response.status_code == 422
         assert target.get("/api/products").json() == []
@@ -196,6 +200,7 @@ def test_duplicate_spool_uuid_in_file_is_rejected(client, tmp_path):
     rows = decode_csv(client.get("/api/export/inventory.csv").text)
     data = to_csv(rows + rows)
     with TestClient(create_app(tmp_path / "target-duplicates.db")) as target:
+        authenticate(target)
         rejected = import_file(target, data, dry_run=False)
         assert rejected.status_code == 422
         assert target.get("/api/products").json() == []
@@ -229,6 +234,7 @@ def test_csv_protects_spreadsheet_formulas_and_can_import_them(client, tmp_path)
     assert rows[0]["color_name"].startswith("'@")
     assert rows[0]["location"].startswith("'+")
     with TestClient(create_app(tmp_path / "safe-import.db")) as target:
+        authenticate(target)
         imported = import_file(target, to_csv(rows), dry_run=False)
         assert imported.status_code == 200
         assert target.get("/api/products").json()[0]["brand"] == data["brand"]
@@ -304,6 +310,7 @@ def test_upgrade_from_v1_retains_numeric_ids_stock_and_history(tmp_path):
         assert db.execute("PRAGMA user_version").fetchone()[0] == 2
     initialize_database(path)
     with TestClient(create_app(path)) as migrated:
+        authenticate(migrated)
         assert migrated.get("/api/products").json()[0]["uid"] == first_product_uid
         spool_data = migrated.get("/api/spools").json()[0]
         assert spool_data["id"] == 23
