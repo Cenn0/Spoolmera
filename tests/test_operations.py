@@ -226,6 +226,9 @@ def test_slicing_opt_in_profile_and_cli_argument_guards(workspace, monkeypatch, 
     monkeypatch.setenv("FILAMENT_SLICER_ENABLED", "1")
     monkeypatch.setenv("FILAMENT_SLICER_PROFILES_DIR", str(directory))
     monkeypatch.setenv("FILAMENT_SLICER_EXECUTABLE", str(binary))
+    monkeypatch.setenv("FILAMENT_SLICER_WORKER_URL", "http://slicer-worker:8767")
+    monkeypatch.setenv("FILAMENT_SLICER_WORKER_TOKEN", "slicer-test-worker-secret-at-least-32-characters")
+    monkeypatch.setattr("app.slicing.worker_profiles", lambda: __import__("app.slicing", fromlist=["list_profiles"]).list_profiles())
     assert client.get("/api/slicing/profiles").json() == {"enabled": True, "profiles": ["approved"]}
     assert client.post("/api/slicing/slice", params={"profile": "../evil"},
                        content=source, headers=headers).status_code == 422
@@ -237,6 +240,8 @@ def test_slicing_opt_in_profile_and_cli_argument_guards(workspace, monkeypatch, 
         Path(argv[argv.index("--output")+1]).write_bytes(b"; filament used [g] = 22.4\nG1 E2\n")
         return SimpleNamespace(returncode=0)
     monkeypatch.setattr("app.slicing.subprocess.run", fake_run)
+    monkeypatch.setattr("app.slicing.remote_slice_stl",
+        lambda data, profile: __import__("app.slicing", fromlist=["slice_stl"]).slice_stl(data, profile))
     response = client.post("/api/slicing/slice", params=query, content=source, headers=headers)
     assert response.status_code == 200, response.text
     assert response.headers["X-Estimated-Grams"] == "22"
@@ -254,6 +259,10 @@ def test_slicer_rejects_profile_postprocessing(workspace, monkeypatch, tmp_path)
     monkeypatch.setenv("FILAMENT_SLICER_ENABLED", "1")
     monkeypatch.setenv("FILAMENT_SLICER_PROFILES_DIR", str(root))
     monkeypatch.setenv("FILAMENT_SLICER_EXECUTABLE", str(binary))
+    monkeypatch.setenv("FILAMENT_SLICER_WORKER_URL", "http://slicer-worker:8767")
+    monkeypatch.setenv("FILAMENT_SLICER_WORKER_TOKEN", "slicer-test-worker-secret-at-least-32-characters")
+    monkeypatch.setattr("app.slicing.remote_slice_stl",
+        lambda data, profile: __import__("app.slicing", fromlist=["slice_stl"]).slice_stl(data, profile))
     response = client.post("/api/slicing/slice?profile=unsafe",
                            content=b"solid cube\nfacet normal 0 0 1\nendsolid cube\n",
                            headers={"Content-Type":"application/octet-stream"})

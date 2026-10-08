@@ -182,6 +182,7 @@ def poll_printer(db_path: Path, printer_id: int) -> dict:
     changed = 0
     for job in jobs:
         outcome = None
+        remote_state = None
         external_id = job["external_job_id"]
         if printer["kind"] == "moonraker":
             # An immutable history ID is the reliable identity of a physical run.
@@ -488,7 +489,7 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
                 raise HTTPException(status_code=404, detail="Print job not found.")
             if job["status"] not in ("pending", "printing"):
                 raise HTTPException(status_code=409, detail="Only pending or tracked jobs can be cancelled.")
-            db.execute("UPDATE print_jobs SET status='cancelled',updated_at=? WHERE id=?",
+            db.execute("UPDATE print_jobs SET status='cancelled',accounting_status='discarded',updated_at=? WHERE id=?",
                        (utc_now(), job_id))
             audit(db, request.state.user["id"], "job_cancel_tracking", "print_job", job_id)
         return {"id": job_id, "status": "cancelled"}

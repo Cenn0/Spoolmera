@@ -5,6 +5,9 @@ import re
 import subprocess
 import tempfile
 import threading
+import urllib.error
+import urllib.request
+import json
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
@@ -88,10 +91,77 @@ def slice_stl(data: bytes, name: str) -> tuple[bytes, int | None]:
         SLICER_LOCK.release()
 
 
+def worker_url() -> str:
+    # The worker is only reachable via the Compose-internal slicer network.
+    url = os.getenv("FILAMENT_SLICER_WORKER_URL", "")
+    secret = os.getenv("FILAMENT_SLICER_WORKER_TOKEN", "")
+    if url != "http://slicer-worker:8767" or len(secret) < 32:
+        raise HTTPException(status_code=503, detail="Isolated slicer worker is not configured.")
+    return url
+
+
+def request_worker(path: str, data: bytes | None = None) -> tuple[bytes, dict]:
+    url = worker_url()
+    token = os.environ["FILAMENT_SLICER_WORKER_TOKEN"]
+    headers = {"X-Worker-Token": token}
+    if data is not None:
+        headers["Content-Type"] = "application/octet-stream"
+    request = urllib.request.Request(url + path, data=data, headers=headers,
+                                     method="POST" if data is not None else "GET")
+    # Never use process HTTP proxy settings for internal slicing.
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open(request, timeout=75) as response:
+            if response.status != 200:
+                raise HTTPException(status_code=502, detail="Slicer worker failed.")
+            result = response.read(MAX_RESULT + 1)
+            if len(result) > MAX_RESULT:
+                raise HTTPException(status_code=413, detail="Slicer result is too large.")
+            return result, dict(response.headers)
+    except urllib.error.HTTPError as exc:
+        # Forward only bounded, structured error messages from our authenticated worker.
+        try:
+            detail = json.loads(exc.read(1024)).get("detail", "Slicer worker rejected request.")
+            if not isinstance(detail, str):
+                detail = "Slicer worker rejected request."
+        except (ValueError, UnicodeError, AttributeError):
+            detail = "Slicer worker rejected request."
+        raise HTTPException(status_code=exc.code if 400 <= exc.code < 500 else 502,
+                            detail=detail[:200]) from None
+    except (OSError, urllib.error.URLError, TimeoutError) as exc:
+        raise HTTPException(status_code=502, detail="Isolated slicer worker is unavailable.") from exc
+
+
+def worker_profiles() -> list[str]:
+    data, _ = request_worker("/profiles")
+    try:
+        profiles = json.loads(data)["profiles"]
+        if not isinstance(profiles, list) or any(
+                not isinstance(x, str) or not PROFILE_NAME.fullmatch(x) for x in profiles):
+            raise ValueError("Invalid profile response")
+        return profiles
+    except (KeyError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=502, detail="Invalid slicer worker response.") from exc
+
+
+def remote_slice_stl(data: bytes, name: str) -> tuple[bytes, int | None]:
+    content, headers = request_worker("/slice?profile=" + name, data)
+    raw_weight = headers.get("X-Estimated-Grams")
+    try:
+        weight = int(raw_weight) if raw_weight is not None else None
+        if weight is not None and not 0 < weight <= 100000:
+            raise ValueError("Invalid weight")
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail="Invalid worker weight estimate.") from exc
+    return content, weight
+
+
 def register_slicing_routes(app: FastAPI, db_path: Path) -> None:
     @app.get("/api/slicing/profiles", dependencies=[Depends(require_admin)])
-    def profiles():
-        return {"enabled": slicer_enabled(), "profiles": list_profiles()}
+    async def profiles():
+        if not slicer_enabled():
+            return {"enabled": False, "profiles": []}
+        return {"enabled": True, "profiles": await asyncio.to_thread(worker_profiles)}
 
     @app.post("/api/slicing/slice", dependencies=[Depends(require_admin)])
     async def slice_model(request: Request, profile: str = Query(min_length=1, max_length=64)):
@@ -111,7 +181,7 @@ def register_slicing_routes(app: FastAPI, db_path: Path) -> None:
         data = b"".join(chunks)
         if len(data) < 16:
             raise HTTPException(status_code=422, detail="Model is empty or invalid.")
-        content, estimated = await asyncio.to_thread(slice_stl, data, profile)
+        content, estimated = await asyncio.to_thread(remote_slice_stl, data, profile)
         with session(db_path, write=True) as db:
             audit(db, request.state.user["id"], "slicer_run", "profile", None)
         headers = {"Content-Disposition": 'attachment; filename="sliced.gcode"',

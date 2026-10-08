@@ -158,7 +158,10 @@ def moonraker_job(printer, job_id: str) -> dict | None:
     if not job_id or len(job_id) > 120:
         raise ValueError("Invalid remote job identity.")
     data = fetch_json(printer, "/server/history/job?uid=" + quote(job_id, safe=""))
-    entry = response_object(response_object(data.get("result"), "result").get("job"), "job")
+    # HTTP Moonraker history responses use a top-level "job"; support JSON-RPC
+    # envelopes as well for adapter fixtures and version differences.
+    root = data.get("result", data)
+    entry = response_object(response_object(root, "history").get("job"), "job")
     if (entry.get("job_id") != job_id or not isinstance(entry.get("filename"), str)
             or not isinstance(entry.get("status"), str)
             or type(entry.get("start_time")) not in (int, float)

@@ -55,7 +55,7 @@ def apply_consumption(db, job, actor_id: int | None) -> bool:
         spool = db.execute("SELECT remaining_g,archived_at FROM spools WHERE id=?", (spool_id,)).fetchone()
         if not spool or spool["archived_at"] or spool["remaining_g"] < required:
             db.execute(
-                "UPDATE print_jobs SET status='needs_review',note=?,updated_at=? WHERE id=?",
+                "UPDATE print_jobs SET status='needs_review',accounting_status='needs_review',note=?,updated_at=? WHERE id=?",
                 ("Cannot safely debit: one or more mapped spools are archived or have insufficient stock.",
                  utc_now(), current["id"]),
             )

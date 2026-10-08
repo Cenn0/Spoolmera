@@ -1,15 +1,45 @@
-# Optional overlay; start with:
-# docker compose -f compose.yaml -f compose.slicer.yaml up -d --build
-# Requires FILAMENT_SLICER_ENABLED=1 in the .env file and explicit operator-
-# supplied, version-compatible INI profiles. Read-only mount; never permit
-# end users to edit these profiles.
+# Optional, separately sandboxed slicing process on an internal-only Docker network.
+# Generate FILAMENT_SLICER_WORKER_TOKEN (32+ characters) in the private .env file.
 services:
   filament-manager:
+    environment:
+      FILAMENT_SLICER_ENABLED: "1"
+      FILAMENT_SLICER_WORKER_URL: "http://slicer-worker:8767"
+    networks:
+      - default
+      - slicer_internal
+    depends_on:
+      slicer-worker:
+        condition: service_healthy
+  slicer-worker:
     build:
-      args:
-        FILAMENT_INSTALL_PRUSA_SLICER: "1"
+      context: .
+      target: slicer-runtime
+    restart: unless-stopped
+    environment:
+      FILAMENT_SLICER_ENABLED: "1"
+      FILAMENT_SLICER_PROFILES_DIR: /config/slicer-profiles
+      FILAMENT_SLICER_WORKER_TOKEN: ${FILAMENT_SLICER_WORKER_TOKEN:?Set FILAMENT_SLICER_WORKER_TOKEN in .env}
     volumes:
       - ./slicer-profiles:/config/slicer-profiles:ro
+    networks:
+      - slicer_internal
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,noexec,size=128m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     mem_limit: 2g
     pids_limit: 128
     cpus: 2.0
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8767/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+networks:
+  slicer_internal:
+    internal: true

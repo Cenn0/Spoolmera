@@ -148,12 +148,14 @@ jobs:
   slicer-build:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      FILAMENT_SLICER_WORKER_TOKEN: test-only-ci-slicer-worker-token-long-enough
     steps:
       - uses: actions/checkout@v7
       - name: Validate optional slicer Compose overlay
         run: docker compose -f compose.yaml -f compose.slicer.yaml config --quiet
       - name: Build opt-in slicer image from distribution packages
-        run: docker build --build-arg FILAMENT_INSTALL_PRUSA_SLICER=1 --tag filament-manager:slicer-ci .
+        run: docker build --target slicer-runtime --tag filament-manager:slicer-ci .
       - name: Check installed PrusaSlicer CLI
         run: |
           docker run --rm --entrypoint /usr/bin/test filament-manager:slicer-ci -x /usr/bin/prusa-slicer
