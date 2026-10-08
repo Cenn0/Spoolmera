@@ -81,7 +81,8 @@ def run() -> None:
         dialog.get_by_role("button", name="Close dialog").click()
         page.locator('.side-nav a[href="/integrations"]').click()
         expect(page.locator("fm-root")).to_contain_text("Read-only available")
-        expect(page.locator("fm-root")).to_contain_text("Not connected")
+        expect(page.locator("fm-root")).to_contain_text("Signed cloud bridge")
+        expect(page.locator("fm-root")).to_contain_text("External relay required")
 
         # Admin can provision users and register a restricted controller without
         # opening a real connection; a print job maps to an existing spool.
@@ -105,8 +106,23 @@ def run() -> None:
         page.get_by_role("button", name="Register print job").click()
         expect(page.locator(".workflow-list")).to_contain_text("fixture.gcode")
 
+        # Multi-tool mapping is edited through Angular, not only through REST.
+        page.locator('input[name="fileName"]').fill("two-tools.gcode")
+        page.locator('input[name="estimatedG"]').fill("20")
+        page.get_by_role("button", name="Add another material/tool").click()
+        expect(page.get_by_role('spinbutton', name='Estimated g')).to_be_visible()
+        page.get_by_role('spinbutton', name='Estimated g').fill('5')
+        page.get_by_role("button", name="Register print job").click()
+        expect(page.locator(".workflow-list")).to_contain_text("two-tools.gcode")
+        mapped = next(job for job in page.request.get(BASE + "/api/jobs").json()
+                      if job["file_name"] == "two-tools.gcode")
+        assert sorted((item["tool"], item["estimated_g"]) for item in mapped["materials"]) == [
+            (0, 20), (1, 5),
+        ]
+
         # Passwords are exact secrets, including leading/trailing spaces.
         page.locator('.side-nav a[href="/account"]').click()
+        expect(page.locator('form.workflow-form')).to_have_class(re.compile('.*ng-invalid.*'))
         page.locator('input[name="old"]').fill("browser-test-password-strong-2026")
         page.locator('input[name="new"]').fill("  browser-new-password-2026  ")
         page.locator('input[name="confirm"]').fill("  browser-new-password-2026  ")

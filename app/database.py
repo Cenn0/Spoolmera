@@ -91,6 +91,24 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_print_jobs_one_active
  ON print_jobs(printer_id,file_name) WHERE status IN ('pending','printing');
 CREATE UNIQUE INDEX IF NOT EXISTS idx_print_jobs_external
  ON print_jobs(printer_id,external_job_id) WHERE external_job_id IS NOT NULL;
+CREATE TABLE IF NOT EXISTS job_materials (
+    job_id INTEGER NOT NULL REFERENCES print_jobs(id) ON DELETE CASCADE,
+    tool INTEGER NOT NULL CHECK(tool BETWEEN 0 AND 15),
+    spool_id INTEGER NOT NULL REFERENCES spools(id) ON DELETE RESTRICT,
+    estimated_g INTEGER NOT NULL CHECK(estimated_g BETWEEN 1 AND 100000),
+    movement_id INTEGER REFERENCES movements(id),
+    PRIMARY KEY(job_id, tool)
+);
+CREATE INDEX IF NOT EXISTS idx_job_materials_spool ON job_materials(spool_id);
+CREATE TABLE IF NOT EXISTS cloud_event_receipts (
+    source TEXT NOT NULL,
+    event_id TEXT NOT NULL,
+    job_id INTEGER NOT NULL REFERENCES print_jobs(id),
+    payload_digest TEXT NOT NULL,
+    disposition TEXT NOT NULL,
+    received_at TEXT NOT NULL,
+    PRIMARY KEY(source, event_id)
+);
 CREATE TABLE IF NOT EXISTS audit_events (
     id INTEGER PRIMARY KEY,
     actor_id INTEGER REFERENCES users(id),
@@ -158,11 +176,18 @@ def initialize_database(path: str | Path) -> None:
                 connection.execute(
                     "ALTER TABLE movements ADD COLUMN print_job_id INTEGER REFERENCES print_jobs(id)"
                 )
+            # Version 4 supports one immutable movement per (job, physical spool).
+            # Dropping the old one-movement-per-job index is required for MMU jobs.
+            connection.execute("DROP INDEX IF EXISTS idx_movements_print_job")
             connection.execute(
-                "CREATE UNIQUE INDEX IF NOT EXISTS idx_movements_print_job "
-                "ON movements(print_job_id) WHERE print_job_id IS NOT NULL"
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_movements_print_job_spool "
+                "ON movements(print_job_id, spool_id) WHERE print_job_id IS NOT NULL"
             )
-            connection.execute("PRAGMA user_version = 3")
+            connection.execute(
+                """INSERT OR IGNORE INTO job_materials(job_id,tool,spool_id,estimated_g,movement_id)
+                   SELECT id,0,spool_id,estimated_g,movement_id FROM print_jobs"""
+            )
+            connection.execute("PRAGMA user_version = 4")
             connection.execute("COMMIT")
         except BaseException:
             if connection.in_transaction:

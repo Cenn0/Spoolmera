@@ -10,19 +10,19 @@ For WAN use keep network access restricted through a VPN or properly configured 
 
 ## Supported printer connections
 
-This release has **read-only** adapters for Moonraker/Klipper and OctoPrint. No job submission, printer control or printer discovery is implemented. Printer endpoint hosts must be literal RFC1918 or ULA IPs and must be included exactly in `FILAMENT_PRINTER_ALLOWED_IPS`. The connector disables HTTP proxies and redirects, has a finite timeout and bounds the response length. Configure API keys using named `FILAMENT_PRINTER_TOKEN_*` environment variables; the database stores only the variable *name*, never the secret.
+This release provides read-only adapters by default, with admin-only controller commands, file transfers, and print start when `FILAMENT_PRINTER_CONTROL_ENABLED=1` is set. No printer discovery is implemented. Printer endpoint hosts must be literal RFC1918 or ULA IPs and must be included exactly in `FILAMENT_PRINTER_ALLOWED_IPS`. The connector disables HTTP proxies and redirects, has a finite timeout and bounds the response length. Configure API keys using named `FILAMENT_PRINTER_TOKEN_*` environment variables; the database stores only the variable *name*, never the secret.
 
-Use read-only or least-privilege keys at the printer controller when available. Printer firmware APIs might grant broader control than these HTTP requests use; inspect upstream permissions before pairing.
+Use read-only or least-privilege keys for status-only connections, and narrowly scoped write permissions if available for opt-in physical actions. Printer firmware APIs may grant broader control than these HTTP requests use; inspect upstream permissions before pairing.
 
 ## G-code import
 
-Importing a `.gcode`, `.gco` or `.gc` file (up to 16 MiB) reads slicer metadata for one estimated gram quantity. The bytes are not stored, executed or forwarded to the printer. You can alternatively enter a matching printer filename and estimated gram count manually. This is **print-job metadata import**, not automatic slicing.
+Importing a `.gcode`, `.gco` or `.gc` file (up to 16 MiB) reads slicer metadata for one estimated gram quantity. **Metadata import** does not persist or upload the file. A separate privileged operation can upload a file to the printer. You can alternatively enter a matching printer filename and estimated gram count manually. This is **print-job metadata import**, not automatic slicing.
 
-One tracked job maps to one physical spool. Multi-material automatic mapping and waste/purge accounting are not supported.
+Tracked jobs can map multiple explicitly selected extruder tools to physical spools, with atomic multi-spool accounting. Automatic discovery of tool/material assignments, or automatic purge/waste estimates, is not supported.
 
 ## Completion and material deduction
 
-The Moonraker adapter uses `GET /server/history/list` and the immutable job-history identifier. A local job is auto-debited **only if** the matched run was previously observed `in_progress` and later `completed` with the same unique identifier. The spool balance and a unique, job-linked movement are written together in one SQLite transaction.
+The Moonraker adapter uses `GET /server/history/list` and the immutable job-history identifier. A local job is auto-debited **only if** the matched run was previously observed `in_progress` and later `completed` with the same unique identifier. All linked spool balances and one unique movement per distinct physical spool and job are written together in one SQLite transaction.
 
 Any missed observation (short job, restart), error, cancellation, insufficient stock or ambiguous result requires human review. OctoPrint's current-job status does not unambiguously prove successful completion, so it never automatically debits. Human confirmation debits the selected **estimate**, not sensor-measured grams; discard leaves inventory unchanged.
 
@@ -34,7 +34,7 @@ Existing `/api/integrations/v1/*` remains read-only; it now requires an authenti
 
 ## Known limitations
 
-No OAuth/SSO, MFA, cloud-vendor printer integration, automated slicing, G-code uploading, isolation of separate tenants or physical filament weighing. SQLite backups must be consistent across WAL files. Upgrading to DB v3 is forward-only without restoring a backup.
+No OAuth/SSO, MFA, native cloud-vendor API integration, automatic tool mapping, fully sandboxed slicer, isolation of tenants or physical filament weighing. Opt-in slicing, uploads, controls and signed vendor-neutral cloud bridge exist with explicit constraints in [Operations](operations.md). SQLite backups must be consistent across WAL files. Upgrading to DB v4 is forward-only without restoring a backup.
 
 Original device documentation:
 
