@@ -146,3 +146,32 @@ def test_overview_counts_and_low_stock(client):
     assert stats["empty_spools"] == 1
     assert stats["low_spools"] == 1
     assert stats["remaining_g"] == 1150
+
+
+def test_static_frontend_is_served(client):
+    homepage = client.get("/")
+    assert homepage.status_code == 200
+    assert "Filament Manager" in homepage.text
+    assert client.get("/static/styles.css").status_code == 200
+    javascript = client.get("/static/app.js")
+    assert javascript.status_code == 200
+    assert "openSpoolDialog" in javascript.text
+
+
+def test_opened_spool_cannot_be_marked_as_sealed_after_consumption(client):
+    spool_id = create_spool(client)
+    assert client.post(f"/api/spools/{spool_id}/movements", json={
+        "kind": "consume", "grams": 100,
+    }).status_code == 201
+    assert client.patch(f"/api/spools/{spool_id}", json={"opened": False}).status_code == 409
+    assert client.get("/api/spools").json()[0]["status"] == "opened"
+
+
+def test_spool_metadata_and_recent_movement_queries(client):
+    spool_id = create_spool(client)
+    assert client.patch(f"/api/spools/{spool_id}", json={
+        "location": "Trockenschrank", "notes": "Trocken lagern", "opened": True,
+    }).status_code == 200
+    assert client.get("/api/spools").json()[0]["location"] == "Trockenschrank"
+    assert len(client.get("/api/movements?limit=1").json()) == 1
+    assert client.get("/api/movements?limit=201").status_code == 422
