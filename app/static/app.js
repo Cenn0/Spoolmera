@@ -54,7 +54,7 @@ async function api(path, options = {}) {
     const description = Array.isArray(detail)
       ? detail.map(item => (item.loc || []).slice(1).join(".") + ": " + item.msg).join(" · ")
       : detail;
-    throw new Error(description || "Die Anfrage konnte nicht abgeschlossen werden.");
+    throw new Error(description || "The request could not be completed.");
   }
   return payload;
 }
@@ -247,7 +247,7 @@ function renderProducts() {
     '<button type="button" class="table-action" data-action="new-product-spool" data-id="',
     product.id, '">+ Spool</button>',
     '<button type="button" class="table-action" data-action="edit-product" data-id="',
-    product.id, '">Bearbeiten</button></div></td></tr>'
+    product.id, '">Edit</button></div></td></tr>'
   ].join("")).join("") : '<tr><td colspan="6" class="table-empty">No filaments yet. Add your first filament.</td></tr>';
 }
 
