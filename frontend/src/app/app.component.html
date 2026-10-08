@@ -14,6 +14,7 @@
       <a routerLink="/" [routerLinkActiveOptions]="{exact:true}" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">▦</span> Overview</a>
       <a routerLink="/spools" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">◎</span> Spools <span class="nav-count">{{ inventory.overview().total_spools }}</span></a>
       <a routerLink="/filaments" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">▤</span> Filaments</a>
+      <a routerLink="/catalog" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">⌕</span> Open catalog</a>
       <a routerLink="/history" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">◷</span> History</a>
       <a routerLink="/jobs" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">▣</span> Print jobs</a>
       <a routerLink="/printers" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">▥</span> Printers</a>
