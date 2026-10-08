@@ -4,6 +4,7 @@ Restoration must happen offline through a separate operator-owned command.
 """
 import os
 import sqlite3
+from contextlib import closing
 import tempfile
 from pathlib import Path
 from datetime import datetime, timezone
@@ -36,7 +37,7 @@ def register_backup_routes(app: FastAPI, db_path: Path) -> None:
                 except FileNotFoundError:
                     pass
         try:
-            with sqlite3.connect(str(db_path)) as source, sqlite3.connect(snapshot) as target:
+            with closing(sqlite3.connect(str(db_path))) as source, closing(sqlite3.connect(snapshot)) as target:
                 source.backup(target, pages=1000, sleep=0.01)
                 target.execute("PRAGMA journal_mode=DELETE")
                 if target.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
