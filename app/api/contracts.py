@@ -21,6 +21,15 @@ class ProductResponse(BaseModel):
     color_hex: str
     diameter_mm: float
     notes: str
+    density_g_cm3: float | None
+    nozzle_min_c: int | None
+    nozzle_max_c: int | None
+    bed_min_c: int | None
+    bed_max_c: int | None
+    gtin: str
+    manufacturer_sku: str
+    slicer_preset: str
+    low_stock_threshold_g: int
     created_at: str
     updated_at: str
     spool_count: int
@@ -38,12 +47,18 @@ class SpoolResponse(BaseModel):
     notes: str
     created_at: str
     archived_at: str | None
+    tare_g: int
+    purchase_price_cents: int | None
+    purchase_currency: str
+    purchased_on: str | None
+    batch: str
     brand: str
     product_name: str
     material: str
     color_name: str
     color_hex: str
     diameter_mm: float
+    low_stock_threshold_g: int
 
 class SpoolPageResponse(BaseModel):
     items: list[SpoolResponse]
