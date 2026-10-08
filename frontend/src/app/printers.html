@@ -20,8 +20,8 @@
   <div class="workflow-list">
     @for(p of printers();track p.id){
       <article class="workflow-row"><div class="workflow-main"><strong>{{p.name}}</strong>
-        <span>{{p.kind}} · {{p.base_url}}</span>
-        <small>{{p.token_env||'No API key configured'}}</small></div>
+        <span>{{p.kind}} · {{auth.isAdmin() ? p.base_url : 'Connection details restricted'}}</span>
+        @if(auth.isAdmin()){<small>{{p.token_env||'No API key configured'}}</small>}</div>
         <span class="status" [class.opened]="p.enabled">{{p.enabled?'Enabled':'Disabled'}}</span>
         @if(auth.isAdmin()){
           <div class="workflow-buttons"><button type="button" class="btn ghost" [disabled]="busy()||!p.enabled" (click)="probe(p)">Test connection</button>

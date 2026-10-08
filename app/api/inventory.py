@@ -53,7 +53,7 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
 
     @app.get("/api/movements")
     def recent_movements(limit: int = Query(default=30, ge=1, le=200)):
-        return inventory_service.recent_movements(db_path, limit, ge, le)
+        return inventory_service.recent_movements(db_path, limit)
 
     @app.post("/api/spools/{spool_id}/archive", dependencies=[Depends(require_editor)])
     def archive_spool(spool_id: int, request: Request):

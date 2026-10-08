@@ -254,10 +254,15 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
         return {"write_enabled": control_enabled(), "max_upload_bytes": 16 * 1024 * 1024}
 
     @app.get("/api/printers")
-    def printers():
+    def printers(request: Request):
         with session(db_path) as db:
-            return [safe_printer(row) for row in db.execute(
+            rows = [safe_printer(row) for row in db.execute(
                 "SELECT * FROM printers ORDER BY name COLLATE NOCASE").fetchall()]
+        if request.state.user["role"] != "admin":
+            for row in rows:
+                row["base_url"] = ""
+                row["token_env"] = ""
+        return rows
 
     @app.post("/api/printers", status_code=201, dependencies=[Depends(require_admin)])
     def add_printer(payload: PrinterInput, request: Request):

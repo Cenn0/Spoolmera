@@ -1,16 +1,14 @@
 import { Routes } from '@angular/router';
-import { JobsComponent, PrintersComponent, UsersComponent, AccountComponent } from './workflow-pages';
-import { DashboardComponent, SpoolsComponent, ProductsComponent, HistoryComponent, IntegrationsComponent } from './pages';
 
 export const routes: Routes = [
-  {path: '', component: DashboardComponent, title: 'Overview — Filament Manager'},
-  {path: 'spools', component: SpoolsComponent, title: 'Spools — Filament Manager'},
-  {path: 'filaments', component: ProductsComponent, title: 'Filaments — Filament Manager'},
-  {path: 'history', component: HistoryComponent, title: 'History — Filament Manager'},
-  {path: 'jobs', component: JobsComponent, title: 'Print jobs — Filament Manager'},
-  {path: 'printers', component: PrintersComponent, title: 'Printers — Filament Manager'},
-  {path: 'users', component: UsersComponent, title: 'Users — Filament Manager'},
-  {path: 'account', component: AccountComponent, title: 'Account — Filament Manager'},
-  {path: 'integrations', component: IntegrationsComponent, title: 'Integrations — Filament Manager'},
+  {path: '', loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent), title: 'Overview — Filament Manager'},
+  {path: 'spools', loadComponent: () => import('./features/spools/spools.component').then(m => m.SpoolsComponent), title: 'Spools — Filament Manager'},
+  {path: 'filaments', loadComponent: () => import('./features/filaments/filaments.component').then(m => m.ProductsComponent), title: 'Filaments — Filament Manager'},
+  {path: 'history', loadComponent: () => import('./features/history/history.component').then(m => m.HistoryComponent), title: 'History — Filament Manager'},
+  {path: 'integrations', loadComponent: () => import('./features/integrations/integrations.component').then(m => m.IntegrationsComponent), title: 'Integrations — Filament Manager'},
+  {path: 'jobs', loadComponent: () => import('./features/print-jobs/print-jobs.component').then(m => m.JobsComponent), title: 'Print jobs — Filament Manager'},
+  {path: 'printers', loadComponent: () => import('./features/printers/printers.component').then(m => m.PrintersComponent), title: 'Printers — Filament Manager'},
+  {path: 'users', loadComponent: () => import('./features/administration/administration.component').then(m => m.UsersComponent), title: 'Users — Filament Manager'},
+  {path: 'account', loadComponent: () => import('./features/account/account.component').then(m => m.AccountComponent), title: 'Account — Filament Manager'},
   {path: '**', redirectTo: ''},
 ];

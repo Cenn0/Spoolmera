@@ -273,7 +273,10 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
         with session(db_path) as db:
             rows = db.execute(
                 """SELECT j.*,p.name AS printer_name,s.uid AS spool_uid,
-                          f.brand,f.name AS product_name
+                          f.brand,f.name AS product_name,
+                          (SELECT pc.state FROM printer_commands pc
+                           WHERE pc.job_id=j.id AND pc.action='start'
+                           ORDER BY pc.rowid DESC LIMIT 1) AS start_command_state
                    FROM print_jobs j JOIN printers p ON p.id=j.printer_id
                    JOIN spools s ON s.id=j.spool_id JOIN products f ON f.id=s.product_id
                    ORDER BY j.id DESC LIMIT 200"""

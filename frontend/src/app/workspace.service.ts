@@ -16,11 +16,17 @@ export interface CloudReceipt {
 }
 export interface SliceProfiles {enabled:boolean;profiles:string[];}
 export interface PrinterCapabilities {write_enabled:boolean;max_upload_bytes:number;}
+export interface PrinterCommand {
+  id:string;action:'start'|'pause'|'resume'|'cancel';
+  state:'sending'|'acknowledged'|'unknown'|'rejected'|'confirmed'|'cleared';
+  http_status:number|null;detail:string;created_at:string;updated_at:string;
+}
 export interface PrintJob {
   id:number; printer_id:number;printer_name:string;spool_id:number;spool_uid:string;
   brand:string;product_name:string;file_name:string;estimated_g:number;
   status:'pending'|'printing'|'completed'|'needs_review'|'cancelled';
   movement_id:number|null;note:string;external_job_id:string|null;created_at:string;
+  start_command_state:PrinterCommand['state']|null;
   materials:JobMaterial[];
 }
 export interface PrinterInput {name:string;kind:string;base_url:string;token_env:string;enabled:boolean;}
@@ -45,6 +51,12 @@ export class WorkspaceService {
   async uploadJob(jobId:number,file:File):Promise<void>{
     await firstValueFrom(this.http.post('/api/jobs/'+jobId+'/upload?file_name='+encodeURIComponent(file.name),
       file,{headers:new HttpHeaders({'Content-Type':'application/octet-stream'})}));
+  }
+  jobCommands(jobId:number):Promise<PrinterCommand[]>{
+    return firstValueFrom(this.http.get<PrinterCommand[]>('/api/jobs/'+jobId+'/commands'));
+  }
+  clearPrinterCommand(id:string,reason:string):Promise<void>{
+    return firstValueFrom(this.http.post<void>('/api/printers/commands/'+encodeURIComponent(id)+'/clear',{reason}));
   }
   startJob(jobId:number):Promise<void>{
     return firstValueFrom(this.http.post<void>('/api/jobs/'+jobId+'/start',{}));
