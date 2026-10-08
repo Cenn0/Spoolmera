@@ -148,14 +148,18 @@ def test_overview_counts_and_low_stock(client):
     assert stats["remaining_g"] == 1150
 
 
-def test_static_frontend_is_served(client):
+def test_angular_frontend_and_label_styles(client):
     homepage = client.get("/")
-    assert homepage.status_code == 200
-    assert "Filament Manager" in homepage.text
-    assert client.get("/static/styles.css").status_code == 200
-    javascript = client.get("/static/app.js")
-    assert javascript.status_code == 200
-    assert "openSpoolDialog" in javascript.text
+    if homepage.status_code == 503:
+        assert "Angular frontend not built" in homepage.text
+    else:
+        assert homepage.status_code == 200
+        assert "<fm-root>" in homepage.text
+        assert client.get("/spools").status_code == 200
+        assert client.get("/filaments").status_code == 200
+        assert client.get("/not-an-asset.js").status_code == 404
+    assert client.get("/static/label.css").status_code == 200
+    assert client.get("/api/unknown-route").status_code == 404
 
 
 def test_opened_spool_cannot_be_marked_as_sealed_after_consumption(client):

@@ -1,0 +1,97 @@
+@if (dialogs.active(); as active) {
+<dialog #dialog class="modal" (close)="close()" (cancel)="onCancel($event)" aria-labelledby="modal-title">
+  <header class="modal-header"><div><span class="eyebrow">MATERIAL WORKSPACE</span><h2 id="modal-title">{{heading}}</h2></div><button class="close-button" type="button" (click)="close()" aria-label="Close dialog" [disabled]="busy()">×</button></header>
+  @if (error()) {<div class="form-error" role="alert">{{error()}}</div>}
+  @if (active.kind==='product') {
+    <form class="modal-body" #productForm="ngForm" (ngSubmit)="saveProduct()">
+      <div class="form-grid">
+        <label>Brand <input name="brand" [(ngModel)]="product.brand" required maxlength="80" placeholder="e.g. Bambu Lab" autofocus></label>
+        <label>Product name <input name="name" [(ngModel)]="product.name" required maxlength="120" placeholder="e.g. Basic"></label>
+        <label>Material <input name="material" [(ngModel)]="product.material" required maxlength="32" placeholder="PLA" list="materials"></label>
+        <datalist id="materials"><option value="PLA"></option><option value="PETG"></option><option value="ABS"></option><option value="ASA"></option><option value="TPU"></option><option value="PA"></option><option value="PC"></option></datalist>
+        <label>Color name <input name="color_name" [(ngModel)]="product.color_name" required maxlength="80" placeholder="Graphite"></label>
+        <label>Color <input name="color_hex" type="color" [(ngModel)]="product.color_hex" required></label>
+        <label>Diameter (mm) <input name="diameter_mm" type="number" [(ngModel)]="product.diameter_mm" required min="1" max="3.5" step="0.01"></label>
+        <label class="full">Notes <textarea name="notes" [(ngModel)]="product.notes" maxlength="1000" rows="2" placeholder="Optional product details"></textarea></label>
+      </div>
+      <footer class="modal-footer"><button type="button" class="btn ghost" (click)="close()">Cancel</button><button class="btn primary" type="submit" [disabled]="busy() || productForm.invalid">{{busy()?'Saving…':active.id?'Save changes':'Add filament'}}</button></footer>
+    </form>
+  }
+  @if (active.kind==='spool') {
+    <form class="modal-body" #spoolForm="ngForm" (ngSubmit)="saveSpool()">
+      @if (!data.products().length) {<p class="helper">No filament products exist yet. Add a product first.</p>}
+      <div class="form-grid">
+        <label class="full">Filament product
+          <select name="product_id" [(ngModel)]="spool.product_id" required>
+            @for (product of data.products();track product.id) {<option [ngValue]="product.id">{{product.brand}} · {{product.name}} · {{product.material}} · {{product.color_name}}</option>}
+          </select>
+        </label>
+        <label>Original weight (g) <input name="initial_g" type="number" [(ngModel)]="spool.initial_g" min="1" max="100000" step="1" required></label>
+        <label>Remaining weight (g) <input name="remaining_g" type="number" [(ngModel)]="spool.remaining_g" min="0" max="100000" step="1" placeholder="Default: full weight"></label>
+        <label class="full">Storage location <input name="location" [(ngModel)]="spool.location" maxlength="120" placeholder="e.g. Shelf A · Slot 3"></label>
+        <label class="checkbox-row full"><input name="opened" type="checkbox" [(ngModel)]="spool.opened"> Spool already opened</label>
+        <label class="full">Notes <textarea name="notes" [(ngModel)]="spool.notes" maxlength="1000" rows="2" placeholder="Optional batch or storage details"></textarea></label>
+      </div>
+      <footer class="modal-footer"><button type="button" class="btn ghost" (click)="close()">Cancel</button><button class="btn primary" type="submit" [disabled]="busy() || spoolForm.invalid || !spool.product_id">{{busy()?'Saving…':'Register spool'}}</button></footer>
+    </form>
+  }
+  @if (active.kind==='details') {
+    @if (selected; as item) {
+      <div class="modal-body">
+        <div class="detail-summary"><span class="swatch xlarge" [style.background-color]="item.color_hex"></span><div><h3>{{item.brand}} · {{item.product_name}}</h3><p>{{item.material}} · {{item.color_name}} · {{item.diameter_mm}} mm</p></div><span class="status" [class]="'status '+item.status">{{item.status}}</span></div>
+        <div class="detail-stats"><div><span>Remaining</span><strong>{{grams(item.remaining_g)}}</strong><div class="progress"><span [style.width.%]="percent(item)"></span></div></div><div><span>Original</span><strong>{{grams(item.initial_g)}}</strong></div></div>
+        <div class="detail-actions"><button class="btn primary" type="button" [disabled]="item.remaining_g===0" (click)="dialogs.open({kind:'movement',id:item.id,mode:'consume'})">Record use</button><button class="btn ghost" type="button" (click)="dialogs.open({kind:'movement',id:item.id,mode:'adjust'})">Adjust stock</button><a class="btn ghost" [href]="'/labels/'+item.uid" target="_blank" rel="noopener noreferrer">Print QR label ↗</a></div>
+        <form #detailForm="ngForm" (ngSubmit)="saveDetails()">
+          <h3 class="modal-section-title">Spool information</h3>
+          <div class="form-grid"><label class="full">Storage location <input name="location" [(ngModel)]="detail.location" maxlength="120"></label><label class="full">Notes <textarea name="notes" [(ngModel)]="detail.notes" maxlength="1000" rows="2"></textarea></label><label class="checkbox-row full"><input name="opened" type="checkbox" [(ngModel)]="detail.opened" [disabled]="item.remaining_g<item.initial_g"> Opened</label></div>
+          <div class="inline-form-actions"><button type="submit" class="btn ghost" [disabled]="busy() || detailForm.invalid">Save spool details</button></div>
+        </form>
+        <div class="details-footer">
+          <h3 class="modal-section-title">Movement history</h3>
+          @for (entry of history();track entry.id) {
+            <div class="detail-movement"><span>{{dateText(entry.created_at)}}</span><strong>{{entry.kind}}</strong><b>{{entry.delta_g>0?'+':''}}{{grams(entry.delta_g)}}</b><small>{{entry.note || '—'}}</small></div>
+          } @empty {<p class="helper">Loading or no movement history.</p>}
+          <div class="archive-zone">
+            @if (!archiveCheck()) {
+              <button class="danger-link" type="button" (click)="archiveCheck.set(true)">Archive spool…</button>
+            } @else {
+              <p>Archive this spool? It will disappear from active stock; movement history remains.</p>
+              <button type="button" class="btn ghost" (click)="archiveCheck.set(false)">Keep spool</button>
+              <button type="button" class="btn danger" (click)="archive()" [disabled]="busy()">Confirm archive</button>
+            }
+          </div>
+        </div>
+      </div>
+    } @else {<div class="modal-body"><p class="helper">The spool is no longer available.</p></div>}
+  }
+  @if (active.kind==='movement') {
+    @if (selected; as item) {
+      <form class="modal-body" #movementForm="ngForm" (ngSubmit)="saveMovement()">
+        <p class="helper">{{item.brand}} · {{item.product_name}} — {{grams(item.remaining_g)}} remaining of {{grams(item.initial_g)}}.</p>
+        <div class="form-grid">
+          <label class="full">Movement type <select name="kind" [(ngModel)]="movement.kind"><option value="consume">Record consumption</option><option value="adjust">Adjust stock (+ / −)</option></select></label>
+          <label class="full">{{movement.kind==='consume'?'Consumed weight (g)':'Stock change (g, signed)'}} <input name="grams" type="number" [(ngModel)]="movement.grams" required step="1" [min]="movement.kind==='consume'?1:-100000" [max]="movement.kind==='consume'?100000:100000"></label>
+          <label class="full">{{movement.kind==='consume'?'Note (optional)':'Reason for adjustment (required)'}} <textarea name="note" [(ngModel)]="movement.note" maxlength="1000" rows="2" [required]="movement.kind==='adjust'" placeholder="e.g. printed a mounting bracket"></textarea></label>
+        </div>
+        <p class="helper">Movements are recorded in the permanent inventory history.</p>
+        <footer class="modal-footer"><button type="button" class="btn ghost" (click)="close()">Cancel</button><button class="btn primary" type="submit" [disabled]="busy() || movementForm.invalid">{{busy()?'Saving…':'Save movement'}}</button></footer>
+      </form>
+    }
+  }
+  @if (active.kind==='csv') {
+    <div class="modal-body">
+      <p class="helper">Import the versioned UTF-8 inventory snapshot. Existing product and spool UUIDs are skipped without overwrite. This is not a full history backup.</p>
+      <label class="upload-label">Select CSV file <input type="file" accept=".csv,text/csv" (change)="pickCsv($event)"></label>
+      @if (readingCsv()) {<p class="helper" role="status">Validating inventory file…</p>}
+      @if (csvPreview(); as preview) {
+        <div class="csv-preview" id="csv-preview"><h3>Import preview</h3><p><b>{{preview.products_created}}</b> new filament products · <b>{{preview.spools_created}}</b> new spools</p><p>Skipped: {{preview.products_skipped}} known products and {{preview.spools_skipped}} known spools.</p><small>Existing inventory is not overwritten. Import creates new entries only.</small></div>
+        @if (!importCheck()) {
+          <div class="modal-footer"><button class="btn ghost" type="button" (click)="close()">Cancel</button><button class="btn primary" id="csv-import-submit" type="button" (click)="importCheck.set(true)">Continue to confirmation</button></div>
+        } @else {
+          <div class="confirm-box"><strong>Import the previewed data?</strong><p>This action creates the new records listed above.</p><div class="modal-footer"><button class="btn ghost" type="button" (click)="importCheck.set(false)">Back</button><button class="btn primary" type="button" [disabled]="busy()" (click)="importCsv()">{{busy()?'Importing…':'Confirm import'}}</button></div></div>
+        }
+      }
+    </div>
+  }
+</dialog>
+}
