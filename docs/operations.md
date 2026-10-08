@@ -108,3 +108,51 @@ A reported completion/failure/cancellation only moves active tracking to **needs
 - Use `python scripts/backup.py backup.sqlite3 --database /data/filaments.sqlite3` where the data volume is mounted. It performs a consistent online SQLite backup and integrity check; do not overwrite existing backups or copy only the live database file.
 - REST `GET /api/inventory/v2/spools?limit=50&cursor=<id>` supports filtered cursor pagination while the original `/api/spools` array remains backwards-compatible.
 - Keep only one effective polling lease owner per database. A bounded SQLite lease prevents duplicate scheduled scans after accidental multiple worker startup, but a single application worker remains the supported deployment.
+
+## Material care and imports (v0.9)
+
+Use the Weigh spool action to enter gross mass and physical empty-spool tare; the balance delta is recorded with its explanation. It refuses impossible measurements or measurements that would violate active reservations. Drying records capture completed temperature, duration, timestamp and a note. **No general-purpose material-drying schedule is inferred.**
+
+Set FILAMENT_CATALOG_ENABLED=1 to browse optional Open Filament Database records. The API uses only a fixed HTTPS origin and stores read-only previews in the application data volume. Review imported values before saving as a product.
+
+Under Integrations, choose Import from Spoolman. Supply a JSON array from a Spoolman list-spools API response (or an object containing a spools array); select a unique source ID for that original Spoolman installation. Preview, then confirm. Imports are create-only, transactional and idempotent. No historical movements or user accounts are migrated.
+
+## Print readiness, feeder slots and per-tool G-code/3MF
+
+In Printers, manually assign each tool/slot to the loaded physical spool. In Print jobs, inspect optional G-code/3MF metadata to extract supported per-tool gram estimates. Proposals from recorded printer slots require explicit confirmation. Verify the file, profile and actual loaded spool independently. Reserve material to prevent other pending job reservations from oversubscribing the same stock; reservations never subtract physical inventory.
+
+## NFC and tag association
+
+Register a physical tag serial ID in spool details (nfc, openprinttag or custom). The Spools page resolves an ID received from a keyboard-style NFC reader or an optional Web NFC reader where supported. Web NFC needs a compatible mobile browser, hardware and HTTPS. This is not full OpenPrintTag payload decoding and the tag ID is not a login credential.
+
+## Signed physical scale events
+
+Set a random 32+ character environment secret, for example FILAMENT_SCALE_HMAC_WORKSHOP, and enable an external device to send JSON to POST /api/scales/hooks/WORKSHOP. Example exact JSON bytes:
+
+    {"event_id":"scale-00000001","spool_uid":"930ff9ed-0d12-4124-8e28-39d21cdd47b2","gross_g":850,"tare_g":230}
+
+The request requires X-Filament-Timestamp with current Unix seconds and X-Filament-Signature containing sha256= followed by the HMAC-SHA256 hex digest of: the ASCII timestamp, a single dot byte and the exact raw JSON body, keyed with the device secret.
+
+A signed report is only queued for authenticated review. In Integrations an editor can approve or discard a measurement; approval rechecks net mass and reservations and atomically records the inventory movement. Event IDs cannot be replayed with a different payload. This is a vendor-neutral adapter contract, not guaranteed compatibility with ESP32/ESPHome firmware.
+
+## Automation tokens and notifications
+
+An administrator creates and revokes narrowly scoped machine tokens under Integrations. Only GET /api/automation/v1/spools requires inventory_read, and only GET /api/automation/v1/movements?after=0 requires events_read. Both require Authorization: Bearer <issued token>; neither accepts an authenticated browser session as a substitute.
+
+An optional isolated notifier bridges an events_read token to a user-owned ntfy-compatible HTTP endpoint. Configure FILAMENT_AUTOMATION_TOKEN and FILAMENT_NTFY_URL privately, then run:
+
+    docker compose -f compose.yaml -f compose.notifications.yaml up -d --build
+
+It skips existing movement events when initialized for the first time, persists its cursor, and emits later events with at-least-once semantics. It must not trigger physical printer operations. Home Assistant can use the versioned machine endpoints through its own trusted local REST integration.
+
+## Backups, restoration and label formats
+
+In User management, administrators can download a verified online SQLite snapshot. For large databases, continue to use scripts/backup.py. Protect all database backups, which include user password hashes and application tokens.
+
+To restore, fully stop the application and ensure its SQLite WAL/SHM sidecar files have been checkpointed and removed. Run:
+
+    python scripts/restore.py /path/to/backup.sqlite3 /path/to/database.sqlite3 --confirm
+
+The utility rejects unsafe conditions and creates a timestamped pre-restore backup before replacing the database. Verify data on an isolated test installation.
+
+Label pages support size=60x40 or size=50x30 query parameters in millimeters. Always select the matching stock and 100% print scaling.
