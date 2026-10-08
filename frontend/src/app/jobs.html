@@ -23,7 +23,7 @@
       <label>Note (manual mapping only)<input name="note" [(ngModel)]="note" maxlength="300" placeholder="Optional reference"></label>
     </div>
     @if(extraMaterials().length){
-      <div class="workflow-list">
+      <div class="material-mapping-list">
         @for(m of extraMaterials();track $index){
           <div class="workflow-row">
             <label>Tool <input [name]="'tool'+$index" type="number" [(ngModel)]="m.tool" min="1" max="15" required></label>
