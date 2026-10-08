@@ -21,6 +21,10 @@ def record_weighing(db_path: Path, spool_id: int, payload: WeighInput, actor_id:
         net = payload.gross_g - tare
         if net > spool["initial_g"]:
             raise HTTPException(409, "Measured filament exceeds registered starting weight.")
+        reserved = db.execute("SELECT COALESCE(SUM(reserved_g),0) FROM job_reservations WHERE spool_id=?",
+                              (spool_id,)).fetchone()[0]
+        if net < reserved:
+            raise HTTPException(409, "Measured inventory is below active reservations. Release or reconcile reservations first.")
         difference = net - spool["remaining_g"]
         if difference:
             db.execute(

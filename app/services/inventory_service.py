@@ -200,6 +200,8 @@ def archive_spool(db_path: Path, spool_id: int, actor_id: int):
     with session(db_path, write=True) as db:
         if db.execute("SELECT 1 FROM job_reservations WHERE spool_id=? LIMIT 1", (spool_id,)).fetchone():
             raise HTTPException(status_code=409, detail="Release print reservations before archiving this spool.")
+        if db.execute("SELECT 1 FROM printer_spool_slots WHERE spool_id=? LIMIT 1", (spool_id,)).fetchone():
+            raise HTTPException(status_code=409, detail="Unmap the loaded printer slot before archiving this spool.")
         result = db.execute(
             "UPDATE spools SET archived_at=? WHERE id=? AND archived_at IS NULL",
             (utc_now(), spool_id),

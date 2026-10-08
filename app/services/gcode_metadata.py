@@ -19,8 +19,11 @@ def grams_int(value: str) -> int:
         d = Decimal(value.strip())
         if not d.is_finite() or not 0 < d <= 100000:
             raise ValueError("Filament estimate must be positive and bounded.")
-        return int(d.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
-    except (InvalidOperation, ValueError):
+        rounded = int(d.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+        if rounded < 1:
+            raise ValueError("At least one estimated gram required.")
+        return rounded
+    except (InvalidOperation, ValueError, ArithmeticError):
         raise ValueError("Invalid filament weight.") from None
 
 
@@ -50,7 +53,10 @@ def gcode_tool_estimates(data: bytes) -> list[dict]:
     for idx, value in enumerate(weights):
         if not value:
             raise ValueError("Empty material weight.")
-        decimal = Decimal(value)
+        try:
+            decimal = Decimal(value)
+        except InvalidOperation as exc:
+            raise ValueError("Invalid per-tool material estimate.") from exc
         if decimal == 0:
             continue
         amount = grams_int(value)
@@ -86,7 +92,11 @@ def three_mf_plate_estimates(data: bytes) -> list[dict]:
             value = filament.get("used_g", "")
             if not 0 <= tool < 16 or not value:
                 continue
-            if Decimal(value) == 0:
+            try:
+                amount = Decimal(value)
+            except InvalidOperation as exc:
+                raise ValueError("Invalid 3MF material estimate.") from exc
+            if amount == 0:
                 continue
             entries.append({"tool": tool, "estimated_g": grams_int(value)})
         if entries:

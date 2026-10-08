@@ -38,6 +38,10 @@ export class SpoolmanImportComponent {
   }
   async commit():Promise<void>{
     if(!this.auth.canEdit()||!this.confirmed||!this.preview()||this.busy())return;
+    if(this.preview()?.source!==this.source){
+      this.error.set('Source identifier changed. Validate and preview the snapshot again.');
+      this.confirmed=false;return;
+    }
     this.busy.set(true);this.error.set('');
     try{
       const result=await this.perform(false);
