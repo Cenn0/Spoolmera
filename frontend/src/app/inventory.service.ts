@@ -28,35 +28,43 @@ export class InventoryService {
     .sort((a, b) => a.remaining_g - b.remaining_g));
   readonly available = computed(() => this.spools().filter(item => item.remaining_g > 0));
 
-  async load(): Promise<void> {
+  private readonly versions: Record<'overview'|'products'|'spools'|'movements',number> =
+    {overview:0,products:0,spools:0,movements:0};
+
+  async load(sections: ('overview'|'products'|'spools'|'movements')[] =
+      ['overview','products','spools','movements']): Promise<void> {
     this.loading.set(true);
     this.error.set('');
-    try {
-      const [overview, products, spools, movements] = await Promise.all([
-        firstValueFrom(this.http.get<Overview>('/api/overview')),
-        firstValueFrom(this.http.get<Product[]>('/api/products')),
-        firstValueFrom(this.http.get<Spool[]>('/api/spools')),
-        firstValueFrom(this.http.get<Movement[]>('/api/movements?limit=200')),
-      ]);
-      this.overview.set(overview);
-      this.products.set(products);
-      this.spools.set(spools);
-      this.movements.set(movements);
-      this.ready.set(true);
-    } catch (error) {
-      this.error.set(apiError(error));
-    } finally {
-      this.loading.set(false);
-    }
+    // Per-slice request generations avoid overwriting a newer completed refresh.
+    const requests=sections.map(section=>{
+      const version=++this.versions[section];
+      switch(section){
+        case 'overview':
+          return firstValueFrom(this.http.get<Overview>('/api/overview'))
+            .then(value=>{if(this.versions.overview===version)this.overview.set(value);});
+        case 'products':
+          return firstValueFrom(this.http.get<Product[]>('/api/products'))
+            .then(value=>{if(this.versions.products===version)this.products.set(value);});
+        case 'spools':
+          return firstValueFrom(this.http.get<Spool[]>('/api/spools'))
+            .then(value=>{if(this.versions.spools===version)this.spools.set(value);});
+        case 'movements':
+          return firstValueFrom(this.http.get<Movement[]>('/api/movements?limit=200'))
+            .then(value=>{if(this.versions.movements===version)this.movements.set(value);});
+      }
+    });
+    try{await Promise.all(requests);this.ready.set(true);}
+    catch(error){this.error.set(apiError(error));}
+    finally{this.loading.set(false);}
   }
 
   async createProduct(payload: ProductInput): Promise<void> {
     await firstValueFrom(this.http.post('/api/products', payload));
-    await this.load();
+    await this.load(['overview','products']);
   }
   async updateProduct(id: number, payload: ProductInput): Promise<void> {
     await firstValueFrom(this.http.put('/api/products/' + id, payload));
-    await this.load();
+    await this.load(['products','spools','movements']);
   }
   async createSpool(payload: SpoolInput): Promise<void> {
     await firstValueFrom(this.http.post('/api/spools', payload));
@@ -64,7 +72,7 @@ export class InventoryService {
   }
   async updateSpool(id: number, payload: {location: string; notes: string; opened: boolean}): Promise<void> {
     await firstValueFrom(this.http.patch('/api/spools/' + id, payload));
-    await this.load();
+    await this.load(['overview','spools']);
   }
   async move(id: number, kind: 'consume' | 'adjust', grams: number, note: string): Promise<void> {
     await firstValueFrom(this.http.post('/api/spools/' + id + '/movements', {kind, grams, note}));

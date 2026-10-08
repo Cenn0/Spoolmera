@@ -36,7 +36,7 @@
         }
       </div>
     }
-    <button class="btn ghost" type="button" [disabled]="extraMaterials.length>=7||!!upload" (click)="addMaterial()">Add another material/tool</button>
+    <button class="btn ghost" type="button" [disabled]="extraMaterials().length>=7||!!upload" (click)="addMaterial()">Add another material/tool</button>
     <p class="helper">The first spool is tool 0. All additional tools must have unique numbers and explicit weights. Multi-material jobs cannot use automatic weight inference from an imported G-code file. The combined amount is deducted atomically after verified completion or manual approval.</p>
     <p class="helper">Importing a G-code file here registers metadata only. Uploading to a printer is a separate administrator action; it never starts automatically. Moonraker history-confirmed jobs may debit automatically; OctoPrint always requires review.</p>
     <button class="btn primary" type="submit" [disabled]="busy()||jobForm.invalid||!printerId||!spoolId">Register print job</button>
@@ -54,6 +54,7 @@
             <small>Tool {{m.tool}} · {{m.brand}} {{m.product_name}} · {{grams(m.estimated_g)}}</small>
           }
           @if(job.note){<small>{{job.note}}</small>}
+          @if(job.start_command_state){<small>Start command: {{job.start_command_state}}</small>}
         </div>
         <span class="status" [class.opened]="job.status==='completed'" [class.sealed]="job.status==='printing'">{{job.status.replace('_',' ')}}</span>
         @if(auth.canEdit()){
@@ -64,9 +65,23 @@
                 <label class="btn ghost">Upload G-code
                   <input type="file" accept=".gcode,.gco,.gc" [disabled]="busy()" (change)="uploadPending(job,$event)" hidden>
                 </label>
-                <button type="button" class="btn primary" [disabled]="busy()" (click)="start(job)">Start print</button>
+                <button type="button" class="btn primary"
+                  [disabled]="busy() || (!!job.start_command_state && job.start_command_state!=='cleared')"
+                  (click)="start(job)">Start print</button>
+                @if(job.start_command_state==='unknown'||job.start_command_state==='acknowledged'){
+                  <button type="button" class="btn ghost" [disabled]="busy()"
+                    (click)="clearFor.set(clearFor()===job.id?null:job.id)">Review start command</button>
+                }
               }
               <button type="button" class="btn ghost" [disabled]="busy()" (click)="cancel(job)">Stop tracking</button>
+              @if(auth.isAdmin()&&clearFor()===job.id){
+                <label class="full">Physical verification (required)
+                  <input type="text" [(ngModel)]="clearReason" minlength="10" maxlength="500"
+                    placeholder="Why is it safe to permit another start?">
+                </label>
+                <button type="button" class="btn danger" [disabled]="busy()||clearReason.trim().length<10"
+                  (click)="clearStart(job)">Confirm no print occurred</button>
+              }
             }
             @if(job.status==='needs_review'){
               <button type="button" class="btn primary" [disabled]="busy()" (click)="resolve(job,'debit')">Confirm consumption</button>

@@ -3,7 +3,7 @@
 > **Experimental opt-in functionality.** The APIs and unit tests do not certify
 > hardware compatibility or make uploaded machine instructions safe. Run only
 > behind HTTPS or VPN, restrict printer addresses, and physically supervise
-> first tests. The Filament Manager application remains one Docker service.
+> first tests. The default installation remains one Docker service; optional slicing uses a separate internal-only worker.
 
 ## Printer control and file upload
 
@@ -22,27 +22,27 @@ Vendor documentation: [Moonraker printer operations](https://moonraker.readthedo
 2. Configure optional `FILAMENT_PRINTER_TOKEN_<ALIAS>` in private `.env`, then add the printer as administrator. OctoPrint requires its token variable.
 3. Set `FILAMENT_PRINTER_CONTROL_ENABLED=1` and restart the service to expose admin-only physical actions.
 4. Register the job and filename under **Print jobs**. Use **Upload G-code** to send raw bytes (max 16 MiB, filename must match the job); upload never starts the printer automatically.
-5. Review machine/material compatibility, tool mapping, temperatures and safety. Use **Start print** only while printer is idle. A physical start request does *not* establish a completed job or authorize inventory debit. Moonraker's independent history poller retains its previous exact-run completion rules; OctoPrint completions still require manual review.
+5. Review machine/material compatibility, tool mapping, temperatures and safety. Use **Start print** only while printer is idle. A physical start request does *not* establish a completed job or authorize inventory debit. Each start intent is persisted before contacting the controller. A timeout or lost acknowledgement is marked `unknown` and is **not retried automatically**. The administrator can inspect the command on **Print jobs** and clear it only after physically confirming the printer did not start, recording the reason. Moonraker's independent history poller retains its previous exact-run completion rules; OctoPrint completions still require manual review.
 
 Cancellation of physical printing flags currently observed active jobs for manual material review. A request to stop tracking **does not** stop the physical printer. APIs intentionally expose no arbitrary G-code command execution, no firmware update, no print-temperature override, and no arbitrary controller URLs.
 
 **Controller credentials:** stored in environment only; actual controller roles must allow the needed action. `FILAMENT_PRINTER_CONTROL_ENABLED=1` increases physical risk. Enabling write methods is not equivalent to vendor certification.
 
-## Automatic STL slicing (administrator only)
+## Automatic STL slicing (optional isolated worker)
 
-Optional Docker installation on Debian trixie includes the distro's packaged PrusaSlicer CLI (trixie package 2.9.2). **It is not part of the default image**, and its INI profile compatibility depends on that packaged version.
+Slicing is **not installed in the default API image**. The opt-in Compose overlay starts a separate `slicer-worker` container and connects it to the API via an internal-only Docker network. The worker has no printer credentials, no database volume, no public port and no access to the default Docker network. It runs as non-root with a read-only filesystem, limited CPU/RAM/PIDs and bounded temporary storage.
 
-1. Create the operator-owned `slicer-profiles/` directory adjacent to Compose files. Add `<profile>.ini` files exported for the installed PrusaSlicer version. These are not web-uploadable, and must be reviewed for printer geometry, nozzle, temperature and material parameters.
-2. Set `FILAMENT_SLICER_ENABLED=1` in the `.env` file.
+1. Create `slicer-profiles/` next to `compose.yaml`. Put only operator-reviewed PrusaSlicer `.ini` profiles in it, exported for the packaged PrusaSlicer version. They are mounted read-only to the worker.
+2. Generate a random 32+ character `FILAMENT_SLICER_WORKER_TOKEN` and place it in the private `.env` file. It must match on the API and worker; Compose sets it for the worker.
 3. Start with:
+
    ```bash
    docker compose -f compose.yaml -f compose.slicer.yaml up -d --build
    ```
-4. As administrator in **Print jobs**, upload one STL (8 MiB maximum), select an allowlisted profile and choose **Slice and download G-code**. The generated G-code is downloaded, **not sent to the printer**. Manually inspect it, then use the separate registered-job and upload workflow if desired.
 
-The server invokes a fixed, absolute PrusaSlicer executable and approved INI profile path without a shell, strips credentials from its environment, uses an isolated temporary directory, has a 60-second timeout and limits G-code output to 16 MiB. The process has no dedicated security sandbox beyond the existing non-root, read-only Docker runtime; even with resource limits, malformed untrusted models can exploit slicer bugs. **Best practice for publicly shared or adversarial model files is a separate sandboxed slicer worker**, rather than enabling this in the main container. No asynchronous queue or multi-model batch slicing is provided.
+4. As administrator, upload one STL (8 MiB maximum), select an approved profile and click **Slice and download G-code**. Output is limited to 16 MiB. The G-code is **not** transferred or started automatically.
 
-INI post-processing scripts are blocked for approved profiles. This is defense-in-depth only, not a formal proof that arbitrary third-party profiles are safe. The operator remains responsible for selecting and checking profiles.
+The worker uses a fixed executable path, no shell, an isolated temporary directory, a 60-second slicing timeout and a single-process semaphore. Profile post-processing commands are rejected. Slicing malicious geometry is not proven safe simply because the process is isolated; supervise first prints and review G-code. API requests fail closed when the worker token/network is not configured.
 
 ## Multi-material job mapping
 
@@ -68,7 +68,7 @@ Completion debits all assigned *physical spools in one SQLite transaction*. Each
 
 This is an inbound **signed adapter contract**, not native vendor-cloud authentication or printer control. An independently deployed bridge can translate Bambu/Prusa/other cloud events into this schema after the operator verifies that provider's supported API and permissions. Vendor compatibility is **not** claimed.
 
-Set `FILAMENT_CLOUD_HMAC_FARM=<32+ character random secret>` privately and restart. External bridge example:
+Set `FILAMENT_CLOUD_HMAC_FARM=<32+ character random secret>` and `FILAMENT_CLOUD_PRINTER_FARM=<printer ID>` privately, then restart. Relays cannot mark jobs of other printers; a missing binding is rejected. External bridge example:
 
 ```http
 POST /api/cloud/hooks/FARM
@@ -100,3 +100,11 @@ A reported completion/failure/cancellation only moves active tracking to **needs
 - **Officially documented upstream APIs:** Moonraker and OctoPrint requests linked above; actual controller version, firmware configuration, plugin compatibility and token permission must be checked with the device.
 - **Best practice:** least-privilege printer credentials, VPN/HTTPS, private controller VLAN, read-only or sandboxed slicer processes, reviewed printer profiles, explicit file/physical command confirmation, database snapshots.
 - **Security:** controller write support and slicing are disabled by default. No native cloud auth/SSO. No safety certification for physical printing, machine G-code or untrusted STL.
+
+## Operations, backups and diagnostics
+
+- The admin-only `GET /api/diagnostics` shows job totals, pending/uncertain controller commands and last printer polling outcomes, without secrets.
+- `GET /api/audit` gives an admin-only chronological record of user and automation actions. Existing records from older versions cannot be retrospectively attributed to a person.
+- Use `python scripts/backup.py backup.sqlite3 --database /data/filaments.sqlite3` where the data volume is mounted. It performs a consistent online SQLite backup and integrity check; do not overwrite existing backups or copy only the live database file.
+- REST `GET /api/inventory/v2/spools?limit=50&cursor=<id>` supports filtered cursor pagination while the original `/api/spools` array remains backwards-compatible.
+- Keep only one effective polling lease owner per database. A bounded SQLite lease prevents duplicate scheduled scans after accidental multiple worker startup, but a single application worker remains the supported deployment.
