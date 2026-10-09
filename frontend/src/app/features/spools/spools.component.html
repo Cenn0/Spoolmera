@@ -102,7 +102,14 @@
       <button type="button" class="btn ghost" [disabled]="!locationDraft().trim()" (click)="createLocationLane()">{{'Add location'|t}}</button></div>
     }
   </div>
-  <div class="storage-board" tabindex="0" role="region" [attr.aria-label]="'Storage locations'|t">
+  <div class="storage-navigation">
+    <p class="helper">{{'Swipe or use the arrows to explore storage locations.'|t}}</p>
+    <div class="storage-navigation-actions" role="group" [attr.aria-label]="'Storage location navigation'|t">
+      <button class="btn ghost" type="button" aria-controls="storage-board" [disabled]="!canScrollStorageBack()" (click)="scrollStorage(-1)" [attr.aria-label]="'Previous storage locations'|t"><span aria-hidden="true">←</span> {{'Previous locations'|t}}</button>
+      <button class="btn ghost" type="button" aria-controls="storage-board" [disabled]="!canScrollStorageForward()" (click)="scrollStorage(1)" [attr.aria-label]="'Next storage locations'|t">{{'Next locations'|t}} <span aria-hidden="true">→</span></button>
+    </div>
+  </div>
+  <div #storageBoardEl class="storage-board" id="storage-board" tabindex="0" role="region" [attr.aria-label]="'Storage locations'|t" (scroll)="updateStorageScrollState(storageBoardEl)">
   @for(lane of storageBoard();track lane.location){
     <section class="storage-lane" [class.drop-active]="hoverLocation()===lane.location && !!dragged()" [attr.data-location]="lane.location" (dragover)="overLocation($event,lane.location)" (dragleave)="hoverLocation.set(null)" (drop)="dropLocation($event,lane.location)">
       <div class="storage-lane-heading"><h3>{{lane.location||('Unassigned'|t)}}</h3><span>{{'{count} spools on this page'|t:{count:i18n.number(lane.spools.length)} }}</span><strong>{{grams(lane.totalG)}}</strong></div>

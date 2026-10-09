@@ -19,7 +19,7 @@
   .inventory-stats>:is(div,button) {padding:9px 8px;min-height:68px;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:6px}
   .inventory-stats span {font-size:8px;line-height:1.4;overflow-wrap:normal;hyphens:auto}
   .inventory-stats strong {font-size:16px;line-height:1.25;overflow-wrap:anywhere}
-  .spool-scanner {margin-bottom:10px}
+  .spool-scanner {margin-bottom:8px}
   .spool-scanner summary {padding:10px 14px;min-height:44px}
   .toolbar {padding:14px 14px 8px;gap:10px}
   .inventory-filter-controls {display:none}
@@ -46,9 +46,9 @@
 .label-tray-item.drop-before {box-shadow:0 -3px 0 var(--teal)}
 .label-tray-item.drop-after {box-shadow:0 3px 0 var(--teal)}
 @media(max-width:760px){
-  .inventory-stats {grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:10px}
+  .inventory-stats {grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:8px}
   .inventory-stats>:is(div,button) {flex-direction:row;align-items:center;min-height:43px;gap:5px;padding:8px 10px}
-  .inventory-stats span {font-size:8px;max-width:75px;letter-spacing:.05em}
+  .inventory-stats span {font-size:11px;line-height:1.25;min-width:0;max-width:none;letter-spacing:.02em}
   .inventory-stats strong {font-size:16px;flex:none;white-space:nowrap;overflow-wrap:normal}
   .spool-view-bar .helper {display:none}
   .active-filters {padding:0 14px 10px}
@@ -66,6 +66,11 @@
 .create-location {display:flex;align-items:end;gap:8px;flex-wrap:wrap}
 .create-location label {display:grid;gap:5px;font-size:11px;color:var(--text);font-weight:700}
 .create-location input {min-height:40px;max-width:190px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--white);color:var(--ink)}
+.storage-navigation {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:0 17px 8px}
+.storage-navigation .helper {font-size:12px;margin:0;line-height:1.45}
+.storage-navigation-actions {display:flex;flex-wrap:wrap;gap:8px}
+.storage-navigation-actions .btn {min-height:44px;min-width:44px;padding:10px 12px}
+.storage-navigation-actions .btn:disabled {opacity:.45;cursor:not-allowed}
 .storage-board {display:flex;gap:14px;overflow:auto;overscroll-behavior-x:contain;max-width:100%;padding:8px 17px 18px;scrollbar-width:thin}
 .storage-lane {flex:0 0 min(288px,80vw);min-width:0;padding:12px;border:1px solid var(--line);background:var(--canvas);border-radius:12px;transition:border-color .15s ease,box-shadow .15s ease}
 .storage-lane.drop-active {border:2px dashed var(--teal);box-shadow:0 0 0 3px var(--accent-soft);padding:11px}
@@ -93,6 +98,9 @@
 @media(max-width:760px){
   .spool-sort {margin-left:0;flex:1;min-width:100%}
   .spool-sort select {max-width:100%;width:100%}
+  .storage-navigation {padding:0 12px 8px;align-items:stretch}
+  .storage-navigation-actions {width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .storage-navigation-actions .btn {min-width:0;white-space:normal}
   .storage-board {padding:8px 12px 18px}
   .storage-intro {padding:14px 12px;align-items:stretch}
   .create-location,.create-location label {flex:1}
@@ -112,4 +120,14 @@
     width:100%;min-width:0;max-width:none;min-height:42px;
     background:var(--white);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px
   }
+}
+
+/* Phone readability and form zoom prevention; preserve the spool identity. */
+@media(max-width:760px) {
+  .page-head {margin-bottom:10px}
+  .inventory-stats>:is(div,button) {min-height:48px}
+  .spool-brand,.spool-card small {font-size:12px}
+  .spool-card-meta,.spool-card-stock>span {font-size:12px}
+  .storage-lane-heading span,.storage-spool-main small,.storage-spool-main span,.storage-destination {font-size:12px}
+  .storage-destination select,.create-location input,.mobile-spool-sort select {font-size:16px}
 }

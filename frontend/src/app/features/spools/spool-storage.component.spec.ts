@@ -37,6 +37,35 @@ describe('storage board: accessibility, staged moves and concurrent edits',()=>{
     expect(root.querySelector('.storage-spool')?.getAttribute('data-spool-uid')).toBe(original.uid);
     expect(data.updateSpool).not.toHaveBeenCalled();
   });
+  it('exposes keyboard scroll controls with correct boundary states and no inventory writes',async()=>{
+    component.setDisplay('locations');
+    component.locationDraft.set('Shelf C');component.createLocationLane();
+    fixture.detectChanges();await fixture.whenStable();
+    const root=fixture.nativeElement as HTMLElement;
+    const board=root.querySelector<HTMLElement>('#storage-board')!;
+    expect(board.getAttribute('role')).toBe('region');
+    const previous=root.querySelector<HTMLButtonElement>('button[aria-label="Previous storage locations"]')!;
+    const next=root.querySelector<HTMLButtonElement>('button[aria-label="Next storage locations"]')!;
+    expect(previous.getAttribute('aria-controls')).toBe('storage-board');
+    expect(next.getAttribute('aria-controls')).toBe('storage-board');
+    Object.defineProperty(board,'clientWidth',{configurable:true,value:330});
+    Object.defineProperty(board,'scrollWidth',{configurable:true,value:920});
+    Object.defineProperty(board,'scrollLeft',{configurable:true,writable:true,value:0});
+    const scroll=vi.fn();
+    Object.defineProperty(board,'scrollBy',{configurable:true,value:scroll});
+    component.updateStorageScrollState(board);fixture.detectChanges();
+    expect(previous.disabled).toBe(true);expect(next.disabled).toBe(false);
+    next.click();
+    expect(scroll).toHaveBeenCalledWith(expect.objectContaining({left:expect.any(Number)}));
+    expect((scroll.mock.calls[0][0] as ScrollToOptions).left!).toBeGreaterThan(0);
+    expect(component.pendingLocation()).toBeNull();
+    board.scrollLeft=590;
+    component.updateStorageScrollState(board);fixture.detectChanges();
+    expect(previous.disabled).toBe(false);expect(next.disabled).toBe(true);
+    previous.click();
+    expect((scroll.mock.calls[scroll.mock.calls.length-1][0] as ScrollToOptions).left!).toBeLessThan(0);
+    expect(data.updateSpool).not.toHaveBeenCalled();
+  });
   it('stages browser drops without writing, then requires an explicit check',async()=>{
     component.locationDraft.set('Shelf C');component.createLocationLane();
     expect(component.storageBoard().some(item=>item.location==='Shelf C')).toBe(true);

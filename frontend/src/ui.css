@@ -283,3 +283,16 @@ fm-spool-visual {display:block;width:100%;max-width:124px;aspect-ratio:1}
 
 .text-action {background:transparent;color:var(--teal);border:0;border-radius:5px;padding:6px 8px;min-height:32px;font:inherit;text-decoration:underline;text-underline-offset:3px}
 .text-action:hover {background:var(--surface-hover)}
+
+/* Native mobile form controls stay readable without browser focus auto-zoom.
+   Touch targets remain large on both coarse pointers and narrow viewports. */
+@media(max-width:760px) {
+  .main-content {padding-top:14px}
+  :is(.search-field input,.toolbar select,.theme-picker select,.language-picker select,
+    .form-grid input:not([type="checkbox"]),.form-grid select,.form-grid textarea,
+    .upload-label input) {font-size:16px}
+  :is(.drag-handle,.icon-btn,.spool-card-actions .btn,.label-tray-item>.icon-btn) {min-width:44px;min-height:44px}
+}
+@media(pointer:coarse) {
+  :is(.drag-handle,.icon-btn,.spool-card-actions .btn,.label-tray-item>.icon-btn) {min-width:44px;min-height:44px}
+}
