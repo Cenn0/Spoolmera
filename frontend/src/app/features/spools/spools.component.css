@@ -100,3 +100,16 @@
   .storage-lane {flex-basis:min(280px,77vw)}
   .storage-confirm {margin:5px 12px 16px}
 }
+
+/* Mobile sorting belongs under the expandable Filters area, not above the first spool. */
+.mobile-spool-sort {display:none}
+@media(max-width:760px){
+  .spool-view-bar>.spool-sort {display:none}
+  .inventory-filter-controls.filters-open .mobile-spool-sort {
+    display:grid;grid-column:1/-1;gap:5px;min-width:0;font-size:11px;font-weight:700;color:var(--text)
+  }
+  .inventory-filter-controls.filters-open .mobile-spool-sort select {
+    width:100%;min-width:0;max-width:none;min-height:42px;
+    background:var(--white);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px
+  }
+}

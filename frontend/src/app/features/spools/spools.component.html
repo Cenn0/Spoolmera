@@ -46,6 +46,14 @@
       <select id="spool-material-filter" [attr.aria-label]="'Filter by material'|t" [ngModel]="material()" (ngModelChange)="material.set($event);syncFilters()"><option value="">{{'All materials'|t}}</option>@for (name of materials();track name) {<option [value]="name">{{name}}</option>}</select>
       <select id="spool-status-filter" [attr.aria-label]="'Filter by status'|t" [ngModel]="status()" (ngModelChange)="status.set($event);syncFilters()"><option value="">{{'All states'|t}}</option><option value="sealed">{{'Sealed'|t}}</option><option value="opened">{{'Opened'|t}}</option><option value="empty">{{'Empty'|t}}</option></select>
       <label class="checkbox-row low-stock-filter"><input type="checkbox" [checked]="lowOnly()" (change)="lowOnly.set($any($event.target).checked);syncFilters()">{{'Low stock only'|t}}</label>
+      <label class="mobile-spool-sort">{{'Sort loaded spools'|t}}
+        <select id="spool-mobile-sort" [attr.aria-label]="'Sort loaded spools'|t" [value]="spoolOrder()" (change)="setSpoolOrder($any($event.target).value)">
+          <option value="newest">{{'Newest first'|t}}</option><option value="name">{{'Name (A–Z)'|t}}</option>
+          <option value="remaining-low">{{'Remaining: low to high'|t}}</option>
+          <option value="remaining-high">{{'Remaining: high to low'|t}}</option>
+          <option value="location">{{'Location (A–Z)'|t}}</option>
+        </select>
+      </label>
     </div>
   </div>
   @if(activeFilterCount()||query()||productId()){
