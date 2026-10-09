@@ -42,9 +42,9 @@
   <div class="toolbar">
     <label class="search-field"><span aria-hidden="true">⌕</span><input id="spool-search" type="search" maxlength="120" [placeholder]="'Search brand, color, location…'|t" [value]="query()" (input)="changeSearch($any($event.target).value)" [attr.aria-label]="'Search spools'|t"></label>
     <div class="inventory-filter-controls" id="inventory-filters" [class.filters-open]="filtersOpen()">
-      <select [attr.aria-label]="'Inventory archive filter'|t" [value]="archived()" (change)="archived.set($any($event.target).value);syncFilters()"><option value="active">{{'Active spools'|t}}</option><option value="archived">{{'Archived spools'|t}}</option><option value="all">{{'All spools'|t}}</option></select>
-      <select id="spool-material-filter" [attr.aria-label]="'Filter by material'|t" [value]="material()" (change)="material.set($any($event.target).value);syncFilters()"><option value="">{{'All materials'|t}}</option>@for (name of materials();track name) {<option [value]="name">{{name}}</option>}</select>
-      <select id="spool-status-filter" [attr.aria-label]="'Filter by status'|t" [value]="status()" (change)="status.set($any($event.target).value);syncFilters()"><option value="">{{'All states'|t}}</option><option value="sealed">{{'Sealed'|t}}</option><option value="opened">{{'Opened'|t}}</option><option value="empty">{{'Empty'|t}}</option></select>
+      <select [attr.aria-label]="'Inventory archive filter'|t" [ngModel]="archived()" (ngModelChange)="archived.set($event);syncFilters()"><option value="active">{{'Active spools'|t}}</option><option value="archived">{{'Archived spools'|t}}</option><option value="all">{{'All spools'|t}}</option></select>
+      <select id="spool-material-filter" [attr.aria-label]="'Filter by material'|t" [ngModel]="material()" (ngModelChange)="material.set($event);syncFilters()"><option value="">{{'All materials'|t}}</option>@for (name of materials();track name) {<option [value]="name">{{name}}</option>}</select>
+      <select id="spool-status-filter" [attr.aria-label]="'Filter by status'|t" [ngModel]="status()" (ngModelChange)="status.set($event);syncFilters()"><option value="">{{'All states'|t}}</option><option value="sealed">{{'Sealed'|t}}</option><option value="opened">{{'Opened'|t}}</option><option value="empty">{{'Empty'|t}}</option></select>
       <label class="checkbox-row low-stock-filter"><input type="checkbox" [checked]="lowOnly()" (change)="lowOnly.set($any($event.target).checked);syncFilters()">{{'Low stock only'|t}}</label>
     </div>
   </div>
