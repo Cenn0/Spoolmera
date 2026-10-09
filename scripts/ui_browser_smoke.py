@@ -43,10 +43,10 @@ def run_ui_workflows(browser, errors):
         expect(page.locator('.label-tray-item')).to_have_count(2)
         ordered_before = page.locator('.print-selected').get_attribute('href')
         page.locator('.label-tray-item').last.get_by_role('button', name='Move up', exact=True).click()
-        ordered_after = page.locator('.print-selected').get_attribute('href')
-        assert ordered_before != ordered_after
+        # Angular commits signal changes on its render cycle; assert the DOM result, not a same-tick read.
+        expect(page.locator('.print-selected')).not_to_have_attribute('href', ordered_before)
         page.locator('.label-tray-item').first.locator('.drag-handle').drag_to(page.locator('.label-tray-item').last)
-        assert page.locator('.print-selected').get_attribute('href') == ordered_before
+        expect(page.locator('.print-selected')).to_have_attribute('href', ordered_before)
         page.get_by_label('Search spools', exact=True).fill('does-not-exist')
         expect(cards).to_have_count(0)
         expect(page.locator('.label-tray-item')).to_have_count(2)
@@ -138,12 +138,15 @@ def run_ui_workflows(browser, errors):
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth+1'), f'Overflow at {width}px'
             expect(theme).to_be_visible()
         page.set_viewport_size({'width': 1440, 'height': 1000})
-        page.evaluate('window.scrollTo(0,0)')
+        page.evaluate('window.scrollTo({top:0,behavior:"instant"})')
         assert page.locator('.sidebar').bounding_box()['y'] == 0
         page.screenshot(path=str(folder / 'ui-de-dark-spools.png'), full_page=True)
         theme.select_option('light')
+        expect(page.locator('html')).to_have_attribute('data-theme', 'light')
         page.screenshot(path=str(folder / 'ui-de-light-spools.png'), full_page=True)
         page.locator('.side-nav a[href="/filaments"]').click();theme.select_option('dark')
+        expect(page.locator('html')).to_have_attribute('data-theme', 'dark')
+        expect(page.locator('.filament-card')).to_have_count(6)
         page.screenshot(path=str(folder / 'ui-de-dark-filaments.png'), full_page=True)
         page.set_viewport_size({'width': 390, 'height': 844})
         page.goto(BASE + '/spools', wait_until='networkidle')
@@ -162,10 +165,10 @@ def run_ui_workflows(browser, errors):
         page.goto(BASE + '/spools', wait_until='networkidle')
         last=page.locator('.spool-card').last
         last.scroll_into_view_if_needed()
-        page.evaluate('window.scrollTo(0,document.body.scrollHeight)')
+        page.evaluate('window.scrollTo({top:document.body.scrollHeight,behavior:"instant"})')
         tray=page.locator('.label-tray')
         assert tray.bounding_box()['y'] + tray.bounding_box()['height'] < page.locator('.mobile-navigation').bounding_box()['y']
-        page.evaluate('window.scrollTo(0,0)')
+        page.evaluate('window.scrollTo({top:0,behavior:"instant"})')
         page.screenshot(path=str(folder / 'ui-de-mobile-dark.png'))
         print('UI browser checks passed: real spool/label and printer drops, safe file previews, exact product filtering, light/dark/system, draft persistence, mobile drawer and six viewport widths.')
     except Exception:

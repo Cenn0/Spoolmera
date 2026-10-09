@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,13 +9,13 @@ import { SpoolsComponent } from './spools.component';
 import { addLabel } from '../../core/ui/label-selection';
 
 describe('spool cards and ordered label tray',()=>{
-  let data:ReturnType<typeof inventoryMock>,component:SpoolsComponent;
+  let data:ReturnType<typeof inventoryMock>,component:SpoolsComponent,fixture:ComponentFixture<SpoolsComponent>;
   const first=spool(),second=spool({id:2,uid:'22222222-2222-4222-8222-222222222222'});
   beforeEach(async()=>{
     localStorage.removeItem('filament-manager-spool-view');data=inventoryMock();
     TestBed.configureTestingModule({providers:[provideRouter([]),{provide:ActivatedRoute,useValue:{queryParamMap:of(convertToParamMap({product:'1'}))}},
       {provide:AuthService,useValue:authMock('viewer')},{provide:InventoryService,useValue:data}]});
-    const fixture=TestBed.createComponent(SpoolsComponent);component=fixture.componentInstance;fixture.detectChanges();await fixture.whenStable();
+    fixture=TestBed.createComponent(SpoolsComponent);component=fixture.componentInstance;fixture.detectChanges();await fixture.whenStable();
     component.items.set([first,second]);
   });
   afterEach(()=>{localStorage.removeItem('filament-manager-spool-view');});
@@ -39,6 +39,16 @@ describe('spool cards and ordered label tray',()=>{
     component.moveSelected(second.uid,-1);expect(component.selectedLabels()).toEqual([second.uid,first.uid]);
     component.moveSelected(second.uid,-1);expect(component.selectedLabels()).toEqual([second.uid,first.uid]);
     component.toggleLabel(second.uid);expect(component.selectedLabels()).toEqual([first.uid]);
+  });
+  it('updates the rendered print URL when the Move up button is clicked',async()=>{
+    component.addToTray(first);component.addToTray(second);fixture.detectChanges();await fixture.whenStable();
+    const root=fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('.print-selected')?.getAttribute('href')).toContain(first.uid+','+second.uid);
+    const rows=root.querySelectorAll('.label-tray-item');
+    (rows[1].querySelector('button[aria-label="Move up"]') as HTMLButtonElement).click();
+    await fixture.whenStable();fixture.detectChanges();
+    expect(root.querySelector('.print-selected')?.getAttribute('href')).toContain(second.uid+','+first.uid);
+    expect(data.spoolPage).toHaveBeenCalled();
   });
   it('does not trust arbitrary external drag payloads',()=>{
     component.dropOnTray({preventDefault:vi.fn(),stopPropagation:vi.fn(),dataTransfer:{getData:()=>first.uid}} as unknown as DragEvent);
