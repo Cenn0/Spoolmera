@@ -14,7 +14,8 @@ import { Spool, stockPercent, isLowStock } from '../../models';
 @Component({
   standalone: true,
   imports:[TranslatePipe,FormsModule,RouterLink,SpoolVisualComponent],
-  templateUrl:'./spools.component.html'
+  templateUrl:'./spools.component.html',
+  styleUrl:'./spools.component.css'
 })
 export class SpoolsComponent implements OnInit {
   readonly i18n=inject(I18nService);
@@ -28,6 +29,8 @@ export class SpoolsComponent implements OnInit {
   readonly displayMode=signal<'cards'|'table'>('cards');
   readonly dragged=signal<Spool|null>(null);
   readonly overTray=signal(false);
+  readonly filtersOpen=signal(false);
+  readonly activeFilterCount=computed(()=>Number(this.archived()!=='active')+Number(!!this.material())+Number(!!this.status()));
   setDisplay(value:'cards'|'table'):void {
     this.displayMode.set(value);
     try { localStorage.setItem('filament-manager-spool-view',value); } catch { /* Preference only. */ }

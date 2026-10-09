@@ -1,6 +1,9 @@
 import type { TranslationCatalog } from './types';
 
 export const UI_DE = {
+  "Inventory actions": "Bestandsaktionen",
+  "Filters": "Filter",
+  "1 active roll": "1 aktive Spule",
   "Skip to content": "Zum Inhalt springen",
   "Close navigation": "Navigation schließen",
   "Quick navigation": "Schnellnavigation",

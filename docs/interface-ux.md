@@ -12,7 +12,7 @@ Desktop navigation is fixed to the top and scrolls independently. Narrow screens
 
 ## Spools and filament products
 
-Spools default to color cards: material, color, physical roll identity, remaining weight, stock indicator, location and quick actions are visible together. **Cards / Table** is stored for the browser. Tables scroll in their own labeled region rather than forcing the page sideways. The optional NFC/scanner workflow is collapsed initially, leaving the inventory visible sooner.
+Spools default to color cards: material, color, physical roll identity, remaining weight, stock indicator, location and quick actions are visible together. **Cards / Table** is stored for the browser. Tables scroll in their own labeled region rather than forcing the page sideways. The optional NFC/scanner workflow is collapsed initially, leaving the inventory visible sooner. On phones, secondary import/export/batch actions are grouped under **Actions** and filters expand explicitly; a count keeps active filters visible when collapsed. Compact summaries leave the first roll identity visible above the bottom navigation on the tested 390 × 844 viewport.
 
 The summary describes all active inventory; the result count describes the loaded, filtered rows. These are deliberately different scopes. Existing server-side filtering and cursor pagination remain. Product cards show recorded physical properties and aggregate active stock, with no invented temperatures or weights. **View spools** uses an exact product ID, not a text approximation. Clearing this filter also removes it from the URL.
 

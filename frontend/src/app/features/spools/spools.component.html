@@ -1,6 +1,13 @@
 <section class="page-head">
   <div><span class="eyebrow">{{'PHYSICAL INVENTORY'|t}}</span><h1>{{'Your'|t}} <em>{{'spools.'|t}}</em></h1><p>{{'Track each roll individually, from sealed to empty.'|t}}</p></div>
-  <div class="heading-actions">@if(auth.canEdit()){<button class="btn ghost" type="button" (click)="dialogs.open({kind:'csv'})">{{'Import CSV'|t}}</button><a class="btn ghost" href="/api/export/inventory.csv" download>{{'Export CSV'|t}}</a><a class="btn ghost" routerLink="/spools/batch">{{'Register a batch'|t}}</a><button class="btn primary" type="button" (click)="dialogs.open({kind:data.products().length?'spool':'product'})">{{'+ Add spool'|t}}</button>}</div>
+  <div class="heading-actions">@if(auth.canEdit()){<div class="inventory-secondary-actions"><button class="btn ghost" type="button" (click)="dialogs.open({kind:'csv'})">{{'Import CSV'|t}}</button><a class="btn ghost" href="/api/export/inventory.csv" download>{{'Export CSV'|t}}</a><a class="btn ghost" routerLink="/spools/batch">{{'Register a batch'|t}}</a></div><details class="mobile-inventory-actions" #mobileActions (keydown.escape)="mobileActions.open=false">
+      <summary class="btn ghost" [attr.aria-label]="'Inventory actions'|t">{{'Actions'|t}} <span aria-hidden="true">⌄</span></summary>
+      <div class="mobile-actions-menu">
+        <button class="btn ghost" type="button" (click)="mobileActions.open=false;dialogs.open({kind:'csv'})">{{'Import CSV'|t}}</button>
+        <a class="btn ghost" href="/api/export/inventory.csv" download (click)="mobileActions.open=false">{{'Export CSV'|t}}</a>
+        <a class="btn ghost" routerLink="/spools/batch" (click)="mobileActions.open=false">{{'Register a batch'|t}}</a>
+      </div>
+    </details><button class="btn primary" type="button" (click)="dialogs.open({kind:data.products().length?'spool':'product'})">{{'+ Add spool'|t}}</button>}</div>
 </section>
 <div class="inventory-stats" [attr.aria-label]="'All active inventory'|t">
   <div><span>{{'ACTIVE SPOOLS'|t}}</span><strong>{{i18n.number(data.overview().total_spools)}}</strong></div>
@@ -33,12 +40,14 @@
 @if(productId()){<div class="filter-context">{{'Filtered to one filament product'|t}}<button class="btn ghost" type="button" (click)="clearProductFilter()">{{'Show all products'|t}}</button></div>}
 <div class="inventory-layout"><section class="panel inventory-results">
   <div class="toolbar">
-    <select [attr.aria-label]="'Inventory archive filter'|t" [value]="archived()" (change)="archived.set($any($event.target).value);refresh()"><option value="active">{{'Active spools'|t}}</option><option value="archived">{{'Archived spools'|t}}</option><option value="all">{{'All spools'|t}}</option></select>
     <label class="search-field"><span aria-hidden="true">⌕</span><input id="spool-search" type="search" [placeholder]="'Search brand, color, location…'|t" [value]="query()" (input)="changeSearch($any($event.target).value)" [attr.aria-label]="'Search spools'|t"></label>
-    <select id="spool-material-filter" [attr.aria-label]="'Filter by material'|t" [value]="material()" (change)="material.set($any($event.target).value);refresh()"><option value="">{{'All materials'|t}}</option>@for (name of materials();track name) {<option [value]="name">{{name}}</option>}</select>
-    <select id="spool-status-filter" [attr.aria-label]="'Filter by status'|t" [value]="status()" (change)="status.set($any($event.target).value);refresh()"><option value="">{{'All states'|t}}</option><option value="sealed">{{'Sealed'|t}}</option><option value="opened">{{'Opened'|t}}</option><option value="empty">{{'Empty'|t}}</option></select>
+    <div class="inventory-filter-controls" id="inventory-filters" [class.filters-open]="filtersOpen()">
+      <select [attr.aria-label]="'Inventory archive filter'|t" [value]="archived()" (change)="archived.set($any($event.target).value);refresh()"><option value="active">{{'Active spools'|t}}</option><option value="archived">{{'Archived spools'|t}}</option><option value="all">{{'All spools'|t}}</option></select>
+      <select id="spool-material-filter" [attr.aria-label]="'Filter by material'|t" [value]="material()" (change)="material.set($any($event.target).value);refresh()"><option value="">{{'All materials'|t}}</option>@for (name of materials();track name) {<option [value]="name">{{name}}</option>}</select>
+      <select id="spool-status-filter" [attr.aria-label]="'Filter by status'|t" [value]="status()" (change)="status.set($any($event.target).value);refresh()"><option value="">{{'All states'|t}}</option><option value="sealed">{{'Sealed'|t}}</option><option value="opened">{{'Opened'|t}}</option><option value="empty">{{'Empty'|t}}</option></select>
+    </div>
   </div>
-  <div class="spool-view-bar"><div class="view-switch" role="group" [attr.aria-label]="'Display mode'|t">
+  <div class="spool-view-bar"><button type="button" class="btn ghost mobile-filter-toggle" aria-controls="inventory-filters" [attr.aria-expanded]="filtersOpen()" (click)="filtersOpen.set(!filtersOpen())">{{'Filters'|t}} @if(activeFilterCount()){<span class="active-filter-count">{{i18n.number(activeFilterCount())}}</span>}</button><div class="view-switch" role="group" [attr.aria-label]="'Display mode'|t">
 <button type="button" [class.active]="displayMode()==='cards'" [attr.aria-pressed]="displayMode()==='cards'" (click)="setDisplay('cards')">{{'Cards'|t}}</button>
 <button type="button" [class.active]="displayMode()==='table'" [attr.aria-pressed]="displayMode()==='table'" (click)="setDisplay('table')">{{'Table'|t}}</button></div>
 <span class="helper">{{'Drag a spool by its handle to prepare labels, or use the selection button.'|t}}</span></div>

@@ -165,17 +165,36 @@ def run_ui_workflows(browser, errors):
         page.set_viewport_size({'width': 1440, 'height': 1000})
         page.evaluate('window.scrollTo({top:0,behavior:"instant"})')
         assert page.locator('.sidebar').bounding_box()['y'] == 0
-        page.screenshot(path=str(folder / 'ui-de-dark-spools.png'), full_page=True)
+        page.screenshot(path=str(folder / 'ui-de-dark-spools.png'), full_page=True, animations='disabled')
         theme.select_option('light')
         expect(page.locator('html')).to_have_attribute('data-theme', 'light')
-        page.screenshot(path=str(folder / 'ui-de-light-spools.png'), full_page=True)
+        page.screenshot(path=str(folder / 'ui-de-light-spools.png'), full_page=True, animations='disabled')
         page.locator('.side-nav a[href="/filaments"]').click();theme.select_option('dark')
         expect(page.locator('html')).to_have_attribute('data-theme', 'dark')
         expect(page.locator('.filament-card')).to_have_count(6)
-        page.screenshot(path=str(folder / 'ui-de-dark-filaments.png'), full_page=True)
+        page.screenshot(path=str(folder / 'ui-de-dark-filaments.png'), full_page=True, animations='disabled')
         page.set_viewport_size({'width': 390, 'height': 844})
         page.goto(BASE + '/spools', wait_until='networkidle')
         expect(page.locator('.mobile-navigation')).to_be_visible()
+        # The stock identity is visible sooner; secondary actions and filters
+        # remain keyboard/click accessible behind explicit mobile controls.
+        filter_button=page.locator('.mobile-filter-toggle')
+        filter_select=page.locator('#spool-material-filter')
+        expect(filter_select).not_to_be_visible()
+        filter_button.click();expect(filter_select).to_be_visible()
+        filter_select.select_option('PETG')
+        expect(page.locator('.spool-card')).to_have_count(1)
+        filter_button.click();expect(filter_select).not_to_be_visible()
+        expect(page.locator('.active-filter-count')).to_have_text('1')
+        filter_button.click();filter_select.select_option('')
+        expect(page.locator('.spool-card')).to_have_count(8)
+        filter_button.click()
+        page.locator('.mobile-inventory-actions summary').click()
+        expect(page.get_by_role('button', name='CSV importieren', exact=True)).to_be_visible()
+        page.get_by_role('button', name='CSV importieren', exact=True).click()
+        expect(page.locator('dialog[open]')).to_be_visible()
+        expect(page.locator('.mobile-inventory-actions')).not_to_have_attribute('open', '')
+        page.get_by_role('button', name='Dialog schließen', exact=True).click()
         page.get_by_role('button', name='Mehr', exact=True).click()
         expect(page.locator('.sidebar')).to_be_visible()
         page.locator('.side-nav a[href="/filaments"]').click()
@@ -194,14 +213,16 @@ def run_ui_workflows(browser, errors):
         tray=page.locator('.label-tray')
         assert tray.bounding_box()['y'] + tray.bounding_box()['height'] < page.locator('.mobile-navigation').bounding_box()['y']
         page.evaluate('window.scrollTo({top:0,behavior:"instant"})')
-        page.screenshot(path=str(folder / 'ui-de-mobile-dark.png'))
+        first_identity=page.locator('.spool-card-identity').first
+        assert first_identity.bounding_box()['y'] + first_identity.bounding_box()['height'] < page.locator('.mobile-navigation').bounding_box()['y']
+        page.screenshot(path=str(folder / 'ui-de-mobile-dark.png'), animations='disabled')
         print('UI browser checks passed: real spool/label and printer drops, safe file previews, exact product filtering, light/dark/system, draft persistence, mobile drawer and six viewport widths.')
     except Exception:
         events = page.evaluate('window.printerDragEvents ?? []')
         (folder / 'ui-drag-events.json').write_text(json.dumps(events, indent=2))
         print('Native printer drag events:', json.dumps(events))
         context.tracing.stop(path=str(folder / 'ui-trace.zip'))
-        page.screenshot(path=str(folder / 'failure-ui.png'), full_page=True)
+        page.screenshot(path=str(folder / 'failure-ui.png'), full_page=True, animations='disabled')
         raise
     finally:
         context.close()

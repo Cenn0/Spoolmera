@@ -59,6 +59,19 @@ describe('spool cards and ordered label tray',()=>{
     const event={preventDefault:vi.fn(),stopPropagation:vi.fn()} as unknown as DragEvent;
     component.reorderSelected(event,first.uid);expect(component.selectedLabels()).toEqual([second.uid,first.uid]);expect(event.stopPropagation).toHaveBeenCalled();expect(component.dragged()).toBeNull();
   });
+  it('reports active mobile filters and toggles controls without resetting filter values or labels',async()=>{
+    component.toggleLabel(first.uid);component.material.set('PETG');component.archived.set('all');
+    expect(component.activeFilterCount()).toBe(2);
+    fixture.detectChanges();await fixture.whenStable();
+    const button=fixture.nativeElement.querySelector('.mobile-filter-toggle') as HTMLButtonElement;
+    expect(button.getAttribute('aria-expanded')).toBe('false');button.click();
+    await fixture.whenStable();fixture.detectChanges();
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    expect(fixture.nativeElement.querySelector('#inventory-filters').classList.contains('filters-open')).toBe(true);
+    button.click();await fixture.whenStable();fixture.detectChanges();
+    expect(button.getAttribute('aria-expanded')).toBe('false');expect(component.material()).toBe('PETG');
+    expect(component.selectedLabels()).toEqual([first.uid]);expect(component.activeFilterCount()).toBe(2);
+  });
   it('enforces the server maximum of one hundred labels',()=>{
     const selected=Array.from({length:100},(_,id)=>spool({id,uid:String(id)}));
     expect(addLabel(selected,second)).toHaveLength(100);

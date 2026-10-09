@@ -10,7 +10,7 @@
 <article class="filament-card">
   <div class="filament-sample"><fm-spool-visual [color]="product.color_hex" /><span class="material-chip">{{product.material}}</span><span class="sample-code">{{product.color_hex}}</span></div>
   <div class="filament-card-body"><span class="spool-brand">{{product.brand}}</span><h2>{{product.name}}</h2><p class="spool-color"><span class="swatch small" [style.background-color]="product.color_hex"></span>{{product.color_name}}</p>
-  <div class="filament-stock"><strong>{{grams(product.total_remaining_g)}}</strong><span>{{'{count} active rolls'|t:{count:i18n.number(product.spool_count)} }}</span></div>
+  <div class="filament-stock"><strong>{{grams(product.total_remaining_g)}}</strong><span>{{(product.spool_count===1?'1 active roll':'{count} active rolls')|t:{count:i18n.number(product.spool_count)} }}</span></div>
   <dl class="filament-specs"><div><dt>{{'Diameter'|t}}</dt><dd>{{i18n.number(product.diameter_mm)}} mm</dd></div><div><dt>{{'Nozzle'|t}}</dt><dd>@if(product.nozzle_min_c!=null&&product.nozzle_max_c!=null){{{i18n.number(product.nozzle_min_c)}}–{{i18n.number(product.nozzle_max_c)}} °C}@else{—}</dd></div></dl>
   <div class="spool-card-actions"><a class="btn ghost" routerLink="/spools" [queryParams]="{product:product.id}">{{'View spools'|t}}</a>@if(auth.canEdit()){<button class="btn primary" type="button" (click)="dialogs.open({kind:'spool',productId:product.id})">{{'+ Spool'|t}}</button><button class="btn icon-btn ghost" type="button" (click)="dialogs.open({kind:'product',id:product.id})" [attr.aria-label]="'Edit'|t">✎</button>}</div>
   </div>
