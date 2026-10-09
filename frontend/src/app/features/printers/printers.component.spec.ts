@@ -40,3 +40,30 @@ describe('dragged spool assignments require an explicit save',()=>{
     expect(component.slotSpool).toBe(0);expect(api.assignSlot).not.toHaveBeenCalled();
   });
 });
+
+
+describe('printer assignment DOM event binding',()=>{
+  it('handles a drag from nested card content and updates the physical spool select without saving',async()=>{
+    const {fixture,component,api}=await setup('editor');
+    const root=fixture.nativeElement as HTMLElement;
+    const source=root.querySelector('.palette-spool') as HTMLButtonElement;
+    const target=root.querySelector('.printer-drop-target') as HTMLButtonElement;
+    const transfer={effectAllowed:'none',dropEffect:'none',setData(_type:string,_value:string){}};
+    function fire(element:Element,type:string):Event{
+      const event=new Event(type,{bubbles:true,cancelable:true});
+      Object.defineProperty(event,'dataTransfer',{value:transfer});element.dispatchEvent(event);return event;
+    }
+    expect(source.draggable).toBe(true);
+    fire(source.querySelector('strong')!,'dragstart');
+    expect(component.draggedSpool()?.id).toBe(1);expect(transfer.effectAllowed).toBe('copy');
+    expect(fire(target.querySelector('strong')!,'dragover').defaultPrevented).toBe(true);
+    await fixture.whenStable();fixture.detectChanges();
+    expect(target.classList.contains('drop-active')).toBe(true);
+    fire(target.querySelector('strong')!,'drop');fire(source,'dragend');
+    await fixture.whenStable();fixture.detectChanges();
+    const select=root.querySelector('select[name="slotSpool"]') as HTMLSelectElement;
+    expect(select.selectedOptions[0].textContent).toContain('#1 · Example');
+    expect(component.slotSpool).toBe(1);expect(component.draggedSpool()).toBeNull();
+    expect(api.assignSlot).not.toHaveBeenCalled();
+  });
+});
