@@ -1,19 +1,59 @@
-<section class="page-head"><div><span class="eyebrow">{{'FILAMENT CATALOG'|t}}</span><h1>{{'Your'|t}} <em>{{'materials.'|t}}</em></h1><p>{{'Colors, properties and available stock at a glance.'|t}}</p></div>
-@if(auth.canEdit()){<button class="btn primary" type="button" (click)="dialogs.open({kind:'product'})">{{'+ Add filament'|t}}</button>}</section>
+<section class="page-head">
+  <div><span class="eyebrow">{{'FILAMENT CATALOG'|t}}</span><h1>{{'Your'|t}} <em>{{'materials.'|t}}</em></h1><p>{{'Colors, properties and available stock at a glance.'|t}}</p></div>
+  @if(auth.canEdit()){<button class="btn primary" type="button" (click)="dialogs.open({kind:'product'})">{{'+ Add filament'|t}}</button>}
+</section>
 <section class="panel product-gallery">
-<div class="toolbar"><label class="search-field"><span aria-hidden="true">⌕</span><input id="product-search" type="search" [placeholder]="'Search brand, product, material…'|t" [value]="query()" (input)="query.set($any($event.target).value)" [attr.aria-label]="'Search products'|t"></label>
-<select [value]="material()" (change)="material.set($any($event.target).value)" [attr.aria-label]="'Filter by material'|t"><option value="">{{'All materials'|t}}</option>@for(name of materials();track name){<option [value]="name">{{name}}</option>}</select>
-<label class="checkbox-row"><input type="checkbox" [checked]="stockOnly()" (change)="stockOnly.set($any($event.target).checked)">{{'In stock only'|t}}</label></div>
-<div class="result-count">{{'{products} products · {spools} active spools'|t:{products:i18n.number(filtered().length),spools:i18n.number(data.overview().total_spools)} }}</div>
-<div class="filament-grid" id="product-card-grid">
-@for(product of filtered();track product.id){
-<article class="filament-card">
-  <div class="filament-sample"><fm-spool-visual [color]="product.color_hex" /><span class="material-chip">{{product.material}}</span><span class="sample-code">{{product.color_hex}}</span></div>
-  <div class="filament-card-body"><span class="spool-brand">{{product.brand}}</span><h2>{{product.name}}</h2><p class="spool-color"><span class="swatch small" [style.background-color]="product.color_hex"></span>{{product.color_name}}</p>
-  <div class="filament-stock"><strong>{{grams(product.total_remaining_g)}}</strong><span>{{(product.spool_count===1?'1 active roll':'{count} active rolls')|t:{count:i18n.number(product.spool_count)} }}</span></div>
-  <dl class="filament-specs"><div><dt>{{'Diameter'|t}}</dt><dd>{{i18n.number(product.diameter_mm)}} mm</dd></div><div><dt>{{'Nozzle'|t}}</dt><dd>@if(product.nozzle_min_c!=null&&product.nozzle_max_c!=null){{{i18n.number(product.nozzle_min_c)}}–{{i18n.number(product.nozzle_max_c)}} °C}@else{—}</dd></div></dl>
-  <div class="spool-card-actions"><a class="btn ghost" routerLink="/spools" [queryParams]="{product:product.id}">{{'View spools'|t}}</a>@if(auth.canEdit()){<button class="btn primary" type="button" (click)="dialogs.open({kind:'spool',productId:product.id})">{{'+ Spool'|t}}</button><button class="btn icon-btn ghost" type="button" (click)="dialogs.open({kind:'product',id:product.id})" [attr.aria-label]="'Edit'|t">✎</button>}</div>
+  <div class="toolbar product-toolbar">
+    <label class="search-field"><span aria-hidden="true">⌕</span><input #productSearch id="product-search" type="search" [placeholder]="'Search brand, product, material…'|t" [value]="query()" (input)="query.set($any($event.target).value)" [attr.aria-label]="'Search products'|t" aria-controls="product-card-grid"></label>
+    <select [value]="material()" (change)="material.set($any($event.target).value)" [attr.aria-label]="'Filter by material'|t"><option value="">{{'All materials'|t}}</option>@for(name of materials();track name){<option [value]="name">{{name}}</option>}</select>
+    <label class="checkbox-row"><input type="checkbox" [checked]="stockOnly()" (change)="stockOnly.set($any($event.target).checked)">{{'In stock only'|t}}</label>
+    @if(hasFilters()){<button class="btn ghost" type="button" (click)="resetFilters()">{{'Clear filters'|t}}</button>}
   </div>
-</article>
-}@empty{<div class="placeholder">{{(data.products().length?'No matching products.':'No filament products yet.')|t}}</div>}
-</div></section>
+  <div class="product-view-controls">
+    <div class="product-result-summary" id="product-results" role="status" aria-live="polite" aria-atomic="true">
+      <span>{{'Products in this view'|t}}</span>
+      <strong>{{(summary().products===1?'1 filament product':'{count} filament products')|t:{count:i18n.number(summary().products)} }} · {{(summary().spools===1?'1 active roll':'{count} active rolls')|t:{count:i18n.number(summary().spools)} }}</strong>
+      <span>{{'{weight} remaining in this view'|t:{weight:grams(summary().remaining_g)} }}</span>
+    </div>
+    <label class="product-order">{{'Sort products'|t}}
+      <select [value]="order()" (change)="setOrder($any($event.target).value)" [attr.aria-label]="'Sort products'|t" aria-controls="product-card-grid">
+        <option value="name">{{'Name (A–Z)'|t}}</option><option value="material">{{'Material (A–Z)'|t}}</option>
+        <option value="stock-low">{{'Remaining stock: low to high'|t}}</option><option value="stock-high">{{'Remaining stock: high to low'|t}}</option>
+      </select>
+    </label>
+  </div>
+  <div class="filament-grid" id="product-card-grid" [attr.aria-busy]="data.loading()">
+    @for(product of filtered();track product.id){
+      <article class="filament-card" [attr.data-product-id]="product.id">
+        <div class="filament-sample"><fm-spool-visual [color]="product.color_hex" /><span class="material-chip">{{product.material}}</span><span class="sample-code">{{product.color_hex}}</span></div>
+        <div class="filament-card-body">
+          <span class="spool-brand">{{product.brand}}</span><h2>{{product.name}}</h2><p class="spool-color"><span class="swatch small" [style.background-color]="product.color_hex"></span>{{product.color_name}}</p>
+          <div class="filament-stock"><strong>{{grams(product.total_remaining_g)}}</strong><span>{{(product.spool_count===1?'1 active roll':'{count} active rolls')|t:{count:i18n.number(product.spool_count)} }}</span></div>
+          @if(product.total_remaining_g===0){<p class="product-no-stock">{{'No remaining filament'|t}}</p>}
+          <dl class="filament-specs"><div><dt>{{'Diameter'|t}}</dt><dd>{{i18n.number(product.diameter_mm)}} mm</dd></div><div><dt>{{'Nozzle'|t}}</dt><dd>@if(product.nozzle_min_c!=null&&product.nozzle_max_c!=null){{{i18n.number(product.nozzle_min_c)}}–{{i18n.number(product.nozzle_max_c)}} °C}@else{—}</dd></div></dl>
+          <div class="spool-card-actions">
+            <a class="btn ghost" routerLink="/spools" [queryParams]="{product:product.id}">{{'View spools'|t}}</a>
+            @if(auth.canEdit()){
+              <button class="btn primary" type="button" (click)="dialogs.open({kind:'spool',productId:product.id})">{{'+ Spool'|t}}</button>
+              <button class="btn icon-btn ghost" type="button" (click)="dialogs.open({kind:'product',id:product.id})" [attr.aria-label]="'Edit filament: {brand} · {name} · {color}'|t:{brand:product.brand,name:product.name,color:product.color_name}" [attr.title]="'Edit'|t">✎</button>
+            }
+          </div>
+        </div>
+      </article>
+    }@empty{
+      <div class="placeholder product-empty">
+        @if(data.loading()&&!data.ready()){
+          <p role="status">{{'Loading filament products…'|t}}</p>
+        }@else if(data.error()&&!data.ready()){
+          <h2>{{'Filament products could not be loaded.'|t}}</h2><button class="btn ghost" type="button" (click)="data.load()">{{'Retry'|t}}</button>
+        }@else if(data.products().length){
+          <h2>{{'No matching products.'|t}}</h2><p>{{'Try another search or reset the filters.'|t}}</p>
+          <button class="btn ghost" type="button" (click)="resetFilters()">{{'Clear filters'|t}}</button>
+        }@else{
+          <h2>{{'No filament products yet.'|t}}</h2><p>{{'Filament products will appear here once they are added.'|t}}</p>
+          @if(auth.canEdit()){<button class="btn primary" type="button" (click)="dialogs.open({kind:'product'})">{{'Add your first filament'|t}}</button>}
+        }
+      </div>
+    }
+  </div>
+</section>

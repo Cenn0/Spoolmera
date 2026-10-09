@@ -4,6 +4,7 @@ import json
 import re
 from pathlib import Path
 from playwright.sync_api import expect
+from catalog_browser_smoke import check_product_gallery
 
 BASE = 'http://127.0.0.1:8765'
 
@@ -65,6 +66,7 @@ def run_ui_workflows(browser, errors):
         page.get_by_role('button', name='Import CSV', exact=True).click()
         file_drop(page, 'dialog fm-file-drop .file-drop', 'inventory.csv', csv)
         expect(page.locator('#csv-preview')).to_be_visible()
+        expect(page.locator('dialog fm-file-drop')).to_contain_text('Maximum file size: 2 MiB')
         file_drop(page, 'dialog fm-file-drop .file-drop', 'wrong.exe', 'invalid')
         expect(page.locator('#csv-preview')).to_have_count(0)
         expect(page.locator('dialog .form-error').first).to_contain_text('file type')
@@ -139,6 +141,7 @@ def run_ui_workflows(browser, errors):
 
         page.locator('.side-nav a[href="/filaments"]').click()
         expect(page.locator('.filament-card')).to_have_count(6)
+        check_product_gallery(page)
         page.locator('.filament-card').filter(has_text='Ocean').get_by_role('link', name='View spools', exact=True).click()
         expect(page.locator('.spool-card')).to_have_count(1)
         page.get_by_role('button', name='Show all products', exact=True).click()

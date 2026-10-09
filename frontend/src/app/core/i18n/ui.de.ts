@@ -51,5 +51,21 @@ export const UI_DE = {
   "This file type is not supported here.": "Dieser Dateityp wird hier nicht unterstützt.",
   "This file is empty.": "Diese Datei ist leer.",
   "This file exceeds the allowed upload size.": "Diese Datei überschreitet die erlaubte Dateigröße.",
-  "Selected labels": "Ausgewählte Etiketten"
+  "Selected labels": "Ausgewählte Etiketten",
+  "1 filament product": "1 Filamentprodukt",
+  "{count} filament products": "{count} Filamentprodukte",
+  "Products in this view": "Produkte in dieser Ansicht",
+  "{weight} remaining in this view": "{weight} Restbestand in dieser Ansicht",
+  "Sort products": "Filamente sortieren",
+  "Name (A–Z)": "Name (A–Z)",
+  "Material (A–Z)": "Material (A–Z)",
+  "Remaining stock: low to high": "Restbestand: aufsteigend",
+  "Remaining stock: high to low": "Restbestand: absteigend",
+  "No remaining filament": "Kein Filamentbestand",
+  "Edit filament: {brand} · {name} · {color}": "Filament bearbeiten: {brand} · {name} · {color}",
+  "Loading filament products…": "Filamentprodukte werden geladen…",
+  "Filament products could not be loaded.": "Filamentprodukte konnten nicht geladen werden.",
+  "Try another search or reset the filters.": "Versuche eine andere Suche oder setze die Filter zurück.",
+  "Filament products will appear here once they are added.": "Filamentprodukte erscheinen hier, sobald sie angelegt wurden.",
+  "Maximum file size: {size}": "Maximale Dateigröße: {size}"
 } satisfies TranslationCatalog;

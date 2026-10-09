@@ -1,5 +1,5 @@
-import { Component, input, output, signal } from '@angular/core';
-import { TranslatePipe } from '../i18n';
+import { Component, inject, input, output, signal } from '@angular/core';
+import { I18nService, TranslatePipe } from '../i18n';
 
 /** Both file picker and drop use exactly the same validation and preview path. */
 @Component({
@@ -7,16 +7,22 @@ import { TranslatePipe } from '../i18n';
   template: `<div class="file-drop" [class.drop-active]="over()" [class.is-disabled]="disabled()"
     (dragenter)="enter($event)" (dragover)="hover($event)" (dragleave)="leave($event)" (drop)="drop($event)">
     <span class="file-drop-icon" aria-hidden="true">↥</span>
-    <strong>{{label()|t}}</strong>
+    <strong [id]="labelId">{{label()|t}}</strong>
     <span class="helper">{{'Drop one file here or choose a file.'|t}}</span>
-    <button type="button" class="btn ghost" [disabled]="disabled()" (click)="picker.click()">{{'Choose file'|t}}</button>
+    <small class="helper" [id]="limitId">{{'Maximum file size: {size}'|t:{size:sizeText(maxBytes())} }}</small>
+    <button type="button" class="btn ghost" [disabled]="disabled()" [attr.aria-describedby]="labelId+' '+limitId" (click)="picker.click()">{{'Choose file'|t}}</button>
     <input #picker class="sr-only" type="file" tabindex="-1" [accept]="accept()" [disabled]="disabled()"
-      [attr.aria-label]="label()|t" (change)="choose($event)">
+      [attr.aria-label]="label()|t" [attr.aria-describedby]="limitId" (change)="choose($event)">
     <small class="file-types">{{accept()}}</small>
     @if(error()){<p role="alert" class="form-error">{{error()|t}}</p>}
-  </div>`
+  </div>`,
 })
 export class FileDropComponent {
+  private static nextId = 0;
+  private readonly instanceId = FileDropComponent.nextId++;
+  readonly labelId = `file-drop-label-${this.instanceId}`;
+  readonly limitId = `file-drop-limit-${this.instanceId}`;
+  readonly i18n = inject(I18nService);
   readonly label = input('Upload file');
   readonly accept = input.required<string>();
   readonly maxBytes = input(10 * 1024 * 1024);
@@ -26,6 +32,11 @@ export class FileDropComponent {
   readonly over = signal(false);
   readonly error = signal('');
   private depth = 0;
+
+  sizeText(bytes: number): string {
+    const [divisor, unit]: readonly [number, string] = bytes >= 1024 * 1024 ? [1024 * 1024, 'MiB'] : bytes >= 1024 ? [1024, 'KiB'] : [1, 'B'];
+    return this.i18n.number(Math.round(bytes / divisor * 100) / 100) + ' ' + unit;
+  }
 
   private isFile(event: DragEvent): boolean { return Array.from(event.dataTransfer?.types ?? []).includes('Files'); }
   enter(event: DragEvent): void {
