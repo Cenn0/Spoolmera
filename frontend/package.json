@@ -1,11 +1,13 @@
 {
   "name": "filament-manager-frontend",
-  "version": "0.3.0",
+  "version": "0.10.0",
   "private": true,
   "scripts": {
     "start": "ng serve --host 127.0.0.1 --proxy-config proxy.conf.json",
     "build": "ng build --configuration production",
-    "typecheck": "tsc --project tsconfig.app.json --noEmit"
+    "typecheck": "tsc --project tsconfig.app.json --noEmit",
+    "i18n:check": "node scripts/check-i18n.mjs",
+    "test": "ng test --no-watch --no-progress"
   },
   "dependencies": {
     "@angular/common": "22.2.0",
@@ -21,7 +23,9 @@
     "@angular/build": "22.2.0",
     "@angular/cli": "22.2.0",
     "@angular/compiler-cli": "22.2.0",
-    "typescript": "6.0.2"
+    "jsdom": "30.1.2",
+    "typescript": "6.0.2",
+    "vitest": "5.0.3"
   },
   "engines": {
     "node": "^22.22.3 || ^24.15.0 || >=26.0.0"

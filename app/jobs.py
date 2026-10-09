@@ -16,8 +16,10 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.auth import audit
-from app.services.accounting_service import apply_consumption
-from app.services.command_service import reserve_command, finalize_command, confirm_job_command
+from app.services.accounting_service import apply_consumption, reconcile_in_transaction
+from app.services.accounting_models import ConsumptionInput
+from app.services.command_service import (reserve_command, finalize_command, confirm_job_command,
+    finish_job_operation, reserve_upload, finish_upload)
 from app.services.polling_service import record_poll_success, record_poll_failure
 from app.services.lease_service import acquire_lease, release_lease
 from app.infrastructure.printers.adapters import adapter_for
@@ -27,7 +29,7 @@ from app.core.policies import require_editor, require_admin
 from app.database import session, utc_now
 from app.printers import (
     moonraker_history, moonraker_job, printer_status, require_control, upload_controller_file,
-    write_controller, SAFE_UPLOAD_NAME
+    write_controller, SAFE_UPLOAD_NAME, ControllerRejected
 )
 from urllib.parse import quote
 
@@ -59,7 +61,7 @@ class MultiJobInput(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     printer_id: int = Field(gt=0)
     file_name: str = Field(min_length=3, max_length=180)
-    materials: list[MaterialMapping] = Field(min_length=2, max_length=8)
+    materials: list[MaterialMapping] = Field(min_length=1, max_length=8)
     note: str = Field(default="", max_length=300)
 
 
@@ -90,35 +92,12 @@ def estimate_gcode(content: bytes) -> int | None:
 
 
 def insert_job(db_path: Path, payload: JobInput, actor_id: int) -> int:
-    if not valid_filename(payload.file_name):
-        raise HTTPException(status_code=422, detail="Expected a safe relative .gcode/.gco/.gc filename.")
-    with session(db_path, write=True) as db:
-        printer = db.execute("SELECT enabled FROM printers WHERE id=?", (payload.printer_id,)).fetchone()
-        spool = db.execute(
-            "SELECT remaining_g,archived_at FROM spools WHERE id=?", (payload.spool_id,)
-        ).fetchone()
-        if not printer or not printer["enabled"]:
-            raise HTTPException(status_code=404, detail="Enabled printer not found.")
-        if not spool or spool["archived_at"] is not None:
-            raise HTTPException(status_code=404, detail="Active spool not found.")
-        if spool["remaining_g"] < payload.estimated_g:
-            raise HTTPException(status_code=409, detail="Estimated consumption exceeds current stock.")
-        try:
-            stamp = utc_now()
-            job_id = db.execute(
-                """INSERT INTO print_jobs(printer_id,spool_id,file_name,estimated_g,note,created_by,created_at,updated_at)
-                   VALUES(?,?,?,?,?,?,?,?)""",
-                (payload.printer_id, payload.spool_id, payload.file_name,
-                 payload.estimated_g, payload.note, actor_id, stamp, stamp),
-            ).lastrowid
-        except sqlite3.IntegrityError as exc:
-            raise HTTPException(status_code=409, detail="An active mapping already exists for this printer and file.") from exc
-        db.execute(
-            "INSERT INTO job_materials(job_id,tool,spool_id,estimated_g) VALUES(?,?,?,?)",
-            (job_id, 0, payload.spool_id, payload.estimated_g),
-        )
-        audit(db, actor_id, "job_register", "print_job", job_id)
-    return job_id
+    """Keep the original single-material API as an explicit T0 translation."""
+    return insert_multi_job(db_path, MultiJobInput(
+        printer_id=payload.printer_id, file_name=payload.file_name, note=payload.note,
+        materials=[MaterialMapping(tool=0, spool_id=payload.spool_id,
+                                   estimated_g=payload.estimated_g)],
+    ), actor_id)
 
 
 def insert_multi_job(db_path: Path, payload: MultiJobInput, actor_id: int) -> int:
@@ -224,12 +203,17 @@ def poll_printer(db_path: Path, printer_id: int) -> dict:
                     if not fresh["observed_printing"] or fresh["external_job_id"] != external_id:
                         continue
                     apply_consumption(db, fresh, None)
+                    finish_job_operation(db, job['id'])
                 else:
                     db.execute(
-                        "UPDATE print_jobs SET status='needs_review',accounting_status='needs_review',external_job_id=?,note=?,updated_at=? WHERE id=?",
+                        "UPDATE print_jobs SET status='needs_review',accounting_status=CASE WHEN accounting_status IN ('debited','discarded') THEN accounting_status ELSE 'needs_review' END,external_job_id=?,note=?,updated_at=? WHERE id=?",
                         (external_id, "Printer completion not proven, ambiguous history or print failed. Confirm actual material usage.",
                          utc_now(), job["id"]),
                     )
+                    if (fresh['observed_printing'] and fresh['external_job_id'] == external_id
+                            and remote_state in ('completed', 'cancelled', 'error', 'failed')
+                            and current_status['state'].lower() in ('standby', 'complete', 'cancelled', 'operational')):
+                        finish_job_operation(db, job['id'])
                 changed += 1
         except sqlite3.IntegrityError:
             # Duplicate external identifiers must never trigger a second debit.
@@ -241,8 +225,7 @@ def poll_printer(db_path: Path, printer_id: int) -> dict:
 def poll_all(db_path: Path) -> None:
     with session(db_path) as db:
         ids = [row[0] for row in db.execute(
-            """SELECT DISTINCT p.id FROM printers p JOIN print_jobs j ON j.printer_id=p.id
-               WHERE p.enabled=1 AND j.status IN ('pending','printing')"""
+            "SELECT id FROM printers WHERE enabled=1 ORDER BY id"
         ).fetchall()]
     for printer_id in ids:
         try:
@@ -253,19 +236,9 @@ def poll_all(db_path: Path) -> None:
             LOG.warning("Read-only polling failed for printer %s", printer_id)
 
 
-async def poll_worker(db_path: Path):
-    interval = max(10, min(300, int(os.getenv("FILAMENT_PRINTER_POLL_SECONDS", "30"))))
-    owner = str(uuid4())
-    while True:
-        try:
-            if acquire_lease(db_path, "printer-poll", owner, ttl_seconds=max(1800, 4*interval)):
-                try:
-                    await asyncio.to_thread(poll_all, db_path)
-                finally:
-                    release_lease(db_path, "printer-poll", owner)
-        except Exception:
-            LOG.exception("Unexpected printer polling failure")
-        await asyncio.sleep(interval)
+async def poll_worker(db_path: Path, settings=None):
+    from app.services.polling_runtime import run_poller
+    await run_poller(db_path, poll_all, settings)
 
 
 def register_job_routes(app: FastAPI, db_path: Path) -> None:
@@ -353,6 +326,8 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
             if job["status"] != "needs_review":
                 raise HTTPException(status_code=409, detail="Only jobs requiring review may be resolved.")
             if payload.action == "discard":
+                reconcile_in_transaction(db, job_id, ConsumptionInput(mode='discard',
+                    reason='Discard confirmed through the legacy job-review action.'), request.state.user['id'])
                 db.execute("UPDATE print_jobs SET status='cancelled',accounting_status='discarded',updated_at=? WHERE id=?",
                            (utc_now(), job_id))
                 db.execute("DELETE FROM job_reservations WHERE job_id=?", (job_id,))
@@ -393,13 +368,20 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
             chunks.append(chunk)
         if size == 0 or b"\x00" in b"".join(chunks)[:4096]:
             raise HTTPException(status_code=422, detail="G-code must be non-empty plain text.")
+        operation_id = reserve_upload(db_path, job['printer_id'], job_id, request.state.user['id'])
+        dispatched = False
         try:
             state = await asyncio.to_thread(printer_status, job)
             if state["state"].lower() in ("printing", "paused", "pausing"):
                 raise HTTPException(status_code=409, detail="Do not upload while the printer is active.")
+            dispatched = True
             status = await asyncio.to_thread(upload_controller_file, job, job["file_name"], b"".join(chunks))
-        except ValueError as exc:
-            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        except BaseException as exc:
+            finish_upload(db_path, operation_id, uncertain=dispatched and not isinstance(exc, ControllerRejected))
+            if isinstance(exc, ValueError):
+                raise HTTPException(status_code=502, detail=str(exc)) from exc
+            raise
+        finish_upload(db_path, operation_id)
         with session(db_path, write=True) as db:
             audit(db, request.state.user["id"], "job_file_upload", "print_job", job_id)
         return {"job_id": job_id, "uploaded": True, "http_status": status,
@@ -449,7 +431,11 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
                 status = write_controller(job, route, body=b'{"command":"select","print":true}',
                                           content_type="application/json")
         except BaseException as exc:
-            finalize_command(db_path, command_id, "unknown", detail="Confirm the physical state before retrying.")
+            if isinstance(exc, ControllerRejected):
+                finalize_command(db_path, command_id, 'rejected', http_status=exc.http_status,
+                                 detail='Controller explicitly rejected the request.')
+            else:
+                finalize_command(db_path, command_id, "unknown", detail="Confirm the physical state before retrying.")
             if isinstance(exc, ValueError):
                 raise HTTPException(status_code=502, detail=str(exc)) from exc
             raise
@@ -465,8 +451,13 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
                 raise HTTPException(status_code=404, detail="Print job not found.")
             if job["status"] not in ("pending", "printing"):
                 raise HTTPException(status_code=409, detail="Only pending or tracked jobs can be cancelled.")
-            db.execute("UPDATE print_jobs SET status='cancelled',accounting_status='discarded',updated_at=? WHERE id=?",
-                       (utc_now(), job_id))
+            uncertain_start = db.execute("""SELECT 1 FROM printer_commands WHERE job_id=? AND action='start'
+                AND state IN ('sending','acknowledged','unknown','confirmed') LIMIT 1""", (job_id,)).fetchone()
+            accounting = job['accounting_status']
+            if accounting in ('pending', 'needs_review'):
+                accounting = 'needs_review' if job['observed_printing'] or uncertain_start else 'discarded'
+            db.execute("UPDATE print_jobs SET status='cancelled',accounting_status=?,updated_at=? WHERE id=?",
+                       (accounting, utc_now(), job_id))
             db.execute("DELETE FROM job_reservations WHERE job_id=?", (job_id,))
             audit(db, request.state.user["id"], "job_cancel_tracking", "print_job", job_id)
         return {"id": job_id, "status": "cancelled"}

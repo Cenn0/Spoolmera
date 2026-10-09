@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
 from app.infrastructure.database.migrations import (
-    CURRENT_SCHEMA_VERSION, migrate_v2_v4, migrate_v5, migrate_v6, migrate_v7, migrate_v8, migrate_v9, recover_interrupted_commands,
+    CURRENT_SCHEMA_VERSION, migrate_v2_v4, migrate_v5, migrate_v6, migrate_v7, migrate_v8, migrate_v9, migrate_v10, recover_interrupted_commands,
 )
 
 SCHEMA = """
@@ -162,7 +162,8 @@ def initialize_database(path: str | Path) -> None:
         # Migration v2 preserves existing numeric IDs while assigning stable UUIDs.
         connection.execute("BEGIN IMMEDIATE")
         try:
-            migrate_v2_v4(connection)
+            if version < 4:
+                migrate_v2_v4(connection)
             if version < 5:
                 migrate_v5(connection)
             if version < 6:
@@ -173,6 +174,8 @@ def initialize_database(path: str | Path) -> None:
                 migrate_v8(connection)
             if version < 9:
                 migrate_v9(connection)
+            if version < 10:
+                migrate_v10(connection)
             recover_interrupted_commands(connection)
             connection.execute(f"PRAGMA user_version = {CURRENT_SCHEMA_VERSION}")
             connection.execute("COMMIT")

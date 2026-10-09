@@ -1,34 +1,37 @@
+import { ThemePickerComponent } from './core/ui/theme-picker.component';
 import { Component, inject, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from './auth.service';
 import { apiError } from './inventory.service';
+import { LanguagePickerComponent, TranslatePipe } from './core/i18n';
 
 @Component({
-  selector:'fm-login', standalone:true, imports:[FormsModule],
+  selector:'fm-login', standalone:true, imports:[FormsModule,LanguagePickerComponent,ThemePickerComponent,TranslatePipe],
   template: `
     <main class="login-screen">
       <section class="login-card">
+        <div class="login-language"><fm-theme-picker /><fm-language-picker /></div>
         <div class="login-brand"><span class="brand-mark"><span></span></span>
           <strong>FILAMENT <small>MANAGER</small></strong></div>
-        <span class="eyebrow">SELF-HOSTED MATERIAL WORKSPACE</span>
-        <h1>{{auth.needsSetup()?'Create the first administrator':'Welcome back.'}}</h1>
-        <p class="helper">{{auth.needsSetup()
+        <span class="eyebrow">{{'SELF-HOSTED MATERIAL WORKSPACE' | t}}</span>
+        <h1>{{(auth.needsSetup()?'Create the first administrator':'Welcome back.') | t}}</h1>
+        <p class="helper">{{(auth.needsSetup()
           ?'Initial setup requires the bootstrap token configured on your server.'
-          :'Sign in to access your spool inventory and printer connections.'}}</p>
-        @if(error()) {<div class="form-error" role="alert">{{error()}}</div>}
+          :'Sign in to access your spool inventory and printer connections.') | t}}</p>
+        @if(error()) {<div class="form-error" role="alert">{{error() | t}}</div>}
         <form #loginForm="ngForm" (ngSubmit)="submit()">
-          <label>Username<input type="text" name="username" [(ngModel)]="username" required maxlength="60" autocomplete="username" autofocus></label>
-          <label>Password<input type="password" name="password" [(ngModel)]="password" required
+          <label>{{'Username' | t}}<input type="text" name="username" [(ngModel)]="username" required maxlength="60" autocomplete="username" autofocus></label>
+          <label>{{'Password' | t}}<input type="password" name="password" [(ngModel)]="password" required
             [minlength]="auth.needsSetup()?14:1" maxlength="128" [autocomplete]="auth.needsSetup()?'new-password':'current-password'"></label>
           @if(auth.needsSetup()){
-            <label>Bootstrap token<input type="password" name="token" [(ngModel)]="bootstrapToken" required
-              autocomplete="off" placeholder="From FILAMENT_BOOTSTRAP_TOKEN"></label>
+            <label>{{'Bootstrap token' | t}}<input type="password" name="token" [(ngModel)]="bootstrapToken" required
+              autocomplete="off" [placeholder]="'From FILAMENT_BOOTSTRAP_TOKEN' | t"></label>
           }
           <button class="btn primary" type="submit" [disabled]="busy()||loginForm.invalid">
-            {{busy()?'Working…':auth.needsSetup()?'Create administrator':'Sign in'}}
+            {{(busy()?'Working…':auth.needsSetup()?'Create administrator':'Sign in') | t}}
           </button>
         </form>
-        <p class="login-footnote">Credentials and inventory remain on your self-hosted server.</p>
+        <p class="login-footnote">{{'Credentials and inventory remain on your self-hosted server.' | t}}</p>
       </section>
     </main>
   `

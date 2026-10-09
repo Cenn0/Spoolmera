@@ -1,4 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { I18nService, LocalizedMessage, TranslatePipe } from '../../core/i18n';
+import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
@@ -6,6 +7,7 @@ import { DialogService } from '../../dialog.service';
 import { AuthService } from '../../auth.service';
 import { apiError } from '../../inventory.service';
 import { ProductInput } from '../../models';
+import { RequestOwner } from '../../core/request-owner';
 
 interface Entry {name:string;slug:string;}
 interface MaterialEntry {material:string;slug:string;filament_count:number;}
@@ -20,17 +22,27 @@ interface CatalogVariant {name:string;color_hex:string;sizes:CatalogSize[];}
 interface CatalogSize {diameter:number;filament_weight:number;empty_spool_weight?:number;
   gtin?:string|number;article_number?:string;}
 
-@Component({standalone:true,imports:[FormsModule],templateUrl:'./catalog.component.html'})
-export class CatalogComponent implements OnInit {
+@Component({standalone:true,imports:[TranslatePipe,FormsModule],templateUrl:'./catalog.component.html'})
+export class CatalogComponent implements OnInit, OnDestroy {
+  readonly i18n=inject(I18nService);
   readonly http=inject(HttpClient);readonly dialogs=inject(DialogService);
   readonly auth=inject(AuthService);readonly loading=signal(false);
-  readonly error=signal('');readonly info=signal('');
+  readonly error=signal('');readonly info=signal<string|LocalizedMessage>('');
   readonly brands=signal<Entry[]>([]);readonly brand=signal<CatalogBrand|null>(null);
   readonly material=signal<CatalogMaterial|null>(null);
   readonly filament=signal<CatalogFilament|null>(null);
   readonly variant=signal<CatalogVariant|null>(null);
   brandSlug='';materialSlug='';filamentSlug='';variantSlug='';sizeIndex=0;
   query='';
+  private readonly requests=new RequestOwner();
+  ngOnDestroy():void{this.requests.invalidate();}
+  private async choose<T>(route:string,target:{set(value:T):void}):Promise<void>{
+    const owner=this.requests.begin();this.loading.set(true);
+    try{const result=await this.get<T>(route);if(this.requests.owns(owner))target.set(result);}
+    catch(error){if(this.requests.owns(owner))this.error.set(apiError(error));}
+    finally{if(this.requests.owns(owner))this.loading.set(false);}
+  }
+  private invalidate():void{this.requests.invalidate();this.loading.set(false);}
   get matches():Entry[] {
     const search=this.query.trim().toLowerCase();
     return this.brands().filter(b=>b.name.toLowerCase().includes(search)).slice(0,80);
@@ -42,48 +54,27 @@ export class CatalogComponent implements OnInit {
     this.loading.set(true);this.error.set('');
     try{
       const result=await this.get<{version:string;brands:Entry[]}>('brands');
-      this.brands.set(result.brands);this.info.set('Catalog '+(result.version||'unknown'));
+      this.brands.set(result.brands);this.info.set(this.i18n.message('Catalog {version}',{version:result.version||this.i18n.message('unknown')}));
     }catch(err){this.error.set(apiError(err));}
     finally{this.loading.set(false);}
   }
   async selectBrand():Promise<void>{
-    this.brand.set(null);this.material.set(null);this.filament.set(null);this.variant.set(null);
+    this.invalidate();this.brand.set(null);this.material.set(null);this.filament.set(null);this.variant.set(null);
     this.materialSlug='';this.filamentSlug='';this.variantSlug='';this.error.set('');
-    if(!this.brandSlug)return;
-    this.loading.set(true);
-    try{this.brand.set(await this.get<CatalogBrand>('brands/'+encodeURIComponent(this.brandSlug)));}
-    catch(err){this.error.set(apiError(err));}
-    finally{this.loading.set(false);}
+    if(this.brandSlug)await this.choose('brands/'+encodeURIComponent(this.brandSlug),this.brand);
   }
   async selectMaterial():Promise<void>{
-    this.material.set(null);this.filament.set(null);this.variant.set(null);
+    this.invalidate();this.material.set(null);this.filament.set(null);this.variant.set(null);
     this.filamentSlug='';this.variantSlug='';this.error.set('');
-    if(!this.materialSlug)return;
-    this.loading.set(true);
-    try{this.material.set(await this.get<CatalogMaterial>(
-      'brands/'+encodeURIComponent(this.brandSlug)+'/materials/'+encodeURIComponent(this.materialSlug)));}
-    catch(err){this.error.set(apiError(err));}
-    finally{this.loading.set(false);}
+    if(this.materialSlug)await this.choose('brands/'+encodeURIComponent(this.brandSlug)+'/materials/'+encodeURIComponent(this.materialSlug),this.material);
   }
   async selectFilament():Promise<void>{
-    this.filament.set(null);this.variant.set(null);this.variantSlug='';this.error.set('');
-    if(!this.filamentSlug)return;
-    this.loading.set(true);
-    try{this.filament.set(await this.get<CatalogFilament>(
-      'brands/'+encodeURIComponent(this.brandSlug)+'/materials/'+encodeURIComponent(this.materialSlug)
-      +'/filaments/'+encodeURIComponent(this.filamentSlug)));}
-    catch(err){this.error.set(apiError(err));}
-    finally{this.loading.set(false);}
+    this.invalidate();this.filament.set(null);this.variant.set(null);this.variantSlug='';this.error.set('');
+    if(this.filamentSlug)await this.choose('brands/'+encodeURIComponent(this.brandSlug)+'/materials/'+encodeURIComponent(this.materialSlug)+'/filaments/'+encodeURIComponent(this.filamentSlug),this.filament);
   }
   async selectVariant():Promise<void>{
-    this.variant.set(null);this.sizeIndex=0;this.error.set('');
-    if(!this.variantSlug)return;
-    this.loading.set(true);
-    try{this.variant.set(await this.get<CatalogVariant>(
-      'brands/'+encodeURIComponent(this.brandSlug)+'/materials/'+encodeURIComponent(this.materialSlug)
-      +'/filaments/'+encodeURIComponent(this.filamentSlug)+'/variants/'+encodeURIComponent(this.variantSlug)));}
-    catch(err){this.error.set(apiError(err));}
-    finally{this.loading.set(false);}
+    this.invalidate();this.variant.set(null);this.sizeIndex=0;this.error.set('');
+    if(this.variantSlug)await this.choose('brands/'+encodeURIComponent(this.brandSlug)+'/materials/'+encodeURIComponent(this.materialSlug)+'/filaments/'+encodeURIComponent(this.filamentSlug)+'/variants/'+encodeURIComponent(this.variantSlug),this.variant);
   }
   useProduct():void{
     const b=this.brand(),m=this.material(),f=this.filament(),v=this.variant();

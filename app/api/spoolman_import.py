@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from app.auth import audit
 from app.core.policies import require_editor
 from app.database import session, utc_now
+from app.api.import_contracts import SpoolmanPreviewResponse
 
 MAX_SIZE = 2 * 1024 * 1024
 SOURCE = re.compile(r"^[a-zA-Z0-9_-]{1,40}$")
@@ -190,7 +191,8 @@ def import_spoolman(db_path: Path, source: str, records: list[SourceSpool],
 
 
 def register_spoolman_import(app: FastAPI, db_path: Path) -> None:
-    @app.post("/api/import/spoolman", dependencies=[Depends(require_editor)])
+    @app.post("/api/import/spoolman", response_model=SpoolmanPreviewResponse,
+              dependencies=[Depends(require_editor)])
     async def import_snapshot(request: Request,
                               source: str = Query(default="spoolman", min_length=1, max_length=40),
                               dry_run: bool = Query(default=True)):

@@ -6,6 +6,7 @@ from app.core.policies import require_editor
 from app.auth import audit
 from app.database import session, utc_now
 from app.services.reservation_service import readiness, reserve, release
+from app.api.contracts import ReadinessResponse, SlotResponse
 
 
 class SlotAssignment(BaseModel):
@@ -13,19 +14,19 @@ class SlotAssignment(BaseModel):
 
 
 def register_planning_routes(app: FastAPI, db_path: Path) -> None:
-    @app.get("/api/jobs/{job_id}/readiness")
+    @app.get("/api/jobs/{job_id}/readiness", response_model=ReadinessResponse)
     def job_readiness(job_id: int):
         return readiness(db_path, job_id)
 
-    @app.post("/api/jobs/{job_id}/reservation", dependencies=[Depends(require_editor)])
+    @app.post("/api/jobs/{job_id}/reservation", response_model=ReadinessResponse, dependencies=[Depends(require_editor)])
     def reserve_job(job_id: int, request: Request):
         return reserve(db_path, job_id, request.state.user["id"])
 
-    @app.delete("/api/jobs/{job_id}/reservation", dependencies=[Depends(require_editor)])
+    @app.delete("/api/jobs/{job_id}/reservation", response_model=ReadinessResponse, dependencies=[Depends(require_editor)])
     def release_job(job_id: int, request: Request):
         return release(db_path, job_id, request.state.user["id"])
 
-    @app.get("/api/printers/{printer_id}/slots")
+    @app.get("/api/printers/{printer_id}/slots", response_model=list[SlotResponse])
     def printer_slots(printer_id: int):
         with session(db_path) as db:
             if not db.execute("SELECT 1 FROM printers WHERE id=?", (printer_id,)).fetchone():

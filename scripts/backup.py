@@ -1,33 +1,30 @@
-"""Consistent online SQLite backup for a self-hosted Filament Manager instance."""
+"""Consistent online SQLite backup with a checksum manifest and resource bounds."""
 import argparse
 import os
-import sqlite3
 from pathlib import Path
+import sys
 
-def create_backup(source: Path, destination: Path) -> None:
-    if not source.is_file():
-        raise FileNotFoundError(f"Database not found: {source}")
-    if source.resolve() == destination.resolve():
-        raise ValueError("Backup destination must differ from the source database.")
-    if destination.exists():
-        raise FileExistsError(f"Refusing to overwrite an existing backup: {destination}")
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        with sqlite3.connect(f"file:{source.resolve()}?mode=ro", uri=True) as original:
-            with sqlite3.connect(str(destination)) as backup:
-                original.backup(backup)
-                check = backup.execute("PRAGMA integrity_check").fetchone()
-                if check is None or check[0] != "ok":
-                    raise RuntimeError("Backup failed SQLite integrity verification.")
-    except BaseException:
-        destination.unlink(missing_ok=True)
-        raise
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from app.services.backup_service import create_snapshot, write_manifest
+
+
+def create_backup(source: Path, destination: Path, *, timeout_seconds: float = 300,
+                  reserve_bytes: int = 64 * 1024 * 1024) -> None:
+    manifest = Path(str(destination) + ".manifest.json")
+    if manifest.exists():
+        raise FileExistsError("Refusing to overwrite an existing backup manifest.")
+    info = create_snapshot(source, destination, timeout_seconds=timeout_seconds, reserve_bytes=reserve_bytes)
+    write_manifest(manifest, info)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("destination", type=Path, help="New .sqlite3 backup path")
     parser.add_argument("--database", type=Path,
                         default=Path(os.getenv("FILAMENT_DB_PATH", ".data/filaments.sqlite3")))
+    parser.add_argument("--timeout-seconds", type=int, default=300)
     args = parser.parse_args()
-    create_backup(args.database, args.destination)
-    print(f"Verified SQLite backup created: {args.destination}")
+    if not 1 <= args.timeout_seconds <= 3600:
+        parser.error("Timeout must be between 1 and 3600 seconds.")
+    create_backup(args.database, args.destination, timeout_seconds=args.timeout_seconds)
+    print("Verified SQLite backup and SHA-256 manifest created:", args.destination)

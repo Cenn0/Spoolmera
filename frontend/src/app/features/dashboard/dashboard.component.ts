@@ -1,30 +1,39 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { I18nService, TranslatePipe } from '../../core/i18n';
+import { Component, OnDestroy, computed, inject, signal, effect, untracked } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { RequestOwner } from '../../core/request-owner';
 import { AuthService } from '../../auth.service';
 import { CloudReceipt, Printer, WorkspaceService } from '../../workspace.service';
 import { RouterLink } from '@angular/router';
 import { DialogService, NoticeService } from '../../dialog.service';
 import { InventoryService, apiError } from '../../inventory.service';
-import { Capabilities, dateText, grams, stockPercent } from '../../models';
+import { Capabilities, stockPercent } from '../../models';
 
 @Component({
   standalone: true,
-  imports: [RouterLink],
-  templateUrl:'../../dashboard.html'
+  imports:[TranslatePipe,RouterLink],
+  templateUrl:'./dashboard.component.html'
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnDestroy {
+  readonly i18n=inject(I18nService);
   private readonly http=inject(HttpClient);
   readonly costs=signal<{consumed_g:number;currency_groups:{currency:string;consumed_g:number;known_cost_cents:number;unpriced_g:number}[];estimated:boolean}|null>(null);
-  async ngOnInit():Promise<void>{
-    try{this.costs.set(await firstValueFrom(this.http.get<{consumed_g:number;currency_groups:{currency:string;consumed_g:number;known_cost_cents:number;unpriced_g:number}[];estimated:boolean}>("/api/analytics/material-usage")));}
-    catch{this.costs.set(null);}
+  readonly costError=signal('');readonly costsLoading=signal(false);private readonly requests=new RequestOwner();
+  constructor(){effect(()=>{this.data.lastUpdated();untracked(()=>void this.refreshCosts());});}
+  ngOnDestroy():void{this.requests.invalidate();}
+  async refreshCosts():Promise<void>{
+    const owner=this.requests.begin();this.costsLoading.set(true);this.costError.set('');
+    try{const result=await firstValueFrom(this.http.get<NonNullable<ReturnType<typeof this.costs>>>('/api/analytics/material-usage'));
+      if(this.requests.owns(owner))this.costs.set(result);
+    }catch(error){if(this.requests.owns(owner))this.costError.set(apiError(error));}
+    finally{if(this.requests.owns(owner))this.costsLoading.set(false);}
   }
   readonly data = inject(InventoryService);
   readonly dialogs = inject(DialogService);
   readonly auth = inject(AuthService);
-  readonly grams = grams;
-  readonly dateText = dateText;
+  readonly grams=(value:number)=>this.i18n.grams(value);
+  readonly dateText=(value:string|null|undefined)=>this.i18n.dateText(value);
   readonly percent = stockPercent;
   readonly low = this.data.lowStock;
   readonly materialStock = computed(() => {
