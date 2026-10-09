@@ -51,7 +51,7 @@ export class SpoolsComponent implements OnInit {
 
   // The board is rendered conditionally. Observe both container size and lane
   // changes so scroll controls stay accurate after pagination or resizing.
-  @ViewChild('storageBoard') set storageBoardRef(ref:ElementRef<HTMLElement>|undefined) {
+  @ViewChild('storageBoardEl') set storageBoardRef(ref:ElementRef<HTMLElement>|undefined) {
     this.storageResizeObserver?.disconnect();
     this.storageMutationObserver?.disconnect();
     const board=ref?.nativeElement??null;
