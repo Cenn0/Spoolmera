@@ -49,3 +49,11 @@ Run the normal frontend tests, `npm run i18n:check`, typecheck, production build
 The follow-up regressions in `scripts/ui_followup_smoke.py` cover URL reload/history, combined low-stock filters, bounded bulk label selection, reorder feedback, and unchanged card DOM during a delayed refresh. These flows assert the inventory snapshot remains unchanged.
 
 The concurrent gallery and file-drop feedback improvements remain covered by `catalog_browser_smoke.py`, the product-view/component suites and file-drop feedback regressions.
+
+## Mobile legibility and warehouse board navigation (Issue #10)
+
+The mobile layout uses at least 11px for compact inventory metric labels, 12px for secondary spool labels and 16px for mobile text and select inputs to mitigate mobile-browser focus zoom. Drag handles, label-tray arrows and card actions provide at least 44px targets on narrow screens and devices reporting coarse pointer input. The stored filament properties and stock operations are unaffected.
+
+The horizontal **Locations** board exposes explicit **Previous/Next** buttons, operable by keyboard and touch. Each button is disabled at the corresponding actual scroll boundary; controls recalculate on resizing and when loaded location lanes change. Direct touch swiping and horizontal keyboard scrolling within the focusable board remain available. Scrolling never stages or saves a location change. The original physical verification and explicit save gate remain mandatory.
+
+The Angular unit suite validates scroll limits and absence of inventory writes. Real Chromium smoke checks exercise keyboard board scrolling, computed mobile font/control sizes, existing drag/drop confirmations, and the first spool visibility above the fixed bottom navigation at 390 × 844. This is **not** physical iOS Safari, iPhone, screen-reader or 3D-printer certification; real-device acceptance remains a separate validation scope.
