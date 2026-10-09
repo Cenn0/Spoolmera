@@ -8,7 +8,7 @@ The appearance control is available before sign-in and throughout the authentica
 
 A same-origin, external `theme-init.js` sets the appearance before Angular starts, without relaxing the content security policy. Semantic surface, text, focus, border and status tokens cover forms, dialogs, tables, alerts, the login screen and feature pages. Filament swatches preserve their actual recorded colors; printed labels remain light and ink-friendly.
 
-Desktop navigation is fixed to the top and scrolls independently. Narrow screens use an icon rail. Phones have three direct destinations and a **More** drawer for the remaining routes. The drawer supports Escape, focus containment, focus restoration and a backdrop. Resizing to desktop closes it. Main content has a skip link and enough bottom padding to scroll the last action above the mobile navigation.
+Desktop navigation is fixed to the top and scrolls independently. Narrow screens use an icon rail. Phones have three direct destinations and a **More** drawer for the remaining routes. The drawer supports Escape, focus containment, focus restoration and a backdrop. Resizing to desktop closes it. Main content has a skip link and enough bottom padding to scroll the last action above the mobile navigation. Document focus scrolling is immediate rather than animated, preventing the source from moving under the pointer while a native drag is being initiated.
 
 ## Spools and filament products
 

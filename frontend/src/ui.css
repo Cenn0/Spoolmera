@@ -18,8 +18,9 @@
   --action:#1e7364; --action-hover:#155849; --on-action:#fff; --focus:#88e1ca;
   --shadow:0 10px 30px #00000025; --reel-rim:#526466; --reel-hub:#26383b;
 }
-html {background:var(--canvas); color:var(--ink); scroll-padding-bottom:100px}
-body {background:var(--canvas);color:var(--ink)}
+/* Focus and drag targets must not keep moving after a pointer action starts. */
+html {background:var(--canvas); color:var(--ink); scroll-padding-bottom:100px;scroll-behavior:auto}
+body {background:var(--canvas);color:var(--ink);scroll-behavior:auto}
 :focus-visible {outline:3px solid var(--focus);outline-offset:3px}
 ::selection {background:var(--accent-soft);color:var(--ink)}
 input,select,textarea {color:var(--ink);background:var(--field);border-color:var(--line);accent-color:var(--action)}
