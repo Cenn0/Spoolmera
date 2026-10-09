@@ -81,6 +81,7 @@ def apply_consumption(db, job, actor_id: int | None) -> bool:
         "UPDATE print_jobs SET status='completed',accounting_status='debited',movement_id=?,updated_at=? WHERE id=?",
         (first_movement, utc_now(), current["id"]),
     )
+    db.execute("DELETE FROM job_reservations WHERE job_id=?", (current["id"],))
     audit(db, actor_id, "job_consumption", "print_job", current["id"])
     return True
 

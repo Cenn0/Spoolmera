@@ -28,8 +28,8 @@ def overview(db_path: Path):
                       COALESCE(SUM(CASE WHEN remaining_g = 0 THEN 1 ELSE 0 END), 0) AS empty_spools,
                       COALESCE(SUM(CASE WHEN remaining_g > 0 AND opened = 1 THEN 1 ELSE 0 END), 0) AS opened_spools,
                       COALESCE(SUM(CASE WHEN remaining_g > 0 AND opened = 0 THEN 1 ELSE 0 END), 0) AS sealed_spools,
-                      COALESCE(SUM(CASE WHEN remaining_g BETWEEN 1 AND 200 THEN 1 ELSE 0 END), 0) AS low_spools
-               FROM spools WHERE archived_at IS NULL"""
+                      COALESCE(SUM(CASE WHEN remaining_g BETWEEN 1 AND p.low_stock_threshold_g THEN 1 ELSE 0 END), 0) AS low_spools
+               FROM spools s JOIN products p ON p.id=s.product_id WHERE s.archived_at IS NULL"""
         ).fetchone()
         products = db.execute("SELECT COUNT(*) AS total FROM products").fetchone()["total"]
     return {**dict(counts), "total_products": products}
@@ -55,11 +55,16 @@ def add_product(db_path: Path, payload: ProductInput, actor_id: int):
     with session(db_path, write=True) as db:
         cursor = db.execute(
             """INSERT INTO products (uid, brand, name, material, color_name, color_hex,
-                                     diameter_mm, notes, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                     diameter_mm, notes, created_at, updated_at,
+                                     density_g_cm3,nozzle_min_c,nozzle_max_c,bed_min_c,bed_max_c,
+                                     gtin,manufacturer_sku,slicer_preset,low_stock_threshold_g)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (str(uuid4()), payload.brand, payload.name, payload.material,
              payload.color_name, payload.color_hex, payload.diameter_mm,
-             payload.notes, timestamp, timestamp),
+             payload.notes, timestamp, timestamp, payload.density_g_cm3,
+             payload.nozzle_min_c, payload.nozzle_max_c, payload.bed_min_c,
+             payload.bed_max_c, payload.gtin, payload.manufacturer_sku,
+             payload.slicer_preset, payload.low_stock_threshold_g),
         )
         product_id = cursor.lastrowid
         audit(db, actor_id, "product_create", "product", product_id)
@@ -72,10 +77,16 @@ def update_product(db_path: Path, product_id: int, payload: ProductInput, actor_
         result = db.execute(
             """UPDATE products
                SET brand=?, name=?, material=?, color_name=?, color_hex=?,
-                   diameter_mm=?, notes=?, updated_at=?
+                   diameter_mm=?, notes=?, updated_at=?, density_g_cm3=?,
+                   nozzle_min_c=?, nozzle_max_c=?, bed_min_c=?, bed_max_c=?, gtin=?,
+                   manufacturer_sku=?, slicer_preset=?, low_stock_threshold_g=?
                WHERE id=?""",
             (payload.brand, payload.name, payload.material, payload.color_name,
-             payload.color_hex, payload.diameter_mm, payload.notes, utc_now(), product_id),
+             payload.color_hex, payload.diameter_mm, payload.notes, utc_now(),
+             payload.density_g_cm3, payload.nozzle_min_c, payload.nozzle_max_c,
+             payload.bed_min_c, payload.bed_max_c, payload.gtin,
+             payload.manufacturer_sku, payload.slicer_preset,
+             payload.low_stock_threshold_g, product_id),
         )
         if result.rowcount == 0:
             raise HTTPException(status_code=404, detail="Filament product not found.")
@@ -88,7 +99,7 @@ def list_spools(db_path: Path):
     with session(db_path) as db:
         rows = db.execute(
             """SELECT s.*, p.brand, p.name AS product_name, p.material,
-                      p.color_name, p.color_hex, p.diameter_mm
+                      p.color_name, p.color_hex, p.diameter_mm, p.low_stock_threshold_g
                FROM spools s JOIN products p ON p.id=s.product_id
                WHERE s.archived_at IS NULL ORDER BY s.id DESC"""
         ).fetchall()
@@ -107,10 +118,13 @@ def add_spool(db_path: Path, payload: SpoolInput, actor_id: int):
             raise HTTPException(status_code=404, detail="Filament product not found.")
         cursor = db.execute(
             """INSERT INTO spools
-               (uid, product_id, initial_g, remaining_g, opened, location, notes, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+               (uid, product_id, initial_g, remaining_g, opened, location, notes, created_at,
+                tare_g,purchase_price_cents,purchase_currency,purchased_on,batch)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (str(uuid4()), payload.product_id, payload.initial_g, remaining,
-             int(opened), payload.location, payload.notes, timestamp),
+             int(opened), payload.location, payload.notes, timestamp,
+             payload.tare_g, payload.purchase_price_cents, payload.purchase_currency,
+             payload.purchased_on, payload.batch),
         )
         spool_id = cursor.lastrowid
         db.execute(
@@ -184,6 +198,10 @@ def recent_movements(db_path: Path, limit: int = 30):
 
 def archive_spool(db_path: Path, spool_id: int, actor_id: int):
     with session(db_path, write=True) as db:
+        if db.execute("SELECT 1 FROM job_reservations WHERE spool_id=? LIMIT 1", (spool_id,)).fetchone():
+            raise HTTPException(status_code=409, detail="Release print reservations before archiving this spool.")
+        if db.execute("SELECT 1 FROM printer_spool_slots WHERE spool_id=? LIMIT 1", (spool_id,)).fetchone():
+            raise HTTPException(status_code=409, detail="Unmap the loaded printer slot before archiving this spool.")
         result = db.execute(
             "UPDATE spools SET archived_at=? WHERE id=? AND archived_at IS NULL",
             (utc_now(), spool_id),

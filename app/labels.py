@@ -42,7 +42,11 @@ def qr_svg(value: str) -> bytes:
     return qr.make_image().to_string(encoding="utf-8")
 
 
-def label_html(spool: dict) -> str:
+def label_html(spool: dict, size: str = '60x40') -> str:
+    if size not in ('60x40','50x30'):
+        raise ValueError('Unsupported label size.')
+    extra_css = '<link rel="stylesheet" href="/static/label-50x30.css">' if size == '50x30' else ''
+    physical_size = size.replace('x',' by ')
     uid = html.escape(spool["uid"], quote=True)
     name = html.escape(spool["name"], quote=True)
     brand = html.escape(spool["brand"], quote=True)
@@ -54,14 +58,16 @@ def label_html(spool: dict) -> str:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Spool label · {uid}</title>
-<link rel="stylesheet" href="/static/label.css">
+<link rel="stylesheet" href="/static/label.css">{extra_css}
 </head>
 <body>
 <div class="print-toolbar"><strong>Spool label</strong>
   <span>Print using your browser (Ctrl/Cmd + P). Set scale to 100% and disable headers/footers.</span>
   <a href="/?spool={uid}">Back to inventory</a>
+  <a href="/labels/{uid}?size=60x40">60 × 40 mm</a>
+  <a href="/labels/{uid}?size=50x30">50 × 30 mm</a>
 </div>
-<main class="label" aria-label="60 by 40 millimeter spool label">
+<main class="label" aria-label="{physical_size} millimeter spool label">
   <section class="label-info">
     <div class="label-brand">FILAMENT MANAGER</div>
     <div class="label-product">{brand}<br><strong>{name}</strong></div>

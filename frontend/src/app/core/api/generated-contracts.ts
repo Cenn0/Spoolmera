@@ -21,6 +21,15 @@ export interface ApiProduct {
   color_hex: string;
   diameter_mm: number;
   notes: string;
+  density_g_cm3: number | null;
+  nozzle_min_c: number | null;
+  nozzle_max_c: number | null;
+  bed_min_c: number | null;
+  bed_max_c: number | null;
+  gtin: string;
+  manufacturer_sku: string;
+  slicer_preset: string;
+  low_stock_threshold_g: number;
   created_at: string;
   updated_at: string;
   spool_count: number;
@@ -39,12 +48,18 @@ export interface ApiSpool {
   notes: string;
   created_at: string;
   archived_at: string | null;
+  tare_g: number;
+  purchase_price_cents: number | null;
+  purchase_currency: string;
+  purchased_on: string | null;
+  batch: string;
   brand: string;
   product_name: string;
   material: string;
   color_name: string;
   color_hex: string;
   diameter_mm: number;
+  low_stock_threshold_g: number;
 }
 
 export interface ApiSpoolPage {

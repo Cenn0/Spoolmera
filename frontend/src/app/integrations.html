@@ -1,5 +1,6 @@
 <section class="page-head"><div><span class="eyebrow">INTEGRATION OVERVIEW</span><h1>Connected <em>workflows.</em></h1><p>Printer connections and print-job tracking are now available alongside the versioned inventory API.</p></div></section>
 <div class="integration-grid">
+  <article class="panel integration-card"><span class="eyebrow">OPEN INVENTORY</span><h2>Import from Spoolman</h2><span class="status">Manual preview</span><p>Bring existing inventory into Filament Manager with idempotent, create-only Spoolman JSON snapshot import.</p><a href="/import/spoolman" class="text-link">Import Spoolman inventory →</a></article>
   <article class="panel integration-card"><span class="eyebrow">INVENTORY API</span><h2>Integration API v1</h2><span class="status connected">Read-only available</span><p>Machine-readable active spool inventory and versioned capabilities. No automatic writes.</p><code>GET /api/integrations/v1/spools</code><code>GET /api/integrations/v1/capabilities</code><a class="text-link" href="/docs" target="_blank" rel="noopener noreferrer">API documentation ↗</a></article>
   <article class="panel integration-card"><span class="eyebrow">DEVICE CONNECTIONS</span><h2>3D printers</h2><span class="status connected">{{enabledPrinters()}} enabled / {{printers().length}} configured</span><p>Moonraker and OctoPrint connections can be configured by an administrator. Moonraker history-confirmed jobs may automatically deduct estimated material; OctoPrint jobs require explicit review.</p><a class="text-link" href="/printers">Manage connections →</a></article>
   <article class="panel integration-card"><span class="eyebrow">PRINT PREPARATION</span><h2>Slicers</h2><span class="status">Opt-in</span><p>Opt-in PrusaSlicer CLI slicing runs with an operator-approved profile. Jobs offer safe file transfer and manual print start when the administrator enables controller writes.</p></article>
@@ -8,8 +9,64 @@
     <p>HMAC-authenticated vendor-neutral event ingress with replay protection. Completion reports require human review; native Bambu/Prusa cloud APIs and SSO are not implemented.</p>
     <code>POST /api/cloud/hooks/&lt;ALIAS&gt;</code><a class="text-link" href="/docs">See API documentation →</a>
   </article>
+  <article class="panel integration-card"><span class="eyebrow">LOCAL AUTOMATIONS</span><h2>Scoped machine API</h2><span class="status connected">Read-only</span>
+    <p>Create restricted bearer tokens for your local automation clients. Inventory and movement events have separate read scopes. These endpoints never control printers or change spool inventory.</p>
+    <code>GET /api/automation/v1/spools</code><code>GET /api/automation/v1/movements?after=0</code></article>
 </div>
+@if(auth.canEdit()){
+<section class="panel workflow-panel">
+  <div class="panel-heading"><div><span class="eyebrow">SCALE INTEGRATION</span><h2>Pending physical measurements</h2></div></div>
+  <div class="workflow-form">
+    <p class="helper">An optional signed ESP32/ESPHome scale bridge can submit readings. These reports never automatically adjust inventory. Review the correct physical spool and tare before approving.</p>
+    <label>Review explanation<input [(ngModel)]="scaleNote" maxlength="500" minlength="10" placeholder="Physical verification" /></label>
+  </div>
+  <div class="workflow-list">
+    @for(item of scales();track item.id){
+      <article class="workflow-row">
+        <div class="workflow-main"><strong>{{item.brand}} · {{item.product_name}}</strong>
+          <small>Device {{item.source}} · Gross {{item.gross_g}} g · Tare {{item.tare_g ?? item.current_tare_g}} g · Currently {{item.remaining_g}} g</small>
+          <small>Measured {{item.received_at}} · {{item.spool_uid}}</small>
+        </div>
+        <div class="workflow-buttons">
+          <button class="btn ghost" type="button" [disabled]="scaleBusy()||scaleNote.trim().length<10" (click)="reviewScale(item,'discard')">Discard</button>
+          <button class="btn primary" type="button" [disabled]="scaleBusy()||scaleNote.trim().length<10" (click)="reviewScale(item,'approve')">Approve measurement</button>
+        </div>
+      </article>
+    }@empty{<p class="placeholder">No pending scale reports.</p>}
+  </div>
+</section>
+}
 @if(auth.isAdmin()){
+<section class="panel workflow-panel">
+  <div class="panel-heading"><div><span class="eyebrow">TOKEN ADMINISTRATION</span><h2>Read-only machine tokens</h2></div></div>
+  <div class="workflow-form">
+    @if(tokenError()){<p role="alert" class="form-error">{{tokenError()}}</p>}
+    <p class="helper">Tokens grant read-only access to the specified endpoint. Protect the tokens like passwords and use HTTPS or VPN; revoke unused tokens here.</p>
+    <form class="form-grid" #tokenForm="ngForm" (ngSubmit)="createToken()">
+      <label>Token label<input name="tokenLabel" [(ngModel)]="tokenLabel" minlength="1" maxlength="80" required placeholder="Home Assistant"></label>
+      <label>Permission<select name="tokenScope" [(ngModel)]="tokenScope">
+        <option value="inventory_read">Read inventory only</option>
+        <option value="events_read">Read stock movement feed only</option>
+      </select></label>
+      <button class="btn primary" type="submit" [disabled]="tokenBusy()||tokenForm.invalid">Create scoped token</button>
+    </form>
+    @if(issuedSecret()){
+      <div class="detail-summary"><div>
+        <strong>Copy this token now — it will never be shown again.</strong>
+        <input type="text" readonly [value]="issuedSecret()" aria-label="New automation token"/>
+      </div><button class="btn ghost" type="button" (click)="issuedSecret.set('')">Hide token</button></div>
+    }
+  </div>
+  <div class="workflow-list">
+    @for(token of tokens();track token.id){
+      <article class="workflow-row">
+        <div class="workflow-main"><strong>{{token.label}}</strong><small>{{token.scope}} · {{token.created_at}}</small></div>
+        <span class="status" [class.opened]="!token.revoked_at">{{token.revoked_at?'Revoked':'Active'}}</span>
+        @if(!token.revoked_at){<button class="btn ghost" type="button" [disabled]="tokenBusy()" (click)="revokeToken(token.id)">Revoke</button>}
+      </article>
+    }@empty{<p class="placeholder">No automation tokens created.</p>}
+  </div>
+</section>
 <section class="panel workflow-panel"><div class="panel-heading"><div><span class="eyebrow">CLOUD AUDIT</span><h2>Recent cloud receipts</h2></div></div>
   <div class="workflow-list">
     @for(e of cloudEvents();track e.source+':'+e.event_id){

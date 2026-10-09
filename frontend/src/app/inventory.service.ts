@@ -24,7 +24,7 @@ export class InventoryService {
   readonly loading = signal(true);
   readonly ready = signal(false);
   readonly error = signal('');
-  readonly lowStock = computed(() => this.spools().filter(item => item.remaining_g > 0 && item.remaining_g <= 200)
+  readonly lowStock = computed(() => this.spools().filter(item => item.remaining_g > 0 && item.remaining_g <= item.low_stock_threshold_g)
     .sort((a, b) => a.remaining_g - b.remaining_g));
   readonly available = computed(() => this.spools().filter(item => item.remaining_g > 0));
 
@@ -77,6 +77,31 @@ export class InventoryService {
   async move(id: number, kind: 'consume' | 'adjust', grams: number, note: string): Promise<void> {
     await firstValueFrom(this.http.post('/api/spools/' + id + '/movements', {kind, grams, note}));
     await this.load();
+  }
+  async weigh(id: number, gross_g: number, tare_g: number, note: string): Promise<void> {
+    await firstValueFrom(this.http.post('/api/spools/' + id + '/weigh', {gross_g,tare_g,note}));
+    await this.load();
+  }
+  async dry(id: number, temperature_c: number, duration_minutes: number, note: string): Promise<void> {
+    await firstValueFrom(this.http.post('/api/spools/' + id + '/drying',
+      {temperature_c,duration_minutes,note,dried_at:new Date().toISOString()}));
+  }
+  dryingRecords(id: number): Promise<{id:number;temperature_c:number;duration_minutes:number;dried_at:string;note:string}[]> {
+    return firstValueFrom(this.http.get<{id:number;temperature_c:number;duration_minutes:number;dried_at:string;note:string}[]>('/api/spools/' + id + '/drying'));
+  }
+  identifiers(id:number):Promise<{namespace:string;external_id:string;created_at:string}[]> {
+    return firstValueFrom(this.http.get<{namespace:string;external_id:string;created_at:string}[]>('/api/spools/'+id+'/identifiers'));
+  }
+  registerIdentifier(id:number,namespace:string,external_id:string):Promise<void> {
+    return firstValueFrom(this.http.post<void>('/api/spools/'+id+'/identifiers',{namespace,external_id}));
+  }
+  deleteIdentifier(id:number,namespace:string,external_id:string):Promise<void> {
+    return firstValueFrom(this.http.delete<void>('/api/spools/'+id+'/identifiers/'
+      +encodeURIComponent(namespace)+'/'+encodeURIComponent(external_id)));
+  }
+  resolveIdentifier(namespace:string,external_id:string):Promise<{id:number;uid:string}> {
+    return firstValueFrom(this.http.get<{id:number;uid:string}>('/api/identifiers/'
+      +encodeURIComponent(namespace)+'/'+encodeURIComponent(external_id)));
   }
   async archive(id: number): Promise<void> {
     await firstValueFrom(this.http.post('/api/spools/' + id + '/archive', {}));

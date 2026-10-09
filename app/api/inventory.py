@@ -1,17 +1,19 @@
 """Authenticated inventory, label, CSV and read-only integration routes."""
 from pathlib import Path
+from typing import Literal
 from uuid import uuid4
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from app.auth import audit
 from app.core.policies import require_editor, require_admin
 from app.database import session, utc_now
-from app.models import ProductInput, SpoolInput, SpoolUpdate, MovementInput
+from app.models import ProductInput, SpoolInput, SpoolUpdate, MovementInput, WeighInput, DryingInput
 from app.labels import label_html, qr_svg, spool_public_url
 from app.inventory_csv import export_inventory, import_inventory
 from app.integrations import get_inventory_snapshot, get_integration_capabilities
 from app.services.accounting_service import record_manual_movement
 from app.services import inventory_service
+from app.services.material_service import record_weighing, record_drying, drying_history, stock_alerts
 from app.services.inventory_service import spool_as_dict
 from app.api.contracts import (
     OverviewResponse, ProductResponse, SpoolResponse, SpoolPageResponse, CapabilitiesResponse
@@ -49,7 +51,7 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
             clauses.append("p.material = ?")
             params.append(material.upper())
         query = """SELECT s.*, p.brand, p.name AS product_name, p.material,
-                          p.color_name, p.color_hex, p.diameter_mm
+                          p.color_name, p.color_hex, p.diameter_mm, p.low_stock_threshold_g
                    FROM spools s JOIN products p ON p.id=s.product_id
                    WHERE """ + " AND ".join(clauses) + " ORDER BY s.id DESC LIMIT ?"
         with session(db_path) as db:
@@ -77,6 +79,23 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
     @router.get("/api/spools/{spool_id}/movements")
     def spool_movements(spool_id: int):
         return inventory_service.spool_movements(db_path, spool_id)
+
+    @router.get("/api/inventory/alerts")
+    def inventory_alerts():
+        return stock_alerts(db_path)
+
+    @router.post("/api/spools/{spool_id}/weigh", dependencies=[Depends(require_editor)])
+    def weigh_spool(spool_id: int, payload: WeighInput, request: Request):
+        return record_weighing(db_path, spool_id, payload, request.state.user["id"])
+
+    @router.get("/api/spools/{spool_id}/drying")
+    def get_drying(spool_id: int):
+        return drying_history(db_path, spool_id)
+
+    @router.post("/api/spools/{spool_id}/drying", status_code=201,
+                 dependencies=[Depends(require_editor)])
+    def add_drying(spool_id: int, payload: DryingInput, request: Request):
+        return record_drying(db_path, spool_id, payload, request.state.user["id"])
 
     @router.get("/api/movements")
     def recent_movements(limit: int = Query(default=30, ge=1, le=200)):
@@ -109,7 +128,7 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
         )
 
     @router.get("/labels/{spool_uid}", response_class=HTMLResponse, include_in_schema=False)
-    def print_label(spool_uid: str):
+    def print_label(spool_uid: str, size: Literal["60x40","50x30"] = Query(default="60x40")):
         with session(db_path) as db:
             row = db.execute(
                 """SELECT s.uid, s.id, s.remaining_g, s.initial_g,
@@ -120,7 +139,7 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
             if row is None:
                 raise HTTPException(status_code=404, detail="Spool not found.")
         return HTMLResponse(
-            content=label_html(dict(row)),
+            content=label_html(dict(row), size=size),
             headers={"Cache-Control": "no-store",
                      "Content-Security-Policy": "default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'"},
         )

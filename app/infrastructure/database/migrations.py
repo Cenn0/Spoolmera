@@ -3,7 +3,7 @@ import sqlite3
 from uuid import uuid4
 from datetime import datetime, timezone
 
-CURRENT_SCHEMA_VERSION = 5
+CURRENT_SCHEMA_VERSION = 9
 
 def migrate_v2_v4(connection: sqlite3.Connection) -> None:
     """Preserve legacy IDs and write an idempotent material mapping upgrade."""
@@ -112,3 +112,105 @@ def recover_interrupted_commands(db: sqlite3.Connection) -> None:
     db.execute("""UPDATE printer_commands SET state='unknown',updated_at=?
                   WHERE state='sending'""",
                (datetime.now(timezone.utc).isoformat(timespec="seconds"),))
+
+
+def migrate_v6(db: sqlite3.Connection) -> None:
+    """Add optional material properties, physical weighing and drying history."""
+    for name, ddl in (
+        ("density_g_cm3", "REAL CHECK(density_g_cm3 > 0 AND density_g_cm3 <= 10)"),
+        ("nozzle_min_c", "INTEGER CHECK(nozzle_min_c BETWEEN 0 AND 400)"),
+        ("nozzle_max_c", "INTEGER CHECK(nozzle_max_c BETWEEN 0 AND 400)"),
+        ("bed_min_c", "INTEGER CHECK(bed_min_c BETWEEN 0 AND 200)"),
+        ("bed_max_c", "INTEGER CHECK(bed_max_c BETWEEN 0 AND 200)"),
+        ("gtin", "TEXT NOT NULL DEFAULT ''"),
+        ("manufacturer_sku", "TEXT NOT NULL DEFAULT ''"),
+        ("slicer_preset", "TEXT NOT NULL DEFAULT ''"),
+        ("low_stock_threshold_g", "INTEGER NOT NULL DEFAULT 200 CHECK(low_stock_threshold_g BETWEEN 0 AND 100000)"),
+    ):
+        _ensure_column(db, "products", name, ddl)
+    for name, ddl in (
+        ("tare_g", "INTEGER NOT NULL DEFAULT 0 CHECK(tare_g BETWEEN 0 AND 100000)"),
+        ("purchase_price_cents", "INTEGER CHECK(purchase_price_cents BETWEEN 0 AND 100000000)"),
+        ("purchase_currency", "TEXT NOT NULL DEFAULT 'EUR'"),
+        ("purchased_on", "TEXT"),
+        ("batch", "TEXT NOT NULL DEFAULT ''"),
+    ):
+        _ensure_column(db, "spools", name, ddl)
+    db.execute("""CREATE TABLE IF NOT EXISTS drying_records (
+        id INTEGER PRIMARY KEY,
+        spool_id INTEGER NOT NULL REFERENCES spools(id) ON DELETE RESTRICT,
+        temperature_c INTEGER NOT NULL CHECK(temperature_c BETWEEN 1 AND 150),
+        duration_minutes INTEGER NOT NULL CHECK(duration_minutes BETWEEN 1 AND 10080),
+        dried_at TEXT NOT NULL,
+        note TEXT NOT NULL DEFAULT '',
+        actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TEXT NOT NULL
+    )""")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_drying_spool ON drying_records(spool_id, dried_at DESC)")
+
+
+def migrate_v7(db: sqlite3.Connection) -> None:
+    """Advisory print reservations and explicit feeder-slot mapping."""
+    db.execute("""CREATE TABLE IF NOT EXISTS job_reservations (
+        job_id INTEGER NOT NULL REFERENCES print_jobs(id) ON DELETE RESTRICT,
+        spool_id INTEGER NOT NULL REFERENCES spools(id) ON DELETE RESTRICT,
+        reserved_g INTEGER NOT NULL CHECK(reserved_g > 0),
+        created_at TEXT NOT NULL,
+        PRIMARY KEY(job_id,spool_id)
+    )""")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_reservation_spool ON job_reservations(spool_id)")
+    db.execute("""CREATE TABLE IF NOT EXISTS printer_spool_slots (
+        printer_id INTEGER NOT NULL REFERENCES printers(id) ON DELETE RESTRICT,
+        tool INTEGER NOT NULL CHECK(tool BETWEEN 0 AND 15),
+        spool_id INTEGER NOT NULL UNIQUE REFERENCES spools(id) ON DELETE RESTRICT,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY(printer_id,tool)
+    )""")
+
+
+def migrate_v8(db: sqlite3.Connection) -> None:
+    """Scoped machine tokens, portable external IDs, and NFC/QR tag references."""
+    db.execute("""CREATE TABLE IF NOT EXISTS automation_tokens (
+        id INTEGER PRIMARY KEY,
+        label TEXT NOT NULL,
+        token_hash TEXT NOT NULL UNIQUE,
+        scope TEXT NOT NULL CHECK(scope IN ('inventory_read','events_read')),
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TEXT NOT NULL,
+        revoked_at TEXT
+    )""")
+    db.execute("""CREATE TABLE IF NOT EXISTS external_import_map (
+        source TEXT NOT NULL,
+        entity_type TEXT NOT NULL CHECK(entity_type IN ('spool','filament')),
+        external_id INTEGER NOT NULL CHECK(external_id > 0),
+        local_id INTEGER NOT NULL,
+        PRIMARY KEY(source,entity_type,external_id)
+    )""")
+    db.execute("""CREATE TABLE IF NOT EXISTS spool_identifiers (
+        namespace TEXT NOT NULL CHECK(namespace IN ('nfc','openprinttag','custom')),
+        external_id TEXT NOT NULL,
+        spool_id INTEGER NOT NULL REFERENCES spools(id) ON DELETE RESTRICT,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY(namespace,external_id)
+    )""")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_identifiers_spool ON spool_identifiers(spool_id)")
+
+
+def migrate_v9(db: sqlite3.Connection) -> None:
+    """Signed scale measurements awaiting explicit inventory approval."""
+    db.execute("""CREATE TABLE IF NOT EXISTS scale_event_receipts (
+        id INTEGER PRIMARY KEY,
+        source TEXT NOT NULL,
+        event_id TEXT NOT NULL,
+        payload_digest TEXT NOT NULL,
+        spool_id INTEGER NOT NULL REFERENCES spools(id) ON DELETE RESTRICT,
+        gross_g INTEGER NOT NULL CHECK(gross_g BETWEEN 0 AND 200000),
+        tare_g INTEGER CHECK(tare_g BETWEEN 0 AND 100000),
+        status TEXT NOT NULL DEFAULT 'pending'
+            CHECK(status IN ('pending','applied','discarded')),
+        received_at TEXT NOT NULL,
+        reviewed_at TEXT,
+        reviewed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        UNIQUE(source,event_id)
+    )""")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_scale_pending ON scale_event_receipts(status,id)")
