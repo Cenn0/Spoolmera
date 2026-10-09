@@ -197,8 +197,14 @@ jobs:
           path: ${{ runner.temp }}/browser-results/de-*.png
           if-no-files-found: error
           retention-days: 7
-
-
+      - name: Publish light, dark and mobile UI previews
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-ux-previews
+          path: ${{ runner.temp }}/browser-results/ui-*.png
+          if-no-files-found: error
+          retention-days: 7
 
   slicer-build:
     runs-on: ubuntu-latest
