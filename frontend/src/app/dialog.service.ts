@@ -1,10 +1,12 @@
 import { Injectable, signal } from '@angular/core';
+import type { Spool } from './models';
 import type { ProductInput } from './models';
 
 export type DialogKind = 'product' | 'spool' | 'details' | 'movement' | 'csv' | 'weigh' | 'drying';
 export interface DialogRequest {
   kind: DialogKind;
   id?: number;
+  spool?: Spool;
   productId?: number;
   catalog?: Partial<ProductInput>;
   mode?: 'consume' | 'adjust';

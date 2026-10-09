@@ -1,5 +1,5 @@
 
-# Feature expansion: FilamentManager v0.9 (experimental)
+# Feature expansion: FilamentManager v0.10.0 (experimental)
 
 This release remains fully free, Apache-2.0-licensed, Docker-self-hosted and based on Angular, Python/FastAPI and SQLite. The default installation is a single application container. No cloud account, paid service or vendor API is required.
 
@@ -9,7 +9,8 @@ This release remains fully free, Apache-2.0-licensed, Docker-self-hosted and bas
 | --- | --- | --- |
 | Rich material properties | Density, nozzle/bed limits, GTIN/SKU, slicer preset, low-stock threshold | app/models.py |
 | Physical spool metadata | Tare, purchase price/currency/date, batch and location | app/models.py |
-| Manual weighing | Gross minus empty spool tare, movement ledger and audit, no double adjustment | app/services/material_service.py |
+| Manual weighing | Revision-aware gross minus tare, pending-job guard and durable measurement anchors | app/services/material_service.py |
+| Consumption reconciliation | Actual/partial/zero use, preserved estimates, idempotent review, linked corrections and measurement reconciliation | app/services/accounting_service.py |
 | Material care | User-recorded drying temperature, duration and note | app/services/material_service.py |
 | Community catalog | Optional Open Filament Database browser; fixed HTTPS origin and cache; user-review before saving | app/api/catalog.py |
 | Spoolman migration | Create-only JSON spool snapshots with import preview, rollback and external-source ID mapping | app/api/spoolman_import.py |
@@ -18,10 +19,13 @@ This release remains fully free, Apache-2.0-licensed, Docker-self-hosted and bas
 | NFC identifiers | Register and resolve optional NFC/OpenPrintTag/custom tag IDs; Web NFC serial lookup on compatible browsers | app/api/identifiers.py |
 | Signed scale bridge | Pending HMAC-SHA256 device reports, deduplication, human approval and atomic stock movement | app/api/scale.py |
 | Local automation | Per-scope read-only and revocable bearer tokens; paginated stock and movement feeds | app/api/automation.py |
-| Notifications | Opt-in, separately isolated ntfy-compatible polling adapter with durable cursor | scripts/notification_bridge.py |
+| Notifications | Opt-in categories, minimal secret environment, separate ntfy authentication, durable condition deduplication and restore-epoch handling | scripts/notification_bridge.py |
 | Price reporting | Recorded material use and purchase-price allocation, currencies kept separate | app/api/analytics.py |
-| Recovery | Admin-only SQLite online snapshot and stop-only restore with pre-restore backup | app/api/backup.py, scripts/restore.py |
-| QR labels | Two print sizes: 60 x 40 mm and 50 x 30 mm | app/labels.py |
+| Recovery | Bounded online snapshots, schema/identity validation, retained corrupt bytes, runtime ownership and live-process exclusion | app/api/backup.py, scripts/restore.py |
+| History and archive | Server pagination and filters, source/actor/job/correction links, archived UUID lookup and audited reactivation | app/services/inventory_query_service.py |
+| Batch registration and labels | Atomic 1–100 roll creation, immutable preview, durable retries and one UUID/label per roll in both 60 x 40 mm and 50 x 30 mm formats | app/services/inventory_query_service.py, app/labels.py |
+| Restock | Product targets, active physical stock, zero-stock products and separately displayed reservations | app/services/inventory_query_service.py |
+| Operations | Supervised worker/lease state, device failures, unresolved commands/uploads, storage, backup and recovery diagnostics | app/api/diagnostics.py |
 
 ## Operational invariants
 
@@ -33,7 +37,7 @@ This release remains fully free, Apache-2.0-licensed, Docker-self-hosted and bas
 6. All automation tokens are hashed in SQLite, restricted to one read-only scope, individually revocable and returned as plaintext only on creation.
 7. External community catalog content is not authoritative machine configuration; product values must be reviewed by the user.
 8. Backups contain credential hashes, tokens hashes and user inventory. Protect backup files and restore only with the service stopped.
-9. The notification bridge is at-least-once, not a printer automation controller. If delivery occurs before the cursor update and the bridge crashes, an event can be notified twice.
+9. Notification delivery is at least once. If delivery succeeds before state is persisted and the bridge crashes, a condition can be notified twice. It never controls a printer.
 
 ## Support and security classifications
 
@@ -47,8 +51,10 @@ This release remains fully free, Apache-2.0-licensed, Docker-self-hosted and bas
 
 - Validate multiple real printer/firmware combinations, job interruption and spool changes.
 - Verify sensor calibration, NFC/physical tag readers and full print cost accuracy on real hardware.
-- Exercise restore from prior schema versions and released packages on the intended amd64 and arm64 hosts.
+- The automated recovery gate covers the current Linux amd64 container and supported legacy schemas. Validate additional released-package upgrades and intended arm64 hosts before claiming that support.
 - Complete an independent security review and publish hardware support matrices.
 - Confirm no secrets exist in Git history and explicitly approve changing the private GitHub repository to public if an open-source community release is intended.
 
 This document describes the code, not completion of these external release prerequisites.
+
+See [the review implementation and evidence](implementation-2026-10-09.md) for the current change and the distinction between application tests, simulated controllers and hardware validation.

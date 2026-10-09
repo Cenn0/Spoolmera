@@ -30,6 +30,7 @@ class ProductResponse(BaseModel):
     manufacturer_sku: str
     slicer_preset: str
     low_stock_threshold_g: int
+    target_stock_g: int
     created_at: str
     updated_at: str
     spool_count: int
@@ -41,6 +42,7 @@ class SpoolResponse(BaseModel):
     product_id: int
     initial_g: int
     remaining_g: int
+    stock_revision: int
     opened: bool
     status: Literal['sealed','opened','empty']
     location: str
@@ -94,6 +96,8 @@ class JobResponse(BaseModel):
     estimated_g: int
     status: Literal['pending','printing','completed','needs_review','cancelled']
     accounting_status: Literal['pending','needs_review','debited','discarded']
+    accounting_revision: int
+    accounting_method: Literal['actual','estimated','discard'] | None
     movement_id: int | None
     note: str
     external_job_id: str | None
@@ -111,4 +115,124 @@ class CapabilitiesResponse(BaseModel):
     printer_connections: bool
     slicer_connections: bool
 
-API_MODELS = [OverviewResponse, ProductResponse, SpoolResponse, SpoolPageResponse, PrinterResponse, JobMaterialResponse, JobResponse, CapabilitiesResponse]
+class MovementResponse(BaseModel):
+    id: int
+    spool_id: int
+    spool_uid: str
+    kind: Literal['initial', 'consume', 'adjust']
+    delta_g: int
+    remaining_after_g: int
+    note: str
+    created_at: str
+    source: str
+    source_ref: str | None
+    actor_id: int | None
+    actor_name: str | None
+    print_job_id: int | None
+    job_id: int | None
+    job_file_name: str | None
+    corrects_movement_id: int | None
+    accounting_operation_id: str | None
+    brand: str
+    product_name: str
+    material: str
+    color_name: str
+    color_hex: str
+
+
+class MovementPageResponse(BaseModel):
+    items: list[MovementResponse]
+    next_cursor: int | None
+
+
+class RestockItemResponse(BaseModel):
+    product_id: int
+    brand: str
+    name: str
+    material: str
+    color_name: str
+    color_hex: str
+    target_stock_g: int
+    remaining_g: int
+    reserved_g: int
+    available_g: int
+    active_spools: int
+    sealed_spools: int
+    suggested_g: int
+
+
+class RestockResponse(BaseModel):
+    items: list[RestockItemResponse]
+
+
+class SpoolBatchResponse(BaseModel):
+    items: list[SpoolResponse]
+    label_url: str
+
+
+class SlotResponse(BaseModel):
+    tool: int
+    spool_id: int
+    spool_uid: str
+    brand: str
+    product_name: str
+
+
+class ReadinessMaterialResponse(BaseModel):
+    tool: int
+    spool_id: int
+    estimated_g: int
+    remaining_g: int
+    archived_at: str | None
+    brand: str
+    product_name: str
+    own_reservation_g: int | None
+    others_reserved_g: int
+    loaded_tool: int | None
+    available_g: int
+    ready: bool
+    loaded_match: bool
+
+
+class ReadinessResponse(BaseModel):
+    job_id: int
+    status: str
+    ready: bool
+    materials: list[ReadinessMaterialResponse]
+    reserved: bool
+
+
+class InspectionMaterialResponse(BaseModel):
+    tool: int
+    estimated_g: int
+
+
+class InspectionPlateResponse(BaseModel):
+    plate: int
+    materials: list[InspectionMaterialResponse]
+
+
+class InspectionResponse(BaseModel):
+    file_stored: bool
+    verified: bool
+    source: str
+    plates: list[InspectionPlateResponse]
+    needs_manual_estimate: bool
+
+
+class PrinterOperationResponse(BaseModel):
+    operation_id: str
+    printer_id: int
+    job_id: int
+    kind: Literal['start', 'upload']
+    state: Literal['active', 'unknown']
+    created_at: str
+    updated_at: str
+
+
+API_MODELS = [OverviewResponse, ProductResponse, SpoolResponse, SpoolPageResponse,
+              PrinterResponse, JobMaterialResponse, JobResponse, CapabilitiesResponse,
+              MovementResponse, MovementPageResponse, RestockItemResponse, RestockResponse,
+              SpoolBatchResponse, SlotResponse, ReadinessMaterialResponse, ReadinessResponse,
+              InspectionMaterialResponse, InspectionPlateResponse, InspectionResponse,
+              PrinterOperationResponse]

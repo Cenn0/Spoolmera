@@ -3,7 +3,7 @@ import sqlite3
 from uuid import uuid4
 from datetime import datetime, timezone
 
-CURRENT_SCHEMA_VERSION = 9
+CURRENT_SCHEMA_VERSION = 10
 
 def migrate_v2_v4(connection: sqlite3.Connection) -> None:
     """Preserve legacy IDs and write an idempotent material mapping upgrade."""
@@ -113,6 +113,7 @@ def recover_interrupted_commands(db: sqlite3.Connection) -> None:
     db.execute("""UPDATE printer_commands SET state='unknown',updated_at=?
                   WHERE state='sending'""",
                (datetime.now(timezone.utc).isoformat(timespec="seconds"),))
+    db.execute("UPDATE printer_operations SET state='unknown' WHERE state='active'")
 
 
 def migrate_v6(db: sqlite3.Connection) -> None:
@@ -215,3 +216,11 @@ def migrate_v9(db: sqlite3.Connection) -> None:
         UNIQUE(source,event_id)
     )""")
     db.execute("CREATE INDEX IF NOT EXISTS idx_scale_pending ON scale_event_receipts(status,id)")
+
+
+def migrate_v10(db: sqlite3.Connection) -> None:
+    """Reconciliation, stock planning and printer-operation coordination."""
+    from app.infrastructure.database.accounting_migration import migrate_accounting
+    from app.infrastructure.database.workflow_migration import migrate_workflows
+    migrate_accounting(db)
+    migrate_workflows(db)

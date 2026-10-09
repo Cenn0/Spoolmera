@@ -18,7 +18,8 @@ def register_analytics_routes(app: FastAPI, db_path: Path) -> None:
                           p.material, SUM(-m.delta_g) AS consumed_g
                    FROM movements m JOIN spools s ON s.id=m.spool_id
                    JOIN products p ON p.id=s.product_id
-                   WHERE m.kind='consume' AND m.delta_g<0
+                   WHERE (m.kind='consume' AND m.delta_g<0)
+                      OR (m.source='job_correction' AND m.print_job_id IS NOT NULL)
                    GROUP BY s.id"""
             ).fetchall()
         buckets=defaultdict(lambda: {"consumed_g":0,"known_cost_cents":0,"unpriced_g":0})

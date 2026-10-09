@@ -194,6 +194,13 @@ def require_control() -> None:
         raise HTTPException(status_code=403, detail="Printer write access is disabled by the operator.")
 
 
+class ControllerRejected(ValueError):
+    """A controller returned an explicit client-error response, without its body."""
+    def __init__(self, http_status: int):
+        self.http_status = http_status
+        super().__init__(f'Printer rejected the operation (HTTP {http_status}).')
+
+
 def write_controller(printer, path: str, *, body: bytes = b"", content_type: str | None = None) -> int:
     """Limited POST transport with the same IP allowlist, no proxy and no redirects as polling."""
     base = normalize_printer_url(printer["base_url"])
@@ -219,6 +226,8 @@ def write_controller(printer, path: str, *, body: bytes = b"", content_type: str
             return response.status
     except urllib.error.HTTPError as exc:
         # Never expose the remote error body; controllers sometimes echo configuration.
+        if 400 <= exc.code < 500:
+            raise ControllerRejected(exc.code) from None
         raise ValueError("Printer rejected the operation (HTTP " + str(exc.code) + ").") from None
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         raise ValueError("Printer operation failed. Confirm remote state before retrying.") from exc
@@ -295,7 +304,13 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
             if db.execute("SELECT 1 FROM printers WHERE name=? AND id<>?",
                           (payload.name, printer_id)).fetchone():
                 raise HTTPException(status_code=409, detail="Printer name already exists.")
-            if old["base_url"] != base or old["kind"] != payload.kind:
+            if old["base_url"] != base or old["kind"] != payload.kind or old['token_env'] != payload.token_env:
+                if db.execute('SELECT 1 FROM printer_operations WHERE printer_id=?', (printer_id,)).fetchone() or db.execute(
+                    """SELECT 1 FROM printer_commands WHERE printer_id=? AND action='start'
+                       AND (state IN ('sending','acknowledged','unknown') OR (state='confirmed' AND released_at IS NULL)) LIMIT 1""",
+                    (printer_id,),
+                ).fetchone():
+                    raise HTTPException(409, 'Resolve the existing printer operation before changing its endpoint or credentials.')
                 if db.execute(
                     "SELECT 1 FROM print_jobs WHERE printer_id=? AND status IN ('pending','printing') LIMIT 1",
                     (printer_id,),
@@ -335,6 +350,22 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
         clear_command(db_path, command_id, request.state.user["id"], payload.reason)
         return {"id": command_id, "state": "cleared"}
 
+    from app.api.contracts import PrinterOperationResponse
+
+    @router.get('/api/printers/{printer_id}/operations', response_model=list[PrinterOperationResponse],
+                dependencies=[Depends(require_editor)])
+    def active_operations(printer_id: int):
+        with session(db_path) as db:
+            if not db.execute('SELECT 1 FROM printers WHERE id=?', (printer_id,)).fetchone():
+                raise HTTPException(404, 'Printer not found.')
+            return [dict(row) for row in db.execute('SELECT * FROM printer_operations WHERE printer_id=?', (printer_id,))]
+
+    @router.post('/api/printers/{printer_id}/operations/{operation_id}/clear', dependencies=[Depends(require_admin)])
+    def clear_upload_operation(printer_id: int, operation_id: str, payload: ClearCommand, request: Request):
+        from app.services.command_service import clear_upload
+        clear_upload(db_path, printer_id, operation_id, request.state.user['id'], payload.reason)
+        return {'operation_id': operation_id, 'state': 'cleared'}
+
     @router.post("/api/printers/{printer_id}/control", dependencies=[Depends(require_admin)])
     def control_printer(printer_id: int, payload: PrinterCommand, request: Request):
         require_control()
@@ -348,7 +379,11 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
         try:
             status = issue_control(printer, payload.action)
         except BaseException as exc:
-            finalize_command(db_path, command_id, "unknown", detail="Controller outcome unknown; verify physically.")
+            if isinstance(exc, ControllerRejected):
+                finalize_command(db_path, command_id, 'rejected', http_status=exc.http_status,
+                                 detail='Controller explicitly rejected the request.')
+            else:
+                finalize_command(db_path, command_id, "unknown", detail="Controller outcome unknown; verify physically.")
             if isinstance(exc, ValueError):
                 raise HTTPException(status_code=502, detail=str(exc)) from exc
             raise
@@ -356,7 +391,8 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
         with session(db_path, write=True) as db:
             if payload.action == "cancel":
                 db.execute(
-                    """UPDATE print_jobs SET status='needs_review',accounting_status='needs_review',
+                    """UPDATE print_jobs SET status='needs_review',
+                              accounting_status=CASE WHEN accounting_status='pending' THEN 'needs_review' ELSE accounting_status END,
                               note='Print cancelled at controller; verify actual consumed material.',
                               updated_at=?
                        WHERE printer_id=? AND status='printing'""",

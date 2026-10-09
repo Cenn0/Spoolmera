@@ -1,10 +1,11 @@
 """Read-only user-file inspection. Files are not persisted, sliced or uploaded."""
 from fastapi import FastAPI, HTTPException, Request, Query
 from app.services.gcode_metadata import MAX_FILE, gcode_tool_estimates, three_mf_plate_estimates
+from app.api.contracts import InspectionResponse
 
 
 def register_inspection_routes(app: FastAPI) -> None:
-    @app.post("/api/jobs/inspect")
+    @app.post("/api/jobs/inspect", response_model=InspectionResponse)
     async def inspect(request: Request, name: str = Query(min_length=1,max_length=180)):
         if request.headers.get("content-type", "").split(";")[0].strip().lower() != "application/octet-stream":
             raise HTTPException(415, "Expected raw file bytes.")

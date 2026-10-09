@@ -7,6 +7,7 @@ import pytest
 from app.database import SCHEMA, initialize_database, session
 from app.jobs import MaterialMapping, MultiJobInput, insert_multi_job
 from app.services.accounting_service import apply_consumption
+from app.infrastructure.database.migrations import migrate_v2_v4, migrate_v5, CURRENT_SCHEMA_VERSION
 
 
 def seed_database(path):
@@ -66,10 +67,32 @@ def test_legacy_job_without_materials_gets_exactly_one_mapping(tmp_path):
 
 def test_main_schema_upgrade_preserves_uuid_and_stock(tmp_path):
     path = tmp_path / 'main.sqlite3'
-    seed_database(path)
+    # Build the historical schema, not a current database with a lower version
+    # marker. This catches migrations that accidentally rely on later columns.
+    db = sqlite3.connect(path)
+    db.row_factory = sqlite3.Row
+    db.executescript(SCHEMA)
+    db.execute("INSERT INTO products(id,brand,name,material,color_name,color_hex,diameter_mm,created_at,updated_at) VALUES(1,'Main','PLA','PLA','Black','#000000',1.75,'2020-01-01','2020-01-01')")
+    db.execute("INSERT INTO spools(id,product_id,initial_g,remaining_g,created_at) VALUES(1,1,1000,900,'2020-01-01')")
+    db.execute("INSERT INTO printers(id,name,kind,base_url,created_at) VALUES(1,'Main','moonraker','http://192.168.50.20','2020-01-01')")
+    db.execute("INSERT INTO print_jobs(id,printer_id,spool_id,file_name,estimated_g,status,created_at,updated_at) VALUES(1,1,1,'old.gcode',100,'completed','2020-01-01','2020-01-01')")
+    db.execute("INSERT INTO movements(id,spool_id,kind,delta_g,remaining_after_g,created_at) VALUES(1,1,'consume',-100,900,'2020-01-01')")
+    db.execute('UPDATE print_jobs SET movement_id=1 WHERE id=1')
+    migrate_v2_v4(db)
+    db.execute('UPDATE movements SET print_job_id=1 WHERE id=1')
+    migrate_v5(db)
+    db.execute('PRAGMA user_version = 5')
+    db.commit()
+    db.close()
     with session(path) as db:
         before = [tuple(row) for row in db.execute('SELECT uid,remaining_g FROM spools ORDER BY id')]
-        db.execute('PRAGMA user_version = 5')
+        assert 'stock_revision' not in {row['name'] for row in db.execute('PRAGMA table_info(spools)')}
+    initialize_database(path)
     initialize_database(path)
     with session(path) as db:
         assert [tuple(row) for row in db.execute('SELECT uid,remaining_g FROM spools ORDER BY id')] == before
+        assert db.execute('PRAGMA user_version').fetchone()[0] == CURRENT_SCHEMA_VERSION
+        assert db.execute('PRAGMA foreign_key_check').fetchall() == []
+        assert tuple(db.execute('SELECT job_id,tool,spool_id,estimated_g,movement_id FROM job_materials').fetchone()) == (1,0,1,100,1)
+        assert tuple(db.execute('SELECT print_job_id,delta_g,source FROM movements').fetchone()) == (1,-100,'print_job')
+        assert db.execute('SELECT accounted_g FROM job_consumption_totals WHERE job_id=1 AND spool_id=1').fetchone()[0] == 100

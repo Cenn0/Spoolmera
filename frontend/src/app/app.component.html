@@ -1,3 +1,4 @@
+@if(auth.error()){<div class="error-banner" role="alert">{{auth.error()}} <button type="button" (click)="retryAuthentication()">Retry connection</button></div>}
 @if (!auth.ready()) {
   <main class="login-screen"><p role="status">Loading secure workspace…</p></main>
 } @else if (!auth.user()) {
@@ -15,11 +16,13 @@
       <a routerLink="/spools" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">◎</span> Spools <span class="nav-count">{{ inventory.overview().total_spools }}</span></a>
       <a routerLink="/filaments" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">▤</span> Filaments</a>
       <a routerLink="/catalog" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">⌕</span> Open catalog</a>
+      <a routerLink="/restock" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">↗</span> Restock</a>
       <a routerLink="/history" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">◷</span> History</a>
       <a routerLink="/jobs" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">▣</span> Print jobs</a>
       <a routerLink="/printers" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">▥</span> Printers</a>
       <a routerLink="/integrations" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">⌘</span> Integrations</a>
       <a routerLink="/account" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">♧</span> My account</a>
+      @if(auth.canEdit()){<a routerLink="/diagnostics" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">◉</span> Operations</a>}
       @if(auth.isAdmin()) {<a routerLink="/users" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">♙</span> Users</a>}
     </nav>
     <div class="sidebar-bottom">
@@ -37,9 +40,9 @@
       <button class="menu-toggle" type="button" (click)="navOpen.set(!navOpen())" aria-label="Toggle navigation" [attr.aria-expanded]="navOpen()">☰</button>
       <div class="breadcrumbs"><span>WORKSPACE</span><b>/</b><strong>Material inventory</strong></div>
       <div class="top-actions">
-        <span class="system-state"><span class="live-dot" [class.offline]="!!inventory.error()"></span>{{ inventory.error() ? 'Unavailable' : inventory.loading() ? 'Loading' : 'Local instance' }}</span>
+        <span class="system-state" [attr.title]="inventory.lastUpdated()?'Inventory refreshed: '+dateText(inventory.lastUpdated()):'Inventory has not loaded'"><span class="live-dot" [class.offline]="!!inventory.error()"></span>{{ inventory.error() ? 'Unavailable' : inventory.loading() ? (inventory.ready()?'Refreshing':'Loading') : 'Local instance' }}</span>
         <span class="user-chip">{{auth.user()?.username}} · {{auth.user()?.role}}</span>
-        <button type="button" class="logout-action" (click)="auth.logout()" aria-label="Sign out">Sign out</button>
+        <button type="button" class="logout-action" (click)="auth.logout()" [disabled]="auth.signingOut()" aria-label="Sign out">Sign out</button>
         @if(auth.canEdit()){<button type="button" class="btn primary add-spool" (click)="openSpool()"><span aria-hidden="true">+</span> Add spool</button>}
       </div>
     </header>

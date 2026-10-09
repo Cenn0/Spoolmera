@@ -1,30 +1,33 @@
 <section class="page-head">
   <div><span class="eyebrow">PRINT ACTIVITY</span><h1>Tracked <em>print jobs.</em></h1>
-    <p>Link a printer file to a physical spool; verified completions update stock exactly once.</p></div>
-  <button class="btn ghost" type="button" (click)="refresh()">Refresh jobs</button>
+    <p>Link a printer file to physical spools. Verified completions can record estimated use; reviews preserve the original entries and record corrections.</p></div>
+  <button class="btn ghost" type="button" (click)="refresh()" [disabled]="loading()||busy()">Refresh jobs</button>
 </section>
+@if(loading()){<p class="helper" role="status">Refreshing jobs and stock…</p>}
+@if(focusedJob()){<div class="confirm-box">Opened from job #{{focusedJob()}}. <button class="btn ghost" type="button" (click)="focusedJob.set(null)">Show all jobs</button></div>}
 @if(error()){<p class="form-error" role="alert">{{error()}}</p>}
 @if(auth.canEdit()){
 <section class="panel workflow-panel">
   <div class="panel-heading"><div><span class="eyebrow">REGISTER PRINT</span><h2>Import job metadata</h2></div></div>
   <form class="workflow-form" #jobForm="ngForm" (ngSubmit)="submit()">
     <div class="form-grid">
-      <label>Printer<select name="printer" [(ngModel)]="printerId" required>
+      <label>Printer<select name="printer" [(ngModel)]="printerId" (ngModelChange)="invalidateSuggestions()" required>
         @for(p of printers();track p.id){@if(p.enabled){<option [ngValue]="p.id">{{p.name}} · {{p.kind}}</option>}}
       </select></label>
+      <label>First tool<input name="firstTool" type="number" [(ngModel)]="firstTool" (ngModelChange)="invalidateSuggestions()" min="0" max="15" step="1" required></label>
       <label>Tool {{firstTool}} · physical spool<select name="spool" [(ngModel)]="spoolId" required><option [ngValue]="0" disabled>Choose physical spool</option>
         @for(s of data.spools();track s.id){@if(s.remaining_g>0){
-          <option [ngValue]="s.id">{{s.brand}} · {{s.product_name}} · {{grams(s.remaining_g)}}</option>
+          <option [ngValue]="s.id">Spool #{{s.id}} · {{s.brand}} · {{s.product_name}} · {{s.color_name}} · {{grams(s.remaining_g)}}</option>
         }}
       </select></label>
       <label class="full">Inspect G-code or sliced 3MF metadata (optional)
-        <input type="file" accept=".gcode,.gco,.gc,.3mf" (change)="choose($event)">
+        <input type="file" [disabled]="busy()" accept=".gcode,.gco,.gc,.3mf" (change)="choose($event)">
         <button class="btn ghost" type="button" [disabled]="busy()||!upload" (click)="inspect()">Inspect file</button>
       </label>
       @if(inspection(); as preview){
         <div class="full">
           @if(preview.plates.length){
-            <label>Plate<select name="plateIndex" [(ngModel)]="plateIndex">
+            <label>Plate<select name="plateIndex" [(ngModel)]="plateIndex" (ngModelChange)="changePlate()">
               @for(p of preview.plates;track p.plate){<option [ngValue]="$index">Plate {{p.plate}}</option>}
             </select></label>
             <p class="helper">Slicer estimates by tool: @for (m of preview.plates[plateIndex].materials;track m.tool){ T{{m.tool}}: {{m.estimated_g}} g; }</p>
@@ -32,19 +35,20 @@
           }@else{<p class="helper">No unambiguous weights; provide manual estimates.</p>}
         </div>
       }
+      @if(upload){<button type="button" class="btn ghost" [disabled]="busy()" (click)="useManualMapping()">Use manual mapping instead</button>}
       <label class="full">G-code filename already on printer<input name="fileName" [(ngModel)]="fileName" required maxlength="180" placeholder="e.g. bracket.gcode" [readonly]="!!upload"></label>
-      <label>Estimated filament (g)<input name="estimatedG" type="number" [(ngModel)]="estimatedG" min="1" max="100000" step="1" placeholder="Use G-code metadata when blank"></label>
+      <label>Estimated filament (g)<input name="estimatedG" type="number" [(ngModel)]="estimatedG" (ngModelChange)="invalidateSuggestions()" min="1" max="100000" step="1" placeholder="Use G-code metadata when blank"></label>
       <label>Note (manual mapping only)<input name="note" [(ngModel)]="note" maxlength="300" placeholder="Optional reference"></label>
     </div>
     @if(extraMaterials().length){
       <div class="material-mapping-list">
         @for(m of extraMaterials();track $index){
           <div class="workflow-row">
-            <label>Tool <input [name]="'tool'+$index" type="number" [(ngModel)]="m.tool" min="1" max="15" required></label>
+            <label>Tool <input [name]="'tool'+$index" type="number" [(ngModel)]="m.tool" (ngModelChange)="invalidateSuggestions()" min="0" max="15" required></label>
             <label>Physical spool <select [name]="'materialSpool'+$index" [(ngModel)]="m.spool_id" required><option [ngValue]="0" disabled>Choose physical spool</option>
-              @for(s of data.spools();track s.id){@if(s.remaining_g>0){<option [ngValue]="s.id">{{s.brand}} · {{s.product_name}}</option>}}
+              @for(s of data.spools();track s.id){@if(s.remaining_g>0){<option [ngValue]="s.id">Spool #{{s.id}} · {{s.brand}} · {{s.product_name}} · {{s.color_name}} · {{grams(s.remaining_g)}}</option>}}
             </select></label>
-            <label>Estimated g <input [name]="'materialWeight'+$index" type="number" [(ngModel)]="m.estimated_g" min="1" required></label>
+            <label>Estimated g <input [name]="'materialWeight'+$index" type="number" [(ngModel)]="m.estimated_g" (ngModelChange)="invalidateSuggestions()" min="1" required></label>
             <button class="btn ghost" type="button" (click)="removeMaterial($index)">Remove</button>
           </div>
         }
@@ -63,32 +67,37 @@
         <button class="btn ghost" type="button" (click)="applyLoadedSpools()">Use these suggested rolls</button>
       }
     }
-    <p class="helper">The first spool is tool {{firstTool}}. All additional tools must have unique numbers and explicit weights. Multi-material jobs cannot use automatic weight inference from an imported G-code file. The combined amount is deducted atomically after verified completion or manual approval.</p>
+    <p class="helper">The first spool is tool {{firstTool}}. All additional tools must have unique numbers and explicit weights. Imported estimates preserve their tool numbers. You must assign every physical roll explicitly. The combined amount is deducted atomically after verified completion or manual approval.</p>
     <p class="helper">Importing a G-code file here registers metadata only. Uploading to a printer is a separate administrator action; it never starts automatically. Moonraker history-confirmed jobs may debit automatically; OctoPrint always requires review.</p>
-    <button class="btn primary" type="submit" [disabled]="busy()||jobForm.invalid||!printerId||!spoolId">Register print job</button>
+    <button class="btn primary" type="submit" [disabled]="busy()||jobForm.invalid||!printerId||!spoolId||!!upload">Register print job</button>
   </form>
 </section>
 }
 <section class="panel workflow-panel">
   <div class="panel-heading"><div><span class="eyebrow">JOB MONITOR</span><h2>Recent jobs</h2></div></div>
   <div class="workflow-list">
-    @for(job of jobs();track job.id){
+    @for(job of visibleJobs();track job.id){
       <article class="workflow-row">
         <div class="workflow-main"><strong>#{{job.id}} · {{job.file_name}}</strong>
           <span>{{job.printer_name}} · {{grams(job.estimated_g)}} total</span>
           @for(m of job.materials;track m.tool){
-            <small>Tool {{m.tool}} · {{m.brand}} {{m.product_name}} · {{grams(m.estimated_g)}}</small>
+            <small>Tool {{m.tool}} · <a [href]="'/?spool='+m.spool_uid">Spool #{{m.spool_id}} · {{m.brand}} {{m.product_name}}</a> · {{grams(m.estimated_g)}}</small>
           }
           @if(job.note){<small>{{job.note}}</small>}
           @if(job.start_command_state){<small>Start command: {{job.start_command_state}}</small>}
         </div>
         <span class="status" [class.opened]="job.status==='completed'" [class.sealed]="job.status==='printing'">{{job.status.replace('_',' ')}}</span>
+        <span class="status">Material: {{job.accounting_status.replace('_',' ')}}</span>
+        @for(operation of operations()[job.printer_id] || [];track operation.operation_id){@if(operation.kind==='upload'){<p class="helper">{{operation.state==='unknown'?'Upload outcome uncertain':'Upload in progress'}}. <a routerLink="/printers">Review printer operations</a>.</p>}}
+        <a class="text-link" routerLink="/history" [queryParams]="{job:job.id}">Movement history</a>
+        @if(uncertainUploads().includes(job.printer_id)){<p class="form-error">Upload outcome could not be refreshed. Check the physical printer and refresh before continuing.</p>}
+        @if(uncertainStarts().includes(job.id)){<p class="form-error" role="alert">Start outcome unknown. Refresh the jobs and verify the physical printer.</p>}
         @if(readiness()[job.id]; as check){
           <div class="full">
             <p class="helper">{{check.ready?'Stock estimate satisfied':'Insufficient unreserved material'}} · {{check.reserved?'Reserved':'Not reserved'}}.
               Loaded slot matches are advisory and do not verify the physical feeder.</p>
             @for(m of check.materials;track m.tool) {
-              <p class="helper">T{{m.tool}} · {{m.brand}} {{m.product_name}}: {{grams(m.estimated_g)}} required / {{grams(m.available_g)}} unreserved
+              <p class="helper">T{{m.tool}} · Spool #{{m.spool_id}} · {{m.brand}} {{m.product_name}}: {{grams(m.estimated_g)}} required / {{grams(m.available_g)}} unreserved
               {{m.loaded_match?'· recorded as loaded':'· slot not matched'}}.</p>
             }
           </div>
@@ -100,38 +109,35 @@
               @if(check.reserved){<button class="btn ghost" type="button" [disabled]="busy()" (click)="setReservation(job,false)">Release reservation</button>}
               @else{<button class="btn ghost" type="button" [disabled]="busy()||!check.ready" (click)="setReservation(job,true)">Reserve material</button>}
             }
+            @if(job.status!=='needs_review'&&(job.status!=='pending'||!!job.observed_printing||!!job.start_command_state)){<button class="btn ghost" type="button" [disabled]="busy()" (click)="accountingJob.set(job)">Review consumption</button>}
             @if(job.status==='pending'||job.status==='printing'){
               <button type="button" class="btn ghost" [disabled]="busy()" (click)="poll(job.printer_id)">Poll</button>
               @if(auth.isAdmin() && capabilities().write_enabled && job.status==='pending'){
                 <label class="btn ghost">Upload G-code
-                  <input type="file" accept=".gcode,.gco,.gc" [disabled]="busy()" (change)="uploadPending(job,$event)" hidden>
+                  <input type="file" accept=".gcode,.gco,.gc" [disabled]="busy()||uncertainUploads().includes(job.printer_id)||!!(operations()[job.printer_id]||[]).length" (change)="uploadPending(job,$event)" hidden>
                 </label>
                 <button type="button" class="btn primary"
-                  [disabled]="busy() || (!!job.start_command_state && job.start_command_state!=='cleared')"
+                  [disabled]="busy() || uncertainUploads().includes(job.printer_id) || !!(operations()[job.printer_id]||[]).length || uncertainStarts().includes(job.id) || (!!job.start_command_state && job.start_command_state!=='cleared')"
                   (click)="start(job)">Start print</button>
-                @if(job.start_command_state==='unknown'||job.start_command_state==='acknowledged'){
-                  <button type="button" class="btn ghost" [disabled]="busy()"
-                    (click)="clearFor.set(clearFor()===job.id?null:job.id)">Review start command</button>
-                }
+
               }
               <button type="button" class="btn ghost" [disabled]="busy()" (click)="cancel(job)">Stop tracking</button>
-              @if(auth.isAdmin()&&clearFor()===job.id){
-                <label class="full">Physical verification (required)
-                  <input type="text" [(ngModel)]="clearReason" minlength="10" maxlength="500"
-                    placeholder="Why is it safe to permit another start?">
-                </label>
-                <button type="button" class="btn danger" [disabled]="busy()||clearReason.trim().length<10"
-                  (click)="clearStart(job)">Confirm no print occurred</button>
-              }
+            }
+            @if(auth.isAdmin()&&(job.start_command_state==='unknown'||job.start_command_state==='acknowledged'||job.start_command_state==='confirmed')){
+              <button type="button" class="btn ghost" [disabled]="busy()" (click)="clearFor.set(clearFor()===job.id?null:job.id);clearReason=''">Review start operation</button>
+            }
+            @if(auth.isAdmin()&&clearFor()===job.id){
+              <label class="full">Physical verification (required)<input type="text" [(ngModel)]="clearReason" minlength="10" maxlength="500" placeholder="What confirms the printer is idle and this operation has ended?"></label>
+              <button type="button" class="btn danger" [disabled]="busy()||clearReason.trim().length<10" (click)="clearStart(job)">Release verified operation</button>
             }
             @if(job.status==='needs_review'){
-              <button type="button" class="btn primary" [disabled]="busy()" (click)="resolve(job,'debit')">Confirm consumption</button>
-              <button type="button" class="btn ghost" [disabled]="busy()" (click)="resolve(job,'discard')">Discard</button>
+              <button type="button" class="btn primary" [disabled]="busy()" (click)="accountingJob.set(job)">Review consumption</button>
+
             }
           </div>
         }
       </article>
-    } @empty {<div class="placeholder">No linked print jobs. Register a G-code filename and spool first.</div>}
+    } @empty {<div class="placeholder">{{loading()?'Loading print jobs…':focusedJob()?'The linked job is not available in the current job list.':'No linked print jobs. Register a G-code filename and spool first.'}}</div>}
   </div>
 </section>
 
@@ -154,3 +160,5 @@
   }
 </section>
 }
+
+@if(accountingJob();as job){<fm-consumption [job]="job" (closed)="accountingJob.set(null)" (saved)="accountingSaved()" />}

@@ -1,20 +1,20 @@
 """Filament Manager REST API and local web frontend."""
 import os
 import asyncio
-from uuid import uuid4
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
+from fastapi import FastAPI
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.core.policies import require_editor, require_admin
+from app import __version__
+from app.core.settings import Settings
 from app.database import initialize_database, session
-from app.api.inventory import register_inventory_routes, spool_as_dict
-from app.auth import protect, audit
-from app.services.accounting_service import record_manual_movement
+from app.api.inventory import register_inventory_routes
+from app.auth import protect
+from app.services.process_lock import ProcessLock, operation_lock_path
 from app.printers import register_printer_routes
 from app.jobs import register_job_routes, poll_worker
 from app.cloud import register_cloud_routes
@@ -28,10 +28,8 @@ from app.api.identifiers import register_identifier_routes
 from app.api.backup import register_backup_routes
 from app.api.analytics import register_analytics_routes
 from app.api.scale import register_scale_routes
-from app.models import MovementInput, ProductInput, SpoolInput, SpoolUpdate
-from app.labels import label_html, qr_svg, spool_public_url
-from app.inventory_csv import export_inventory, import_inventory
-from app.integrations import get_inventory_snapshot, get_integration_capabilities
+from app.api.reconciliation import register_reconciliation_routes
+from app.api.diagnostics import register_diagnostics_routes
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 UI_DIR = Path(__file__).resolve().parent / "ui"
@@ -59,20 +57,32 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        initialize_database(db_path)
-        poll_task = asyncio.create_task(poll_worker(db_path))
+        settings = Settings.from_environment()
+        app.state.settings = settings
+        application_lock = ProcessLock(operation_lock_path(db_path, "application"))
+        if not application_lock.acquire():
+            raise RuntimeError("This database is already used by another application process or a restore. "
+                               "Run one API worker per database and stop it before restoring.")
+        poll_task = None
         try:
+            initialize_database(db_path)
+            poll_task = asyncio.create_task(poll_worker(db_path, settings))
+            app.state.poll_task = poll_task
             yield
         finally:
-            poll_task.cancel()
             try:
-                await poll_task
-            except asyncio.CancelledError:
-                pass
+                if poll_task is not None:
+                    poll_task.cancel()
+                    try:
+                        await poll_task
+                    except asyncio.CancelledError:
+                        pass
+            finally:
+                application_lock.release()
 
     app = FastAPI(
         title="Filament Manager API",
-        version="0.9.0",
+        version=__version__,
         description="Local management of filament products, physical spools and inventory movements.",
         lifespan=lifespan,
     )
@@ -90,6 +100,8 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     register_backup_routes(app, db_path)
     register_analytics_routes(app, db_path)
     register_scale_routes(app, db_path)
+    register_reconciliation_routes(app, db_path)
+    register_diagnostics_routes(app, db_path)
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
     @app.get("/", include_in_schema=False)
@@ -107,6 +119,18 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
         with session(db_path) as db:
             db.execute("SELECT 1").fetchone()
         return {"status": "ok"}
+
+    @app.get('/api/ready')
+    def ready():
+        from app.services.polling_runtime import poller_snapshot
+        state = poller_snapshot(db_path, getattr(app.state, 'settings', None))
+        task = getattr(app.state, 'poll_task', None)
+        available = (task is not None and not task.done() and state['status'] == 'running'
+                     and state['lease_held'] and state['last_error'] is None)
+        with session(db_path) as db:
+            db.execute('SELECT 1').fetchone()
+        return JSONResponse({'status': 'ready' if available else 'not_ready',
+                             'poller_status': state['status']}, status_code=200 if available else 503)
 
     register_inventory_routes(app, db_path)
 

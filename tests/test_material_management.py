@@ -1,4 +1,5 @@
 """Regression tests for optional material properties, balances and care history."""
+from contextlib import contextmanager
 from fastapi.testclient import TestClient
 from app.main import create_app
 from tests.support import authenticate
@@ -6,11 +7,11 @@ from app.database import session, initialize_database
 from app.infrastructure.database.migrations import CURRENT_SCHEMA_VERSION
 
 
+@contextmanager
 def client_for(tmp_path):
-    client = TestClient(create_app(tmp_path / "materials.sqlite3"))
-    client.__enter__()
-    authenticate(client)
-    return client
+    with TestClient(create_app(tmp_path / "materials.sqlite3")) as client:
+        authenticate(client)
+        yield client
 
 
 def register(client, threshold=200):

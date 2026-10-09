@@ -91,7 +91,9 @@ def register_cloud_routes(app: FastAPI, db_path: Path) -> None:
             disposition = "recorded"
             if event.status in {"completed", "failed", "cancelled"} and job["status"] in {"pending", "printing"}:
                 db.execute(
-                    """UPDATE print_jobs SET status='needs_review',accounting_status='needs_review',note=?,updated_at=?
+                    """UPDATE print_jobs SET status='needs_review',
+                       accounting_status=CASE WHEN accounting_status IN ('debited','discarded') THEN accounting_status ELSE 'needs_review' END,
+                       note=?,updated_at=?
                        WHERE id=?""",
                     ("Cloud source " + source + " reported " + event.status +
                      "; verify actual material usage before deduction.", utc_now(), event.job_id),

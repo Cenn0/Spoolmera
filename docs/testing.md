@@ -38,7 +38,7 @@ bootstrap token and setup is incomplete, repair that file before starting.
 ## Download a tested image from GitHub Actions
 
 Open a successful CI run for the review pull request or `main`, then download
-the artifact **filament-manager-test-linux-amd64** (available for seven days).
+the versioned artifact **filament-manager-0.10.0-test-linux-amd64** (available for seven days).
 Extract it into a separate directory. It contains the same Docker image that
 passed real HTTP checks and a restart/persistence check, plus a launcher.
 The complete CI run must also have passed API/build and browser jobs.
@@ -52,6 +52,8 @@ Open **http://127.0.0.1:8766** and use the token in `.env.test` for first setup.
 The artifact targets Linux amd64, including Docker Desktop with Linux containers
 on x86-64 Windows. ARM hosts should build from source; no native ARM image was
 validated by this workflow. SHA256SUMS contains the image archive checksum.
+`release.json` records the application/schema versions, source commit and Docker image ID.
+SHA256SUMS covers the image archive, launcher, Compose file and accompanying metadata.
 No secrets, database or pre-created accounts are shipped in the image.
 
 ## Suggested manual acceptance checks
@@ -72,7 +74,7 @@ The automated controller tests use fake HTTP responses and do not certify device
 ## Run the automated checks
 
 ```bash
-python -m pip install -r requirements-dev.txt
+python -m pip install --require-hashes -r requirements-dev.txt
 cd frontend
 npm ci --no-audit --no-fund
 npm run typecheck
@@ -88,6 +90,20 @@ See `.github/workflows/ci.yml` for Chromium installation and server setup.
 the CI bootstrap token. `scripts/http_smoke.py` also writes test data; never
 run either script against an existing user instance.
 
+For the local browser smoke, also export the two synthetic relay settings below
+before starting Uvicorn. The shell running `scripts/browser_smoke.py` must use
+the same HMAC value. The fresh fixture creates its first printer with ID 1; the
+binding authorizes only that printer's test event:
+
+```bash
+export FILAMENT_CLOUD_HMAC_BROWSER="test-only-browser-relay-secret-long-enough"
+export FILAMENT_CLOUD_PRINTER_BROWSER="1"
+```
+
+The test sends a signed `failed` event to its own API so the partial-consumption
+review can be completed in the browser. These values belong only to the
+disposable test instance; they are not credentials for a vendor cloud service.
+
 ## Interpretation of results
 
 - **Technically tested:** API roles, password/session handling, import boundaries,
@@ -102,7 +118,7 @@ run either script against an existing user instance.
 
 ## Architecture regression checks
 
-The test suite additionally checks schema v5 migration, online SQLite backups, durable printer command replay protection, worker token isolation, polling leases, role-restricted API routes, backend/Angular API contracts and stable cursor pagination. CI compiles Python, builds Angular, verifies generated API models and exercises browser and Docker persistence tests. The opt-in slicer image is built independently from the default runtime.
+The test suite additionally checks legacy migrations through schema v10, online SQLite backups, durable printer command replay protection, worker token isolation, polling leases, role-restricted API routes, backend/Angular API contracts and stable cursor pagination. CI compiles Python, runs Angular unit tests, builds Angular, verifies generated API models and exercises browser and Docker persistence tests. The opt-in slicer image is built independently from the default runtime.
 
 No automated tests certify a printer model, its firmware or safe physical G-code. Test a real machine while supervised before enabling write controls. The application is free/open source experimental software without a warranty.
 
@@ -115,3 +131,23 @@ New regressions cover schema upgrades, material properties, physical scale weigh
 Device tests are mocked: they are **not** evidence of physical NFC/ESP32 compatibility, firmware version certification, native cloud-provider support or a penetration test. Test optional notification Compose with:
 
     docker compose -f compose.yaml -f compose.notifications.yaml config --quiet
+
+## v0.10 recovery and worker gates
+
+`tests/test_operations_recovery.py` exercises committed WAL growth, logical backup limits, growth while copying, deadline/storage bounds, exclusive backup slots, disconnect cleanup, invalid application backups, altered manifests, corrupt previous bytes, crash sidecars and restored credential/notification-identity reset. An API with a stopped poller must still block offline restore. `tests/test_polling_runtime.py` kills a disposable child process to verify prompt ownership recovery and checks that cancelling an asyncio task does not release a still-running thread's lock. A second application lifespan must fail before migrating an active database. Invalid operator settings must prevent startup.
+
+`tests/test_notification_bridge.py` verifies quiet initialization, condition-based deduplication, partial-delivery retry, recurrence after recovery, category filtering, ntfy authentication, rejected redirects and notification-identity reset. `tests/test_diagnostics_operations.py` distinguishes an offline printer from an unhealthy poller and checks the machine alert scope.
+
+The following integration commands create their own disposable containers, volumes and internal test network. They never accept an existing installation's volume:
+
+```bash
+docker build --tag filament-manager:ci .
+python scripts/container_restore_smoke.py --image filament-manager:ci
+docker build --file Dockerfile.notifications --tag filament-manager:notifier-ci .
+python scripts/notifier_container_smoke.py \
+  --image filament-manager:notifier-ci --api-image filament-manager:ci
+```
+
+The recovery gate exercises a root-run offline restore onto a UID-10001 database, validates database and lock-file ownership, starts the normal non-root app, downloads another online backup and records new material movements. It also restores over corruption and a missing database, verifies the preserved prior bytes and rejects an unrelated SQLite file. Unit tests that require actual UID changes are skipped when the host does not map UID 10001; the Docker gate must still pass. The notifier gate resolves the actual Compose files against synthetic secret sentinels and sends one authenticated message to a disposable local HTTP stub across three separate container runs. A configured gate is not evidence that it passed; consult the CI run for the commit being installed.
+
+For the isolated-slicer CI job, copy `tests/fixtures/slicer/ci.ini` into `slicer-profiles/ci.ini`, start the slicer Compose overlay with a fresh application database and export its generated `FILAMENT_BOOTSTRAP_TOKEN`. Then run `python scripts/slicer_smoke.py`. The test bootstraps only that fresh loopback instance and sends the closed 5 mm cube fixture through the authenticated API to the real PrusaSlicer executable. It checks the returned G-code without uploading it to any printer. The fixture profile is test data, not a physical-printer recommendation.

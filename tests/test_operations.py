@@ -5,6 +5,7 @@ All controller interactions are mocked. Hardware/cloud provider interoperability
 must be validated separately with actual devices and approved provider APIs.
 """
 import hashlib
+from contextlib import closing
 import hmac
 import json
 import time
@@ -130,7 +131,7 @@ def test_printer_control_default_off_and_admin_only(workspace, monkeypatch):
         "username": "edit-user", "password": "editor-password-strong-2026", "role": "editor"
     })
     assert created.status_code == 201
-    with TestClient(create_app(path)) as editor:
+    with closing(TestClient(client.app)) as editor:
         response = editor.post("/api/auth/login", json={
             "username": "edit-user", "password": "editor-password-strong-2026"
         })
@@ -301,7 +302,7 @@ def test_cloud_event_does_not_require_web_session_but_requires_hmac(workspace, m
     monkeypatch.setenv("FILAMENT_CLOUD_PRINTER_RELAY", str(printer))
     job_id = client.post("/api/jobs",json={"printer_id":printer,"spool_id":s0,
                                            "file_name":"unsigned.gcode","estimated_g":2}).json()["id"]
-    with TestClient(create_app(path)) as anonymous:
+    with closing(TestClient(client.app)) as anonymous:
         event = json.dumps({"event_id":"cloud-run-1234","job_id":job_id,"status":"completed"}).encode()
         stamp = str(int(time.time()))
         assert anonymous.post("/api/cloud/hooks/RELAY", content=event).status_code == 401

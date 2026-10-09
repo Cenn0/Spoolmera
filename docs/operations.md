@@ -46,7 +46,7 @@ The worker uses a fixed executable path, no shell, an isolated temporary directo
 
 ## Multi-material job mapping
 
-In **Print jobs**, register the first tool (T0) with its physical spool ID and estimate in grams. Use **Add another material/tool** for each additional tool up to eight total tool mappings (valid tool indices 0–15, unique per job). The backend rejects repeated tool IDs and insufficient aggregate stock on the same spool.
+In **Print jobs**, register each tool with its physical spool ID and estimate in grams. A job may use only a nonzero tool such as T3; the application does not invent a T0 mapping. Use **Add another material/tool** for each additional tool up to eight total tool mappings (valid tool indices 0–15, unique per job). The backend rejects repeated tool IDs and insufficient aggregate stock on the same spool.
 
 `POST /api/jobs/multi` example:
 
@@ -103,11 +103,15 @@ A reported completion/failure/cancellation only moves active tracking to **needs
 
 ## Operations, backups and diagnostics
 
-- The admin-only `GET /api/diagnostics` shows job totals, pending/uncertain controller commands and last printer polling outcomes, without secrets.
+- The editor/admin **Operations** page and `GET /api/diagnostics` show application/schema versions, supervised poller state, lease owner/expiry, heartbeat, printer observation freshness, pending/uncertain commands and uploads, storage reserve and backup/restore metadata. Historical material-mapping mismatches are read-only warnings; the application never guesses how to rewrite a past ledger.
 - `GET /api/audit` gives an admin-only chronological record of user and automation actions. Existing records from older versions cannot be retrospectively attributed to a person.
-- Use `python scripts/backup.py backup.sqlite3 --database /data/filaments.sqlite3` where the data volume is mounted. It performs a consistent online SQLite backup and integrity check; do not overwrite existing backups or copy only the live database file.
+- Use `python scripts/backup.py backup.sqlite3 --database /data/filaments.sqlite3` where the data volume is mounted. The CLI creates a consistent single-file SQLite snapshot plus a SHA-256 manifest and refuses to overwrite either file. Keep both files together. Never copy just the live SQLite main file while writes may remain in its WAL.
 - REST `GET /api/inventory/v2/spools?limit=50&cursor=<id>` supports filtered cursor pagination while the original `/api/spools` array remains backwards-compatible.
-- Keep only one effective polling lease owner per database. A bounded SQLite lease prevents duplicate scheduled scans after accidental multiple worker startup, but a single application worker remains the supported deployment.
+- One API process and a local SQLite volume are the supported deployment. An application lock is held from before migration until the poller has fully stopped; a second process cannot initialize the same database. A separate kernel file lock covers the whole poller lifetime; the operating system releases it after a hard process exit. Only the process holding that lock may replace an orphaned SQLite polling lease. The short lease is renewed while polling runs. Cancellation retains ownership until any running controller-request thread exits. Physical printer operation locks remain independent and are never cleared merely to restart polling.
+
+`/api/health` is a liveness probe. `/api/ready` additionally requires the poller task and its ownership to be healthy. An offline printer is a separate diagnostic condition; it does not itself make the application unready. The poller samples all enabled printers and keeps per-printer attempts, successes and failure counts. If a configured controller is deliberately unavailable, disable that printer to stop its polling and alerts.
+
+Startup rejects invalid polling intervals, backup timeouts, boolean feature flags and public origins. The polling interval accepts 10–300 seconds. `FILAMENT_BACKUP_TIMEOUT_SECONDS` defaults to 30 seconds (1–300); `FILAMENT_STORAGE_RESERVE_MIB` defaults to 64 MiB (1–4096). Enabled slicing requires the matching internal-worker configuration.
 
 ## Material care and imports (v0.9)
 
@@ -137,22 +141,47 @@ A signed report is only queued for authenticated review. In Integrations an edit
 
 ## Automation tokens and notifications
 
-An administrator creates and revokes narrowly scoped machine tokens under Integrations. Only GET /api/automation/v1/spools requires inventory_read, and only GET /api/automation/v1/movements?after=0 requires events_read. Both require Authorization: Bearer <issued token>; neither accepts an authenticated browser session as a substitute.
+An administrator creates and revokes narrowly scoped machine tokens under Integrations. `GET /api/automation/v1/spools` requires `inventory_read`. The movement feed and `GET /api/automation/v1/alerts` require `events_read`. Every machine endpoint requires `Authorization: Bearer <issued token>`; a browser session is not a substitute. The existing ordered movement feed remains available for other local integrations.
 
-An optional isolated notifier bridges an events_read token to a user-owned ntfy-compatible HTTP endpoint. Configure FILAMENT_AUTOMATION_TOKEN and FILAMENT_NTFY_URL privately, then run:
+The optional notifier reads a snapshot of active alerts with an `events_read` token. Configure `FILAMENT_AUTOMATION_TOKEN` and `FILAMENT_NTFY_URL` privately; set a separate `FILAMENT_NTFY_TOKEN` when the receiving ntfy server requires Bearer authentication. Use HTTPS when the endpoint leaves a protected local network. Then run:
 
     docker compose -f compose.yaml -f compose.notifications.yaml up -d --build
 
-It skips existing movement events when initialized for the first time, persists its cursor, and emits later events with at-least-once semantics. It must not trigger physical printer operations. Home Assistant can use the versioned machine endpoints through its own trusted local REST integration.
+`FILAMENT_NOTIFICATION_CATEGORIES` is a comma-separated subset of `low_stock`, `job_review` and `printer_offline`; all three are selected by default. Printer connection alerts begin after three consecutive failed attempts. The first snapshot forms a quiet baseline. Later new conditions are delivered once per active condition, with a durable state update after each acknowledgement. A condition can notify again after it resolves and recurs. Changes to a still-active alert's description do not generate repeated messages. At most 25 new messages are sent in one cycle; further pending alerts remain for the next cycle.
+
+Delivery remains at least once: a crash between an acknowledgement and durable state can duplicate one message. Failed deliveries are retried on the next polling cycle. Incomplete server snapshots are rejected rather than incorrectly treating omitted conditions as resolved. The old numeric movement cursor is upgraded to the new baseline automatically. Home Assistant may keep using the versioned read-only machine endpoints independently.
+
+The notifier receives only its explicit configuration variables. The shared `.env` file is not passed wholesale into this container. It has no application database mount, bootstrap secret, printer credentials, slicer token, cloud-HMAC key or scale-HMAC key. Its image has no application code or third-party Python packages.
 
 ## Backups, restoration and label formats
 
-In User management, administrators can download a verified online SQLite snapshot. For large databases, continue to use scripts/backup.py. Protect all database backups, which include user password hashes and application tokens.
+Administrators can download a verified online SQLite snapshot. The download includes committed WAL pages and is limited to 256 MiB of logical database/snapshot size, one simultaneous creation/download, a configured time limit and a free-space reserve. The response exposes its SHA-256 in `X-Backup-SHA256`. Disconnects clean up the temporary file; the next backup also cleans orphaned snapshots from a crashed process. Backups contain password hashes, session records, token hashes and inventory; protect them as sensitive data.
 
-To restore, fully stop the application and ensure its SQLite WAL/SHM sidecar files have been checkpointed and removed. Run:
+For scheduled or larger backups, run the CLI inside the normal container so it uses the same UID and mounted volume:
 
-    python scripts/restore.py /path/to/backup.sqlite3 /path/to/database.sqlite3 --confirm
+```bash
+docker compose exec -T filament-manager python scripts/backup.py \
+  /data/backups/before-upgrade.sqlite3 --database /data/filaments.sqlite3
+```
 
-The utility rejects unsafe conditions and creates a timestamped pre-restore backup before replacing the database. Verify data on an isolated test installation.
+Choose a new filename for each backup, then copy the `.sqlite3` and `.manifest.json` files to independent storage. Files in the same Docker volume do not protect against losing that volume. The CLI defaults to a 300-second time limit and supports `--timeout-seconds` up to 3600.
+
+To restore, fully stop the application and optional notifier. Use the same Compose overlays that started your installation when stopping those services. For the default installation and a backup already present in its data volume:
+
+```bash
+docker compose stop
+docker compose run --rm --no-deps --entrypoint python filament-manager \
+  scripts/restore.py /data/backups/before-upgrade.sqlite3 \
+  /data/filaments.sqlite3 --confirm
+docker compose up -d
+```
+
+The equivalent host command is `python scripts/restore.py BACKUP DATABASE --confirm`; the user must be able to preserve the existing database's UID/GID and permissions. The container command avoids the usual mismatch between a host administrator and runtime UID 10001. An administrator's root-run restore also preserves the operation-lock owners; recovery of a missing database inherits the data directory's UID/GID. The utility verifies the application identity, recognized schema, SQLite integrity, foreign keys and any adjacent checksum manifest. The source must be a standalone snapshot without WAL/SHM/journal files. A healthy unrelated SQLite file is rejected. It preserves the previous file as raw bytes even if it is corrupt, along with a quarantine manifest, before replacing the validated staging file atomically.
+
+A clean shutdown should leave no WAL/SHM sidecars. If a stopped crashed instance still has sidecars, `--quarantine-sidecars` explicitly preserves their raw bytes before replacement. Never remove a live WAL file or use this option while the application is running. The kernel operation locks reject an active application or another recovery operation. Prior-state quarantine files make no claim of database integrity.
+
+Restore revokes all browser sessions and machine tokens contained in the old snapshot, clears only polling leases, and generates a new notification stream identity. Sign in with the account credentials from the restored backup, issue new automation tokens, update the notifier configuration and restart it. The notifier reports the changed identity and establishes a new baseline instead of silently skipping reused row IDs. Independently inspect unresolved printer commands, current physical material and any historical mapping warnings before resuming normal work. No restore command starts a printer or automatically clears an uncertain physical operation.
+
+Exercise the full recovery procedure on a separate test installation before relying on it for your own backups. Only restore to the same or a newer supported application schema; a downgrade requires the earlier application version and its matching pre-upgrade backup.
 
 Label pages support size=60x40 or size=50x30 query parameters in millimeters. Always select the matching stock and 100% print scaling.

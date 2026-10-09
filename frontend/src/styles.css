@@ -346,3 +346,45 @@ h1 em{font-family:Georgia,Times,serif;font-size:1.035em;font-weight:400;color:#9
 .inline-reset{flex-basis:100%;display:flex;align-items:flex-end;flex-wrap:wrap;gap:9px;padding:13px;border:1px solid #deebe4;background:#f7faf7;border-radius:9px}
 .inline-reset label{font-size:12px;display:flex;flex-direction:column;gap:6px;flex:1;min-width:170px}
 .inline-reset input{padding:10px 13px;border-radius:7px;border:1px solid #cadbd3;width:100%;background:white}
+
+/* Inventory planning, reconciliation and operational status */
+fieldset{border:0;padding:0;margin:0;min-width:0}
+fieldset:disabled{opacity:.72}
+.wide-modal{max-width:840px}
+.reconciliation-material{border:1px solid #dce7e2;border-radius:10px;padding:18px;margin:18px 0;background:#fbfdfb}
+.reconciliation-material h3{font-size:15px;margin:0 0 10px}
+.modal-body>form>fieldset>label,.confirm-box>label,.pagination-actions>label,.workflow-form>label{display:flex;flex-direction:column;gap:8px;font-size:12px;color:#475d5e;margin:14px 0}
+.modal-body>form>fieldset>label input,.modal-body>form>fieldset>label select,.modal-body>form>fieldset>label textarea,.confirm-box>label textarea,.pagination-actions select,.workflow-form>label input,.workflow-form>label select{border:1px solid #dce4df;border-radius:8px;padding:10px 12px;background:#fbfcfb;min-width:0;font:inherit;color:var(--ink)}
+label.checkbox-row{flex-direction:row!important;align-items:center;gap:10px;font-size:12px;line-height:1.6}
+label.checkbox-row input{width:auto;flex:none;accent-color:#277f73}
+.pagination-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:20px 0}
+.result-count{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.result-count .btn{margin-left:auto}
+.history-origin{min-width:180px;max-width:330px;overflow-wrap:anywhere}
+.history-origin>*{display:block;margin:4px 0}
+.data-table td>small{display:block;color:#748785;margin-top:6px}
+.restock-row{padding:22px 0;border-top:1px solid #eaf0eb}
+.restock-values{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;margin-top:20px}
+.restock-values span{display:flex;flex-direction:column;gap:8px;color:#748785;font-size:12px}
+.restock-values strong{color:var(--ink);font-size:16px}
+.printer-detail{margin:0 0 22px;padding:15px 18px;background:#f7faf8;border:1px solid #e2ece6;border-radius:10px}
+.printer-detail h3{font-size:13px;margin:0 0 12px}
+.printer-detail .detail-movement{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.printer-detail .detail-movement a{flex:1;overflow-wrap:anywhere}
+.confirm-box{margin-bottom:22px}
+.confirm-box p{font-size:13px;line-height:1.7;overflow-wrap:anywhere}
+.metrics .metric strong{overflow-wrap:anywhere}
+.form-grid>.full,.workflow-row>.full{grid-column:1/-1;flex-basis:100%}
+@media(max-width:760px){
+  .restock-values{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .wide-modal{width:calc(100vw - 20px)}
+  .reconciliation-material{padding:13px}
+  .pagination-actions{align-items:stretch;flex-direction:column}
+  .printer-detail{padding:12px}
+  .modal-footer{flex-wrap:wrap}
+  .mobile-spool>p{font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+  .mobile-spool>a,.mobile-spool>small{display:block;margin-top:8px;overflow-wrap:anywhere}
+}
+.service-details{margin:18px 0;color:#475d5e;font-size:12px}
+.service-details summary{cursor:pointer;font-weight:700;padding:10px 0}
+.diagnostic-identity{overflow-wrap:anywhere;font-family:monospace}

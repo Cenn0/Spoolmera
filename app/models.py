@@ -1,5 +1,6 @@
 """Validated API input models. Mass is always represented in whole grams."""
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -25,6 +26,7 @@ class ProductInput(InputModel):
     manufacturer_sku: str = Field(default="", max_length=100)
     slicer_preset: str = Field(default="", max_length=160)
     low_stock_threshold_g: int = Field(default=200, ge=0, le=100000)
+    target_stock_g: int = Field(default=0, ge=0, le=10000000)
 
     @field_validator("material")
     @classmethod
@@ -71,6 +73,7 @@ class MovementInput(InputModel):
 class WeighInput(InputModel):
     gross_g: int = Field(ge=0, le=200000)
     tare_g: int | None = Field(default=None, ge=0, le=100000)
+    expected_stock_revision: int | None = Field(default=None, ge=0)
     note: str = Field(default="Physical scale measurement", min_length=3, max_length=1000)
 
 
@@ -79,3 +82,9 @@ class DryingInput(InputModel):
     duration_minutes: int = Field(ge=1, le=10080)
     dried_at: str = Field(min_length=10, max_length=40)
     note: str = Field(default="", max_length=1000)
+
+
+class SpoolBatchInput(InputModel):
+    count: int = Field(ge=1, le=100)
+    spool: SpoolInput
+    request_id: UUID | None = None

@@ -12,3 +12,5 @@
 .label img{width:22mm;height:22mm;object-fit:contain;flex:none}
 @page{size:60mm 40mm;margin:0}
 @media print{body{background:#fff}.print-toolbar{display:none}.label{margin:0;border:0;width:60mm;height:40mm}}
+
+@media print{.label{break-inside:avoid;break-after:page}.label:last-child{break-after:auto}}

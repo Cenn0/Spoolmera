@@ -9,11 +9,12 @@ services:
     depends_on:
       filament-manager:
         condition: service_healthy
-    env_file:
-      - path: .env
-        required: false
     environment:
       FILAMENT_MANAGER_URL: http://filament-manager:8765
+      FILAMENT_AUTOMATION_TOKEN: ${FILAMENT_AUTOMATION_TOKEN:?Create an events_read automation token}
+      FILAMENT_NTFY_URL: ${FILAMENT_NTFY_URL:?Set the private notification endpoint}
+      FILAMENT_NTFY_TOKEN: ${FILAMENT_NTFY_TOKEN:-}
+      FILAMENT_NOTIFICATION_CATEGORIES: ${FILAMENT_NOTIFICATION_CATEGORIES:-low_stock,job_review,printer_offline}
     volumes:
       - filament_notifier_state:/state
     read_only: true
@@ -23,5 +24,8 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    mem_limit: 128m
+    pids_limit: 32
+    cpus: 0.5
 volumes:
   filament_notifier_state:

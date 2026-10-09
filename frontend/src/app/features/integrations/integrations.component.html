@@ -1,6 +1,8 @@
-<section class="page-head"><div><span class="eyebrow">INTEGRATION OVERVIEW</span><h1>Connected <em>workflows.</em></h1><p>Printer connections and print-job tracking are now available alongside the versioned inventory API.</p></div></section>
+<section class="page-head"><div><span class="eyebrow">INTEGRATION OVERVIEW</span><h1>Connected <em>workflows.</em></h1><p>Printer connections and print-job tracking are now available alongside the versioned inventory API.</p></div><button class="btn ghost" type="button" [disabled]="loading()||scaleBusy()||tokenBusy()" (click)="refresh()">Refresh integrations</button></section>
+@if(error()){<p class="form-error" role="alert">{{error()}}</p>}
+@if(loading()){<p class="helper" role="status">Refreshing integrations…</p>}
 <div class="integration-grid">
-  <article class="panel integration-card"><span class="eyebrow">OPEN INVENTORY</span><h2>Import from Spoolman</h2><span class="status">Manual preview</span><p>Bring existing inventory into Filament Manager with idempotent, create-only Spoolman JSON snapshot import.</p><a href="/import/spoolman" class="text-link">Import Spoolman inventory →</a></article>
+  @if(auth.canEdit()){<article class="panel integration-card"><span class="eyebrow">OPEN INVENTORY</span><h2>Import from Spoolman</h2><span class="status">Manual preview</span><p>Preview your Spoolman inventory snapshot before importing new products and rolls.</p><a href="/import/spoolman" class="text-link">Import Spoolman inventory →</a></article>}
   <article class="panel integration-card"><span class="eyebrow">INVENTORY API</span><h2>Integration API v1</h2><span class="status connected">Read-only available</span><p>Machine-readable active spool inventory and versioned capabilities. No automatic writes.</p><code>GET /api/integrations/v1/spools</code><code>GET /api/integrations/v1/capabilities</code><a class="text-link" href="/docs" target="_blank" rel="noopener noreferrer">API documentation ↗</a></article>
   <article class="panel integration-card"><span class="eyebrow">DEVICE CONNECTIONS</span><h2>3D printers</h2><span class="status connected">{{enabledPrinters()}} enabled / {{printers().length}} configured</span><p>Moonraker and OctoPrint connections can be configured by an administrator. Moonraker history-confirmed jobs may automatically deduct estimated material; OctoPrint jobs require explicit review.</p><a class="text-link" href="/printers">Manage connections →</a></article>
   <article class="panel integration-card"><span class="eyebrow">PRINT PREPARATION</span><h2>Slicers</h2><span class="status">Opt-in</span><p>Opt-in PrusaSlicer CLI slicing runs with an operator-approved profile. Jobs offer safe file transfer and manual print start when the administrator enables controller writes.</p></article>
@@ -24,15 +26,17 @@
     @for(item of scales();track item.id){
       <article class="workflow-row">
         <div class="workflow-main"><strong>{{item.brand}} · {{item.product_name}}</strong>
-          <small>Device {{item.source}} · Gross {{item.gross_g}} g · Tare {{item.tare_g ?? item.current_tare_g}} g · Currently {{item.remaining_g}} g</small>
-          <small>Measured {{item.received_at}} · {{item.spool_uid}}</small>
+          <small>Device {{item.source}} · Gross {{item.gross_g}} g · Tare {{item.captured_tare_g ?? 'not recorded'}} g · Net {{item.net_g ?? 'not recorded'}} g · Currently {{item.remaining_g}} g</small>
+          <small>Measured {{dateText(item.measured_at)}} · Received {{dateText(item.received_at)}}</small>
+          @if(item.stale){<p class="form-error">Outdated reading: {{item.stale_reason || 'The stock or tare changed after this measurement.'}}</p>}
+          @for(jobId of item.blocking_job_ids;track jobId){<a routerLink="/jobs" [queryParams]="{job:jobId}">Reconcile job #{{jobId}} with a current measurement</a>}
         </div>
         <div class="workflow-buttons">
           <button class="btn ghost" type="button" [disabled]="scaleBusy()||scaleNote.trim().length<10" (click)="reviewScale(item,'discard')">Discard</button>
-          <button class="btn primary" type="button" [disabled]="scaleBusy()||scaleNote.trim().length<10" (click)="reviewScale(item,'approve')">Approve measurement</button>
+          <button class="btn primary" type="button" [disabled]="scaleBusy()||scaleNote.trim().length<10||item.stale||!!item.blocking_job_ids.length" (click)="reviewScale(item,'approve')">Approve measurement</button>
         </div>
       </article>
-    }@empty{<p class="placeholder">No pending scale reports.</p>}
+    }@empty{<p class="placeholder">{{loading()?'Loading measurements…':'No pending scale reports.'}}</p>}
   </div>
 </section>
 }

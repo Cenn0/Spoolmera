@@ -57,14 +57,14 @@ def add_product(db_path: Path, payload: ProductInput, actor_id: int):
             """INSERT INTO products (uid, brand, name, material, color_name, color_hex,
                                      diameter_mm, notes, created_at, updated_at,
                                      density_g_cm3,nozzle_min_c,nozzle_max_c,bed_min_c,bed_max_c,
-                                     gtin,manufacturer_sku,slicer_preset,low_stock_threshold_g)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                     gtin,manufacturer_sku,slicer_preset,low_stock_threshold_g,target_stock_g)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (str(uuid4()), payload.brand, payload.name, payload.material,
              payload.color_name, payload.color_hex, payload.diameter_mm,
              payload.notes, timestamp, timestamp, payload.density_g_cm3,
              payload.nozzle_min_c, payload.nozzle_max_c, payload.bed_min_c,
              payload.bed_max_c, payload.gtin, payload.manufacturer_sku,
-             payload.slicer_preset, payload.low_stock_threshold_g),
+             payload.slicer_preset, payload.low_stock_threshold_g, payload.target_stock_g),
         )
         product_id = cursor.lastrowid
         audit(db, actor_id, "product_create", "product", product_id)
@@ -79,14 +79,14 @@ def update_product(db_path: Path, product_id: int, payload: ProductInput, actor_
                SET brand=?, name=?, material=?, color_name=?, color_hex=?,
                    diameter_mm=?, notes=?, updated_at=?, density_g_cm3=?,
                    nozzle_min_c=?, nozzle_max_c=?, bed_min_c=?, bed_max_c=?, gtin=?,
-                   manufacturer_sku=?, slicer_preset=?, low_stock_threshold_g=?
+                   manufacturer_sku=?, slicer_preset=?, low_stock_threshold_g=?, target_stock_g=?
                WHERE id=?""",
             (payload.brand, payload.name, payload.material, payload.color_name,
              payload.color_hex, payload.diameter_mm, payload.notes, utc_now(),
              payload.density_g_cm3, payload.nozzle_min_c, payload.nozzle_max_c,
              payload.bed_min_c, payload.bed_max_c, payload.gtin,
              payload.manufacturer_sku, payload.slicer_preset,
-             payload.low_stock_threshold_g, product_id),
+             payload.low_stock_threshold_g, payload.target_stock_g, product_id),
         )
         if result.rowcount == 0:
             raise HTTPException(status_code=404, detail="Filament product not found.")
@@ -108,39 +108,45 @@ def list_spools(db_path: Path):
 
 
 def add_spool(db_path: Path, payload: SpoolInput, actor_id: int):
+    with session(db_path, write=True) as db:
+        return {"id": insert_spool(db, payload, actor_id)}
+
+
+def insert_spool(db, payload: SpoolInput, actor_id: int) -> int:
+    """Create one physical spool inside a caller-owned transaction."""
     remaining = payload.initial_g if payload.remaining_g is None else payload.remaining_g
     if remaining > payload.initial_g:
         raise HTTPException(status_code=422, detail="Remaining weight cannot exceed the original spool weight.")
     opened = payload.opened or remaining < payload.initial_g
     timestamp = utc_now()
-    with session(db_path, write=True) as db:
-        if db.execute("SELECT 1 FROM products WHERE id=?", (payload.product_id,)).fetchone() is None:
-            raise HTTPException(status_code=404, detail="Filament product not found.")
-        cursor = db.execute(
-            """INSERT INTO spools
-               (uid, product_id, initial_g, remaining_g, opened, location, notes, created_at,
-                tare_g,purchase_price_cents,purchase_currency,purchased_on,batch)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (str(uuid4()), payload.product_id, payload.initial_g, remaining,
-             int(opened), payload.location, payload.notes, timestamp,
-             payload.tare_g, payload.purchase_price_cents, payload.purchase_currency,
-             payload.purchased_on, payload.batch),
-        )
-        spool_id = cursor.lastrowid
-        db.execute(
-            """INSERT INTO movements
-               (spool_id, kind, delta_g, remaining_after_g, note, created_at)
-               VALUES (?, 'initial', ?, ?, ?, ?)""",
-            (spool_id, remaining, remaining, "Spool registered", timestamp),
-        )
-        audit(db, actor_id, "spool_create", "spool", spool_id)
-    return {"id": spool_id}
+    if db.execute("SELECT 1 FROM products WHERE id=?", (payload.product_id,)).fetchone() is None:
+        raise HTTPException(status_code=404, detail="Filament product not found.")
+    cursor = db.execute(
+        """INSERT INTO spools
+           (uid, product_id, initial_g, remaining_g, opened, location, notes, created_at,
+            tare_g,purchase_price_cents,purchase_currency,purchased_on,batch)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (str(uuid4()), payload.product_id, payload.initial_g, remaining,
+         int(opened), payload.location, payload.notes, timestamp,
+         payload.tare_g, payload.purchase_price_cents, payload.purchase_currency,
+         payload.purchased_on, payload.batch),
+    )
+    spool_id = cursor.lastrowid
+    db.execute(
+        """INSERT INTO movements
+           (spool_id, kind, delta_g, remaining_after_g, note, created_at,actor_id,source)
+           VALUES (?, 'initial', ?, ?, ?, ?,?,'registration')""",
+        (spool_id, remaining, remaining, "Spool registered", timestamp, actor_id),
+    )
+    audit(db, actor_id, "spool_create", "spool", spool_id)
+    return spool_id
 
 
 
 def update_spool(db_path: Path, spool_id: int, payload: SpoolUpdate, actor_id: int):
     changes = payload.model_dump(exclude_unset=True)
-    if not changes or any(value is None for value in changes.values()):
+    nullable = {'purchase_price_cents', 'purchased_on'}
+    if not changes or any(value is None and field not in nullable for field, value in changes.items()):
         raise HTTPException(status_code=422, detail="At least one valid field is required.")
     if "opened" in changes:
         changes["opened"] = int(changes["opened"])

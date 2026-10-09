@@ -1,4 +1,5 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, computed, inject, signal } from '@angular/core';
+import { RequestOwner } from '../../core/request-owner';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../auth.service';
 import { CloudReceipt, Printer, WorkspaceService, AutomationToken, ScaleMeasurement } from '../../workspace.service';
@@ -9,10 +10,10 @@ import { Capabilities, dateText, grams, stockPercent } from '../../models';
 
 @Component({
   standalone: true,
-  imports:[FormsModule],
-  templateUrl:'../../integrations.html'
+  imports:[FormsModule,RouterLink],
+  templateUrl:'./integrations.component.html'
 })
-export class IntegrationsComponent implements OnInit {
+export class IntegrationsComponent implements OnInit, OnDestroy {
   private readonly data = inject(InventoryService);
   private readonly notices = inject(NoticeService);
   private readonly workspace = inject(WorkspaceService);
@@ -20,19 +21,24 @@ export class IntegrationsComponent implements OnInit {
   readonly auth = inject(AuthService);
   readonly cloudEvents = signal<CloudReceipt[]>([]);
   readonly scales=signal<ScaleMeasurement[]>([]);
-  scaleNote='Verified physical scale measurement and correct spool identification.';
+  scaleNote='';
+  readonly dateText=dateText;readonly loading=signal(false);readonly error=signal('');
+  private readonly requests=new RequestOwner();
+  ngOnDestroy():void{this.requests.invalidate();this.issuedSecret.set('');}
+  @HostListener('window:focus') onFocus():void{if(!this.scaleBusy()&&!this.tokenBusy())void this.refresh();}
   readonly scaleBusy=signal(false);
   async reviewScale(item:ScaleMeasurement,action:'approve'|'discard'):Promise<void>{
     if(this.scaleBusy()||!this.auth.canEdit()||this.scaleNote.trim().length<10)return;
+    if(action==='approve'&&(item.stale||item.blocking_job_ids.length)){this.notices.show('This reading is outdated or belongs to a job needing reconciliation. Refresh and review the job first.',true);return;}
     if(action==='approve' && !window.confirm(
       'Apply scale measurement for '+item.brand+' '+item.product_name+'? This may change physical stock.'))return;
     this.scaleBusy.set(true);
     try{
       await this.workspace.reviewScale(item.id,action,this.scaleNote.trim());
-      this.scales.set(await this.workspace.scaleMeasurements());
+      this.scales.set(await this.workspace.scaleMeasurements());this.scaleNote='';
       await this.data.load();
       this.notices.show(action==='approve'?'Measured stock adjustment recorded.':'Scale report discarded.');
-    }catch(e){this.notices.show(apiError(e),true);}
+    }catch(e){this.notices.show(apiError(e),true);await this.refresh();}
     finally{this.scaleBusy.set(false);}
   }
   readonly tokens=signal<AutomationToken[]>([]);
@@ -63,19 +69,19 @@ export class IntegrationsComponent implements OnInit {
   }
   readonly enabledPrinters = computed(() => this.printers().filter(printer => printer.enabled).length);
   readonly capabilities = signal<Capabilities | null>(null);
-  async ngOnInit(): Promise<void> {
+  ngOnInit():void{void this.refresh();}
+  async refresh():Promise<void>{
+    const owner=this.requests.begin();this.loading.set(true);this.error.set('');
     try {
-      const [capabilities, printers] = await Promise.all([
-        this.data.capabilities(), this.workspace.printers(),
+      const [capabilities,printers,scales,events,tokens]=await Promise.all([
+        this.data.capabilities(),this.workspace.printers(),
+        this.auth.canEdit()?this.workspace.scaleMeasurements():Promise.resolve([]),
+        this.auth.isAdmin()?this.workspace.cloudEvents():Promise.resolve([]),
+        this.auth.isAdmin()?this.workspace.automationTokens():Promise.resolve([]),
       ]);
-      this.capabilities.set(capabilities);
-      this.printers.set(printers);
-      if(this.auth.canEdit())this.scales.set(await this.workspace.scaleMeasurements());
-      if(this.auth.isAdmin()){
-        this.cloudEvents.set(await this.workspace.cloudEvents());
-        this.tokens.set(await this.workspace.automationTokens());
-      }
-    }
-    catch (error) { this.notices.show('Unable to load integration capabilities: ' + apiError(error),true); }
+      if(!this.requests.owns(owner))return;
+      this.capabilities.set(capabilities);this.printers.set(printers);this.scales.set(scales);this.cloudEvents.set(events);this.tokens.set(tokens);
+    }catch(error){if(this.requests.owns(owner))this.error.set(apiError(error));}
+    finally{if(this.requests.owns(owner))this.loading.set(false);}
   }
 }

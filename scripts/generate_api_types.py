@@ -2,18 +2,35 @@
 import argparse
 import json
 import types
+from datetime import date, datetime
+from uuid import UUID
 from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from typing import Literal, Union, get_args, get_origin
+from typing import Any, Literal, Union, get_args, get_origin
 from pydantic import BaseModel
 from app.api.contracts import API_MODELS
+from app.models import ProductInput, SpoolInput, SpoolUpdate, SpoolBatchInput, MovementInput, WeighInput, DryingInput
+from app.jobs import JobInput, MaterialMapping, MultiJobInput, Resolution
+from app.api.planning import SlotAssignment
+from app.services.accounting_models import (ActualMaterial, ConsumptionMeasurement, ConsumptionInput,
+    ConsumptionSpool, AccountingOperation, ConsumptionResponse)
+from app.api.diagnostics_contracts import DIAGNOSTICS_MODELS
+from app.api.import_contracts import IMPORT_MODELS
+
+MODELS = [*API_MODELS, ProductInput, SpoolInput, SpoolUpdate, SpoolBatchInput, MovementInput,
+          WeighInput, DryingInput, JobInput, MaterialMapping, MultiJobInput, Resolution,
+          SlotAssignment, ActualMaterial, ConsumptionMeasurement, ConsumptionInput,
+          ConsumptionSpool, AccountingOperation, ConsumptionResponse, *DIAGNOSTICS_MODELS,
+          *IMPORT_MODELS]
 
 OUTPUT = Path(__file__).resolve().parents[1] / "frontend/src/app/core/api/generated-contracts.ts"
 
 def ts_type(annotation: object) -> str:
-    if annotation is str:
+    if annotation in (str, UUID, date, datetime):
         return "string"
+    if annotation is Any:
+        return 'unknown'
     if annotation in (int, float):
         return "number"
     if annotation is bool:
@@ -25,7 +42,11 @@ def ts_type(annotation: object) -> str:
             return " | ".join(json.dumps(arg, ensure_ascii=False) for arg in args)
         return " | ".join(ts_type(arg) for arg in args)
     if origin is list:
-        return ts_type(get_args(annotation)[0]) + "[]"
+        item = ts_type(get_args(annotation)[0])
+        return ('(' + item + ')' if ' | ' in item else item) + '[]'
+    if origin is dict:
+        key, value = get_args(annotation)
+        return 'Record<' + ts_type(key) + ', ' + ts_type(value) + '>'
     if annotation is type(None):
         return "null"
     if isinstance(annotation, type) and issubclass(annotation, BaseModel):
@@ -34,11 +55,11 @@ def ts_type(annotation: object) -> str:
 
 def generate() -> str:
     parts = [
-        "// Generated from Pydantic response models. Edit app/api/contracts.py instead.",
+        "// Generated from authoritative Pydantic request and response models.",
         "// Regenerate: python scripts/generate_api_types.py",
         "",
     ]
-    for model in API_MODELS:
+    for model in dict.fromkeys(MODELS):
         parts.append(f"export interface Api{model.__name__.removesuffix('Response')} {{")
         for name, field in model.model_fields.items():
             optional = "" if field.is_required() else "?"

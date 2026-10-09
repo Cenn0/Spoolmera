@@ -1,142 +1,40 @@
-import type { ApiOverview, ApiProduct, ApiSpool, ApiCapabilities } from './core/api/generated-contracts';
+import type {
+  ApiOverview, ApiProduct, ApiSpool, ApiCapabilities, ApiMovement,
+  ApiProductInput, ApiSpoolInput, ApiSpoolUpdate, ApiCsvPreview,
+} from './core/api/generated-contracts';
 
-export interface Overview {
-  total_spools: number;
-  remaining_g: number;
-  opened_spools: number;
-  sealed_spools: number;
-  empty_spools: number;
-  low_spools: number;
-  total_products: number;
-}
-export interface Product {
-  id: number;
-  uid: string;
-  brand: string;
-  name: string;
-  material: string;
-  color_name: string;
-  color_hex: string;
-  diameter_mm: number;
-  notes: string;
-  density_g_cm3: number | null;
-  nozzle_min_c: number | null;
-  nozzle_max_c: number | null;
-  bed_min_c: number | null;
-  bed_max_c: number | null;
-  gtin: string;
-  manufacturer_sku: string;
-  slicer_preset: string;
-  low_stock_threshold_g: number;
-  spool_count: number;
-  total_remaining_g: number;
-  created_at: string;
-  updated_at: string;
-}
-export interface ProductInput {
-  brand: string;
-  name: string;
-  material: string;
-  color_name: string;
-  color_hex: string;
-  diameter_mm: number;
-  notes: string;
-  density_g_cm3: number | null;
-  nozzle_min_c: number | null;
-  nozzle_max_c: number | null;
-  bed_min_c: number | null;
-  bed_max_c: number | null;
-  gtin: string;
-  manufacturer_sku: string;
-  slicer_preset: string;
-  low_stock_threshold_g: number;
-}
-export interface Spool {
-  id: number;
-  uid: string;
-  product_id: number;
-  brand: string;
-  product_name: string;
-  material: string;
-  color_name: string;
-  color_hex: string;
-  diameter_mm: number;
-  initial_g: number;
-  remaining_g: number;
-  opened: boolean;
-  status: 'sealed' | 'opened' | 'empty';
-  location: string;
-  notes: string;
-  created_at: string;
-  archived_at: string | null;
-  tare_g: number;
-  purchase_price_cents: number | null;
-  purchase_currency: string;
-  purchased_on: string | null;
-  batch: string;
-  low_stock_threshold_g: number;
-}
-export interface SpoolInput {
-  product_id: number;
-  initial_g: number;
-  remaining_g: number | null;
-  opened: boolean;
-  location: string;
-  notes: string;
-  tare_g: number;
-  purchase_price_cents: number | null;
-  purchase_currency: string;
-  purchased_on: string | null;
-  batch: string;
-}
-export interface Movement {
-  id: number;
-  spool_id: number;
-  kind: 'initial' | 'consume' | 'adjust';
-  delta_g: number;
-  remaining_after_g: number;
-  note: string;
-  created_at: string;
-  brand?: string;
-  product_name?: string;
-  material?: string;
-  color_name?: string;
-  color_hex?: string;
-}
-export interface CsvPreview {
-  dry_run: boolean;
-  products_created: number;
-  products_skipped: number;
-  spools_created: number;
-  spools_skipped: number;
-}
-export interface Capabilities {
-  schema_version: string;
-  inventory_read: boolean;
-  usage_write: boolean;
-  printer_connections: boolean;
-  slicer_connections: boolean;
-}
+export type Overview = ApiOverview;
+export type Product = ApiProduct;
+export type Spool = ApiSpool;
+export type Movement = ApiMovement;
+export type Capabilities = ApiCapabilities;
+// Forms explicitly initialize optional API fields. They use the generated
+// contract rather than a second set of independently maintained properties.
+export type ProductInput = Required<ApiProductInput>;
+export type SpoolInput = Required<ApiSpoolInput>;
+export type SpoolUpdate = ApiSpoolUpdate;
+export type CsvPreview=ApiCsvPreview;
 export const EMPTY_OVERVIEW: Overview = {
   total_spools: 0, remaining_g: 0, opened_spools: 0, sealed_spools: 0,
-  empty_spools: 0, low_spools: 0, total_products: 0
+  empty_spools: 0, low_spools: 0, total_products: 0,
 };
 export function grams(value: number): string {
   return Math.abs(value) >= 1000
     ? new Intl.NumberFormat('en-US', {maximumFractionDigits: 2}).format(value / 1000) + ' kg'
     : new Intl.NumberFormat('en-US').format(value) + ' g';
 }
-export function stockPercent(spool: Spool): number {
+export function stockPercent(spool: Pick<Spool, 'initial_g' | 'remaining_g'>): number {
   return spool.initial_g > 0 ? Math.max(0, Math.min(100, 100 * spool.remaining_g / spool.initial_g)) : 0;
 }
-export function dateText(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString('en-US', {dateStyle:'medium', timeStyle:'short'});
+export function isLowStock(spool: Pick<Spool, 'remaining_g' | 'low_stock_threshold_g'>): boolean {
+  return spool.remaining_g > 0 && spool.remaining_g <= spool.low_stock_threshold_g;
 }
-
-// Statically validate that the handcrafted UI models satisfy generated API contracts.
-const _overviewContract: ApiOverview = {} as Overview;
-const _productContract: ApiProduct = {} as Product;
-const _spoolContract: ApiSpool = {} as Spool;
-const _capabilitiesContract: ApiCapabilities = {} as Capabilities;
-void [_overviewContract, _productContract, _spoolContract, _capabilitiesContract];
+export function dateText(value: string | null | undefined): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString('en-US', {dateStyle: 'medium', timeStyle: 'short'});
+}
+export function money(cents: number | null | undefined, currency: string): string {
+  if (cents == null) return 'Not recorded';
+  return new Intl.NumberFormat('en-US', {style: 'currency', currency}).format(cents / 100);
+}

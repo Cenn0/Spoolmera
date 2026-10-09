@@ -1,252 +1,244 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, DestroyRef, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { AuthService, ManagedUser } from '../../auth.service';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { AuthService } from '../../auth.service';
 import { InventoryService, apiError } from '../../inventory.service';
 import { NoticeService } from '../../dialog.service';
-import { PrintJob, Printer, PrinterInput, PrinterCapabilities, SliceProfiles, WorkspaceService, JobReadiness, FileInspection } from '../../workspace.service';
+import { PrintJob, Printer, PrinterCapabilities, SliceProfiles, WorkspaceService, JobReadiness, FileInspection, PrinterOperation } from '../../workspace.service';
 import { grams } from '../../models';
+import { RequestOwner } from '../../core/request-owner';
+import { ConsumptionComponent } from './consumption.component';
 
-@Component({standalone:true,imports:[FormsModule],templateUrl:'../../jobs.html'})
-export class JobsComponent implements OnInit {
-  readonly api=inject(WorkspaceService); readonly data=inject(InventoryService);
-  readonly auth=inject(AuthService); readonly notice=inject(NoticeService);
-  readonly printers=signal<Printer[]>([]);readonly jobs=signal<PrintJob[]>([]);
-  readonly busy=signal(false);
-  readonly readiness=signal<Record<number,JobReadiness>>({});
-  readonly inspection=signal<FileInspection|null>(null);
-  readonly slotSuggestions=signal<{tool:number;spool_id:number;name:string;estimated_g:number}[]>([]);
-  plateIndex=0; firstTool=0;readonly error=signal('');readonly grams=grams;
-  printerId=0;spoolId=0;fileName='';estimatedG:number|null=null;upload:File|null=null;note='';
-  readonly slicer=signal<SliceProfiles>({enabled:false,profiles:[]});
-  readonly capabilities=signal<PrinterCapabilities>({write_enabled:false,max_upload_bytes:0});
-  readonly extraMaterials=signal<{tool:number;spool_id:number;estimated_g:number|null}[]>([]);
-  stlFile:File|null=null; sliceProfile='';
-  readonly clearFor=signal<number|null>(null);clearReason='';
-  async ngOnInit(){await this.refresh();}
-  async refresh(){
-    try{const [printers,jobs]=await Promise.all([this.api.printers(),this.api.jobs()]);
-      this.printers.set(printers);this.jobs.set(jobs);
-      if(this.auth.isAdmin()){
-        const [caps,profiles]=await Promise.all([this.api.printerCapabilities(),this.api.slicerProfiles()]);
-        this.capabilities.set(caps);this.slicer.set(profiles);
-        if(!this.sliceProfile || !profiles.profiles.includes(this.sliceProfile)){
-          this.sliceProfile=profiles.profiles[0] || '';
+type Mapping = {tool: number; spool_id: number; estimated_g: number | null};
+type SlotSuggestion = {tool: number; spool_id: number; name: string; estimated_g: number};
+@Component({standalone: true, imports: [FormsModule, RouterLink, ConsumptionComponent], templateUrl: './print-jobs.component.html'})
+export class JobsComponent implements OnInit, OnDestroy {
+  readonly route=inject(ActivatedRoute);private readonly destroy=inject(DestroyRef);
+  readonly focusedJob=signal<number|null>(null);
+  readonly api = inject(WorkspaceService); readonly data = inject(InventoryService);
+  readonly auth = inject(AuthService); readonly notice = inject(NoticeService);
+  readonly printers = signal<Printer[]>([]); readonly jobs = signal<PrintJob[]>([]);
+  readonly visibleJobs=computed(()=>this.jobs().filter(job=>!this.focusedJob()||job.id===this.focusedJob()));
+  readonly operations=signal<Record<number,PrinterOperation[]>>({});
+  readonly busy = signal(false); readonly loading = signal(true); readonly error = signal(''); readonly grams = grams;
+  readonly readiness = signal<Record<number, JobReadiness>>({});
+  readonly inspection = signal<FileInspection | null>(null);
+  readonly slotSuggestions = signal<SlotSuggestion[]>([]);
+  readonly uncertainUploads=signal<number[]>([]);
+  readonly uncertainStarts = signal<number[]>([]);
+  readonly accountingJob = signal<PrintJob | null>(null);
+  readonly slicer = signal<SliceProfiles>({enabled: false, profiles: []});
+  readonly capabilities = signal<PrinterCapabilities>({write_enabled: false, max_upload_bytes: 0});
+  readonly extraMaterials = signal<Mapping[]>([]);
+  readonly clearFor = signal<number | null>(null);
+  private readonly inspectionOwner = new RequestOwner();
+  private readonly refreshOwner = new RequestOwner();
+  private readonly suggestionOwner = new RequestOwner();
+  private inspectedFile: File | null = null;
+  private suggestionContext = '';
+  plateIndex = 0; firstTool = 0; printerId = 0; spoolId = 0;
+  fileName = ''; estimatedG: number | null = null; upload: File | null = null; note = '';
+  stlFile: File | null = null; sliceProfile = ''; clearReason = '';
+
+  async ngOnInit(): Promise<void> {
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroy)).subscribe(params=>{
+      const id=Number(params.get('job'));this.focusedJob.set(Number.isInteger(id)&&id>0?id:null);
+    });
+    await this.refresh();
+    this.printerId = this.printers().find(p => p.enabled)?.id || 0;
+    this.spoolId = this.data.spools().find(s => s.remaining_g > 0)?.id || 0;
+  }
+  ngOnDestroy(): void { this.inspectionOwner.invalidate(); this.refreshOwner.invalidate(); this.suggestionOwner.invalidate(); }
+  @HostListener('window:focus')
+  async onFocus(): Promise<void> { if (!this.busy()) await this.refresh(); }
+  async refresh(): Promise<boolean> {
+    const request = this.refreshOwner.begin(); this.loading.set(true); this.error.set('');
+    try {
+      const [printers, jobs] = await Promise.all([this.api.printers(), this.api.jobs()]);
+      if (!this.refreshOwner.owns(request)) return false;
+      this.printers.set(printers); this.jobs.set(jobs); this.readiness.set({});
+      const operations=this.auth.canEdit()?await Promise.all(printers.map(async printer=>[printer.id,await this.api.printerOperations(printer.id)] as const)):[];
+      if(!this.refreshOwner.owns(request))return false;
+      this.operations.set(Object.fromEntries(operations));this.uncertainUploads.set([]);
+      this.uncertainStarts.set([]);
+      await this.data.load();
+      if (this.auth.isAdmin()) {
+        const [caps, profiles] = await Promise.all([this.api.printerCapabilities(), this.api.slicerProfiles()]);
+        if (this.refreshOwner.owns(request)) {
+          this.capabilities.set(caps); this.slicer.set(profiles);
+          if (!profiles.profiles.includes(this.sliceProfile)) this.sliceProfile = profiles.profiles[0] || '';
         }
       }
-      if(!this.printerId)this.printerId=printers.find(p=>p.enabled)?.id || 0;
-      if(!this.spoolId)this.spoolId=this.data.spools().find(s=>s.remaining_g>0)?.id || 0;
-    }catch(error){this.error.set(apiError(error));}
+      return true;
+    } catch (error) { if (this.refreshOwner.owns(request)) this.error.set(apiError(error)); return false; }
+    finally { if (this.refreshOwner.owns(request)) this.loading.set(false); }
   }
-  choose(event:Event){
-    const f=(event.target as HTMLInputElement).files?.[0] || null;
-    this.upload=f;if(f)this.fileName=f.name;
-    this.inspection.set(null);this.slotSuggestions.set([]);this.firstTool=0;
+  choose(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.upload = input.files?.[0] || null;
+    input.value = ''; // Selecting the same physical file again must fire change.
+    this.fileName = this.upload?.name || '';
+    this.inspectionOwner.invalidate(); this.inspection.set(null); this.inspectedFile = null;
+    this.firstTool = 0; this.estimatedG = null; this.extraMaterials.set([]);
+    this.invalidateSuggestions(); this.error.set('');
   }
-  addMaterial():void {
-    const materials=this.extraMaterials();
-    const used=new Set([this.firstTool,...materials.map(item=>item.tool)]);
-    const tool=Array.from({length:16},(_,i)=>i).find(i=>!used.has(i)) ?? 16;
-    if(tool<=15 && materials.length<7){
-      this.extraMaterials.set([...materials, {tool,
-        spool_id:0,
-        estimated_g:null}]);
-    }
+  invalidateSuggestions(): void {
+    this.suggestionOwner.invalidate(); this.slotSuggestions.set([]); this.suggestionContext = '';
   }
-  removeMaterial(index:number):void {
-    this.extraMaterials.update(items=>items.filter((_,i)=>i!==index));
+  changePlate(): void { this.invalidateSuggestions(); }
+  private mappingKey(): string {
+    return JSON.stringify({printer: this.printerId, firstTool: this.firstTool, weight: this.estimatedG,
+      extra: this.extraMaterials().map(m => [m.tool, m.estimated_g])});
   }
-  async inspect():Promise<void> {
-    if(!this.upload||this.busy())return;
-    this.busy.set(true);this.error.set('');this.inspection.set(null);
-    try{
-      const result=await this.api.inspectFile(this.upload);
-      this.inspection.set(result);this.plateIndex=0;this.slotSuggestions.set([]);
-      if(result.needs_manual_estimate){
-        this.notice.show('No reliable slicer material weights found. Enter an estimate manually.');
-      }
-    }catch(e){this.error.set(apiError(e));}
-    finally{this.busy.set(false);}
+  addMaterial(): void {
+    const items = this.extraMaterials(), used = new Set([this.firstTool, ...items.map(item => item.tool)]);
+    const tool = Array.from({length: 16}, (_, i) => i).find(value => !used.has(value));
+    if (tool != null && items.length < 7) this.extraMaterials.set([...items, {tool, spool_id: 0, estimated_g: null}]);
+    this.invalidateSuggestions();
   }
-  applyInspection():void {
-    const preview=this.inspection();
-    const plate=preview?.plates[this.plateIndex];
-    if(!plate?.materials.length)return;
-    const items=[...plate.materials].sort((a,b)=>a.tool-b.tool);
-    this.slotSuggestions.set([]);
-    this.firstTool=items[0].tool;this.estimatedG=items[0].estimated_g;
-    this.spoolId=0;  // operator must select the actual physical roll
-    this.extraMaterials.set(items.slice(1).map(m=>({...m,spool_id:0})));
-    // 3MF and multi-tool files are inspection-only; no implicit printer upload.
-    if(items.length>1 || this.upload?.name.toLowerCase().endsWith('.3mf'))this.upload=null;
-    this.notice.show('Weights loaded. Explicitly select each physical spool and confirm before saving.');
+  removeMaterial(index: number): void {
+    this.extraMaterials.update(items => items.filter((_, i) => i !== index)); this.invalidateSuggestions();
   }
-  async suggestLoadedSpools():Promise<void>{
-    if(this.busy()||!this.printerId)return;
-    const mappings=[{tool:this.firstTool,estimated_g:this.estimatedG||0},
-      ...this.extraMaterials().map(x=>({tool:x.tool,estimated_g:x.estimated_g||0}))];
-    if(mappings.some(m=>m.estimated_g<=0)){
-      this.error.set('Import valid estimates or enter all tool weights first.');return;
-    }
-    this.busy.set(true);this.error.set('');this.slotSuggestions.set([]);
+  async inspect(): Promise<void> {
+    const file = this.upload; if (!file || this.busy()) return;
+    const request = this.inspectionOwner.begin(); this.busy.set(true); this.error.set(''); this.inspection.set(null);
     try {
-      const slots=await this.api.printerSlots(this.printerId);
-      const proposals=mappings.flatMap(m=>{
-        const slot=slots.find(s=>s.tool===m.tool);
-        const spool=this.data.spools().find(s=>s.id===slot?.spool_id);
-        if(!slot||!spool||spool.remaining_g<m.estimated_g)return [];
-        return [{tool:m.tool,spool_id:spool.id,name:spool.brand+' · '+spool.product_name,
-          estimated_g:m.estimated_g}];
+      const result = await this.api.inspectFile(file);
+      if (!this.inspectionOwner.owns(request) || this.upload !== file) return;
+      this.inspection.set(result); this.inspectedFile = file; this.plateIndex = 0; this.invalidateSuggestions();
+      if (result.needs_manual_estimate) this.notice.show('No reliable material weights were found. Use manual mapping and enter the actual tool numbers and estimates.');
+    } catch (error) { if (this.inspectionOwner.owns(request)) this.error.set(apiError(error)); }
+    finally { this.busy.set(false); }
+  }
+  applyInspection(): void {
+    if (!this.inspectedFile || this.inspectedFile !== this.upload) return;
+    const plate = this.inspection()?.plates[this.plateIndex]; if (!plate?.materials.length) return;
+    const items = [...plate.materials].sort((a, b) => a.tool - b.tool);
+    this.firstTool = items[0].tool; this.estimatedG = items[0].estimated_g; this.spoolId = 0;
+    this.extraMaterials.set(items.slice(1).map(item => ({...item, spool_id: 0})));
+    if (this.upload.name.toLowerCase().endsWith('.3mf')) this.fileName = '';
+    this.upload = null; this.inspection.set(null); this.inspectedFile = null; this.inspectionOwner.invalidate();
+    this.invalidateSuggestions();
+    this.notice.show('Estimates copied. Select every physical roll and check the G-code filename on the printer before registering.');
+  }
+  useManualMapping(): void {
+    if (this.upload?.name.toLowerCase().endsWith('.3mf')) this.fileName = '';
+    this.upload = null; this.inspectedFile = null; this.inspection.set(null); this.inspectionOwner.invalidate();
+    this.invalidateSuggestions();
+  }
+  async suggestLoadedSpools(): Promise<void> {
+    if (this.busy() || !this.printerId) return;
+    const mappings = [{tool: this.firstTool, estimated_g: this.estimatedG || 0}, ...this.extraMaterials().map(m => ({tool: m.tool, estimated_g: m.estimated_g || 0}))];
+    if (mappings.some(m => m.estimated_g <= 0)) { this.error.set('Enter a positive estimate for every tool first.'); return; }
+    const context = this.mappingKey(), request = this.suggestionOwner.begin();
+    this.busy.set(true); this.error.set(''); this.slotSuggestions.set([]);
+    try {
+      const slots = await this.api.printerSlots(this.printerId);
+      if (!this.suggestionOwner.owns(request) || this.mappingKey() !== context) return;
+      const proposals = mappings.flatMap(mapping => {
+        const slot = slots.find(item => item.tool === mapping.tool);
+        const spool = this.data.spools().find(item => item.id === slot?.spool_id);
+        return spool && spool.remaining_g >= mapping.estimated_g
+          ? [{...mapping, spool_id: spool.id, name: 'Spool #'+spool.id+' · '+spool.brand+' · '+spool.product_name+' · '+spool.color_name}] : [];
       });
-      if(proposals.length!==mappings.length){
-        this.error.set('Some tools have no recorded loaded spool or insufficient remaining weight. Assign them manually.');
-        return;
-      }
-      this.slotSuggestions.set(proposals);
-    }catch(e){this.error.set(apiError(e));}
-    finally{this.busy.set(false);}
+      if (proposals.length !== mappings.length) { this.error.set('Some tools have no recorded roll or insufficient material. Assign the rolls manually.'); return; }
+      this.suggestionContext = context; this.slotSuggestions.set(proposals);
+    } catch (error) { if (this.suggestionOwner.owns(request)) this.error.set(apiError(error)); }
+    finally { this.busy.set(false); }
   }
-  applyLoadedSpools():void{
-    const suggestions=this.slotSuggestions();
-    if(!suggestions.length||!window.confirm(
-       'Use the recorded printer slot assignments? Physically verify the loaded spools before printing.'))return;
-    const first=suggestions.find(s=>s.tool===this.firstTool);
-    if(!first)return;
-    this.spoolId=first.spool_id;
-    this.extraMaterials.update(items=>items.map(item=>({
-      ...item,spool_id:suggestions.find(s=>s.tool===item.tool)?.spool_id||0
-    })));
-    this.slotSuggestions.set([]);
-    this.notice.show('Suggested loaded spools assigned; verify material and quantities.');
+  applyLoadedSpools(): void {
+    if (this.mappingKey() !== this.suggestionContext) { this.invalidateSuggestions(); return; }
+    const suggestions = this.slotSuggestions();
+    if (!suggestions.length || !window.confirm('Use these recorded slot assignments? Verify the physical rolls loaded in the printer.')) return;
+    this.spoolId = suggestions.find(item => item.tool === this.firstTool)?.spool_id || 0;
+    this.extraMaterials.update(items => items.map(item => ({...item, spool_id: suggestions.find(s => s.tool === item.tool)?.spool_id || 0})));
+    this.invalidateSuggestions();
   }
-  async checkReadiness(job:PrintJob):Promise<void>{
-    this.busy.set(true);this.error.set('');
-    try{const r=await this.api.readiness(job.id);
-      this.readiness.update(old=>({...old,[job.id]:r}));}
-    catch(e){this.error.set(apiError(e));}
-    finally{this.busy.set(false);}
+  async checkReadiness(job: PrintJob): Promise<void> {
+    if (this.busy()) return; this.busy.set(true); this.error.set('');
+    try { const result = await this.api.readiness(job.id); this.readiness.update(old => ({...old, [job.id]: result})); }
+    catch (error) { this.error.set(apiError(error)); } finally { this.busy.set(false); }
   }
-  async setReservation(job:PrintJob,enabled:boolean):Promise<void>{
-    this.busy.set(true);this.error.set('');
-    try{
-      const r=enabled?await this.api.reserve(job.id):await this.api.release(job.id);
-      this.readiness.update(old=>({...old,[job.id]:r}));
-      this.notice.show(enabled?'Material reserved (advisory; not consumed).':'Reservation released.');
-    }catch(e){this.error.set(apiError(e));}
-    finally{this.busy.set(false);}
+  async setReservation(job: PrintJob, enabled: boolean): Promise<void> {
+    if (this.busy()) return; this.busy.set(true); this.error.set('');
+    try { const result = enabled ? await this.api.reserve(job.id) : await this.api.release(job.id);
+      this.readiness.update(old => ({...old, [job.id]: result})); this.notice.show(enabled ? 'Material reserved. No stock was consumed.' : 'Reservation released.');
+    } catch (error) { this.error.set(apiError(error)); } finally { this.busy.set(false); }
   }
-  chooseStl(event:Event):void {
-    this.stlFile=(event.target as HTMLInputElement).files?.[0] || null;
+  chooseStl(event: Event): void { this.stlFile = (event.target as HTMLInputElement).files?.[0] || null; }
+  async sliceModel(): Promise<void> {
+    const file = this.stlFile; if (!file || !this.sliceProfile || this.busy()) return;
+    this.busy.set(true); this.error.set('');
+    try {
+      const result = await this.api.sliceStl(file, this.sliceProfile), url = URL.createObjectURL(result.content);
+      const anchor = document.createElement('a'); anchor.href = url; anchor.download = file.name.replace(/\.stl$/i, '.gcode');
+      document.body.appendChild(anchor); anchor.click(); anchor.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+      this.notice.show('G-code generated' + (result.estimated ? ' · estimated ' + result.estimated + ' g' : '') + '. Inspect it before printing.');
+    } catch (error) { this.error.set(apiError(error)); } finally { this.busy.set(false); }
   }
-  async sliceModel():Promise<void>{
-    if(!this.stlFile || !this.sliceProfile || this.busy())return;
-    if(!this.stlFile.name.toLowerCase().endsWith('.stl')){
-      this.error.set('Only STL models can be sliced.');return;
-    }
-    this.busy.set(true);this.error.set('');
-    try{
-      const result=await this.api.sliceStl(this.stlFile,this.sliceProfile);
-      const url=URL.createObjectURL(result.content);
-      const anchor=document.createElement('a');
-      anchor.href=url;
-      anchor.download=this.stlFile.name.replace(/\.stl$/i,'.gcode');
-      document.body.appendChild(anchor);anchor.click();anchor.remove();
-      window.setTimeout(()=>URL.revokeObjectURL(url),30000);
-      this.notice.show('G-code generated'+(result.estimated?' · estimated '+result.estimated+' g':'')+
-                       '. Inspect the G-code before printing.');
-    }catch(e){this.error.set(apiError(e));}
-    finally{this.busy.set(false);}
-  }
-  async uploadPending(job:PrintJob,event:Event):Promise<void>{
-    const input=event.target as HTMLInputElement;
-    const file=input.files?.[0] || null;
-    input.value='';
-    if(!file)return;
-    if(file.name!==job.file_name){
-      this.error.set('The selected file name must exactly match the registered job filename.');
-      return;
-    }
-    if(!window.confirm('Upload '+file.name+' to '+job.printer_name+'? This transfers executable printer instructions.'))return;
-    this.busy.set(true);this.error.set('');
+  async uploadPending(job: PrintJob, event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement, file = input.files?.[0]; input.value = '';
+    if (!file || this.busy() || this.uncertainUploads().includes(job.printer_id) || (this.operations()[job.printer_id]||[]).length) return;
+    if (file.name !== job.file_name) { this.error.set('Choose the exact registered G-code filename.'); return; }
+    if (!window.confirm('Upload ' + file.name + ' to ' + job.printer_name + '?')) return;
+    this.busy.set(true);this.error.set('');let failure='';this.uncertainUploads.update(ids=>[...ids,job.printer_id]);
     try{await this.api.uploadJob(job.id,file);this.notice.show('File transferred. Print not started.');}
-    catch(e){this.error.set(apiError(e));}
-    finally{this.busy.set(false);}
+    catch(error){failure=apiError(error);}
+    finally{const refreshed=await this.refresh();if(!refreshed&&failure)this.uncertainUploads.update(ids=>ids.includes(job.printer_id)?ids:[...ids,job.printer_id]);if(failure)this.error.set(failure+' Review the printer operation before retrying an uncertain upload.');this.busy.set(false);}
   }
-  async clearStart(job:PrintJob):Promise<void>{
-    if(!this.auth.isAdmin()||this.clearFor()!==job.id||this.clearReason.trim().length<10){
-      this.error.set('Record how you physically verified that the printer did not start.');return;
+  async clearStart(job: PrintJob): Promise<void> {
+    if (!this.auth.isAdmin() || this.busy() || this.clearFor() !== job.id || this.clearReason.trim().length < 10) return;
+    if (!window.confirm('Have you checked that the printer is idle and this previous operation is no longer running? Releasing it permits a later operation.')) return;
+    this.busy.set(true); this.error.set('');
+    try {
+      const commands = await this.api.jobCommands(job.id), last = commands.find(item => item.action === 'start');
+      if (!last || !['unknown', 'acknowledged', 'confirmed'].includes(last.state)) throw new Error('No releasable start command was found. Refresh the job state.');
+      await this.api.clearPrinterCommand(last.id, this.clearReason.trim());
+      this.clearFor.set(null); this.clearReason = ''; await this.refresh(); this.notice.show('Start command cleared after verification.');
+    } catch (error) { this.error.set(apiError(error)); } finally { this.busy.set(false); }
+  }
+  async start(job: PrintJob): Promise<void> {
+    if (!this.auth.isAdmin() || this.busy() || this.uncertainStarts().includes(job.id) || this.uncertainUploads().includes(job.printer_id) || (job.start_command_state&&job.start_command_state!=='cleared') || (this.operations()[job.printer_id]||[]).length) return;
+    if (!window.confirm('Start ' + job.file_name + ' on ' + job.printer_name + '? The printer will physically begin printing.')) return;
+    this.busy.set(true); this.error.set(''); this.uncertainStarts.update(ids => [...ids, job.id]);
+    let failure = '';
+    try { await this.api.startJob(job.id); this.notice.show('Start acknowledged. Waiting for independently observed printer progress.'); }
+    catch (error) { failure = apiError(error); }
+    finally {
+      const refreshed = await this.refresh();
+      if (!refreshed) this.uncertainStarts.update(ids => ids.includes(job.id) ? ids : [...ids, job.id]);
+      if (failure) this.error.set(failure + (refreshed ? ' Review the refreshed command state.' : ' Start outcome is unknown. Refresh and verify the printer before retrying.'));
+      this.busy.set(false);
     }
-    if(!window.confirm('Confirm the printer did NOT start this job? Clearing allows another start request.'))return;
-    this.busy.set(true);this.error.set('');
-    try{
-      const commands=await this.api.jobCommands(job.id);
-      const last=commands.find(item=>item.action==='start');
-      if(!last||!['unknown','acknowledged'].includes(last.state))
-        throw new Error('There is no unconfirmed start command to clear.');
-      await this.api.clearPrinterCommand(last.id,this.clearReason.trim());
-      this.clearReason='';this.clearFor.set(null);await this.refresh();
-      this.notice.show('Command cleared after physical verification.');
-    }catch(error){this.error.set(apiError(error));}
-    finally{this.busy.set(false);}
   }
-  async start(job:PrintJob):Promise<void>{
-    if(!window.confirm('Start '+job.file_name+' on '+job.printer_name+'? The printer will physically begin printing.'))return;
-    this.busy.set(true);this.error.set('');
-    try{await this.api.startJob(job.id);await this.refresh();this.notice.show('Print start acknowledged. Controller tracking will verify progress.');}
-    catch(e){this.error.set(apiError(e));}
-    finally{this.busy.set(false);}
-  }
-  async submit(){
-    if(this.busy()||!this.auth.canEdit())return;
-    this.busy.set(true);this.error.set('');
+  async submit(): Promise<void> {
+    if (this.busy() || !this.auth.canEdit()) return;
+    if (this.upload) { this.error.set('Inspect and apply the selected file, or switch to manual mapping first.'); return; }
+    const materials = [{tool: this.firstTool, spool_id: this.spoolId, estimated_g: this.estimatedG}, ...this.extraMaterials()];
+    if (!this.printerId || !this.fileName.trim() || materials.some(m => !Number.isInteger(m.tool) || m.tool < 0 || m.tool > 15 || !m.spool_id || !Number.isInteger(m.estimated_g) || Number(m.estimated_g) <= 0)) {
+      this.error.set('Select a printer and each physical roll, and enter tool numbers 0–15 and positive whole-gram estimates.'); return;
+    }
+    if (new Set(materials.map(m => m.tool)).size !== materials.length) { this.error.set('Each tool number must be unique.'); return; }
+    this.busy.set(true); this.error.set('');
     try {
-      if(this.extraMaterials().length){
-        if(this.upload)throw new Error('For multi-material jobs, enter the filename and explicit weights without importing G-code metadata.');
-        if(!this.estimatedG || this.estimatedG<=0 || this.extraMaterials().some(m=>!m.estimated_g || m.estimated_g<=0))
-          throw new Error('Every mapped tool requires a positive estimated weight.');
-        await this.api.createMultiJob({printer_id:this.printerId,file_name:this.fileName,note:this.note,
-          materials:[{tool:this.firstTool,spool_id:this.spoolId,estimated_g:this.estimatedG},
-            ...this.extraMaterials().map(m=>({tool:Number(m.tool),spool_id:m.spool_id,
-                                            estimated_g:Number(m.estimated_g)}))]});
-      }else if(this.upload){
-        await this.api.importJob(this.upload,this.printerId,this.spoolId,this.estimatedG);
-      }else{
-        if(!this.estimatedG)throw new Error('Enter a positive estimated weight in grams.');
-        await this.api.createJob({printer_id:this.printerId,spool_id:this.spoolId,file_name:this.fileName,
-          estimated_g:this.estimatedG,note:this.note});
-      }
-      this.notice.show('Print-job mapping registered. Transfer a file separately if needed.');
-      this.fileName='';this.upload=null;this.estimatedG=null;this.note='';this.firstTool=0;
-      this.extraMaterials.set([]);this.inspection.set(null);this.slotSuggestions.set([]);
-      await this.refresh();
-    }catch(error){this.error.set(apiError(error));}
-    finally{this.busy.set(false);}
+      await this.api.createMultiJob({printer_id: this.printerId, file_name: this.fileName.trim(), note: this.note,
+        materials: materials.map(m => ({...m, estimated_g: Number(m.estimated_g)}))});
+      this.fileName = ''; this.upload = null; this.estimatedG = null; this.note = ''; this.firstTool = 0;
+      this.extraMaterials.set([]); this.inspection.set(null); this.invalidateSuggestions(); await this.refresh();
+      this.notice.show('Print-job mapping registered. Transfer and start the file separately when ready.');
+    } catch (error) { this.error.set(apiError(error)); } finally { this.busy.set(false); }
   }
-  async poll(printerId:number){
-    this.busy.set(true);this.error.set('');
-    try {
-      const state=await this.api.poll(printerId);
-      this.notice.show('Printer: '+state.state+' · '+state.updated_jobs+' job(s) updated.');
-      await this.refresh();await this.data.load();
-    }catch(error){this.error.set(apiError(error));}
-    finally{this.busy.set(false);}
+  async poll(printerId: number): Promise<void> {
+    if (this.busy()) return; this.busy.set(true); this.error.set('');
+    try { const state = await this.api.poll(printerId); await this.refresh(); this.notice.show('Printer: ' + state.state + ' · ' + state.updated_jobs + ' job(s) updated.'); }
+    catch (error) { this.error.set(apiError(error)); } finally { this.busy.set(false); }
   }
-  async resolve(job:PrintJob,action:'debit'|'discard'){
-    if(!window.confirm(action==='debit'
-      ?'Confirm this print finished successfully and deduct '+this.grams(job.estimated_g)+' from the selected spool?'
-      :'Discard tracking for this print job without deducting material?'))return;
-    this.busy.set(true);this.error.set('');
-    try{
-      await this.api.resolveJob(job.id,action);await this.refresh();await this.data.load();
-      this.notice.show(action==='debit'?'Confirmed consumption recorded.':'Job tracking discarded.');
-    }catch(error){this.error.set(apiError(error));}
-    finally{this.busy.set(false);}
+  async cancel(job: PrintJob): Promise<void> {
+    if (this.busy() || !window.confirm('Stop tracking this job? The physical printer will continue. Review any material it has consumed.')) return;
+    this.busy.set(true); this.error.set('');
+    try { await this.api.cancelJob(job.id); await this.refresh(); this.notice.show('Tracking stopped. Review material consumption separately.'); }
+    catch (error) { this.error.set(apiError(error)); } finally { this.busy.set(false); }
   }
-  async cancel(job:PrintJob){
-    if(!window.confirm('Cancel tracking this job? The printer itself will not be stopped.'))return;
-    this.busy.set(true);
-    try{await this.api.cancelJob(job.id);await this.refresh();this.notice.show('Tracking cancelled; printer was not changed.');}
-    catch(error){this.error.set(apiError(error));}
-    finally{this.busy.set(false);}
-  }
+  async accountingSaved(): Promise<void> { this.accountingJob.set(null); await this.refresh(); }
 }
-

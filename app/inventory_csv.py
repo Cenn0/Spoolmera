@@ -152,7 +152,8 @@ def _parse_rows(content: str) -> tuple[OrderedDict, list]:
         raise HTTPException(422, "Malformed CSV document.") from None
 
 
-def import_inventory(db: sqlite3.Connection, content: str, *, dry_run: bool) -> dict:
+def import_inventory(db: sqlite3.Connection, content: str, *, dry_run: bool,
+                     actor_id: int | None = None) -> dict:
     products, spools = _parse_rows(content)
     existing_products = {row["uid"]: row["id"] for row in db.execute("SELECT id, uid FROM products")}
     existing_spools = {
@@ -204,8 +205,8 @@ def import_inventory(db: sqlite3.Connection, content: str, *, dry_run: bool) -> 
         )
         db.execute(
             """INSERT INTO movements
-               (spool_id, kind, delta_g, remaining_after_g, note, created_at)
-               VALUES (?, 'initial', ?, ?, ?, ?)""",
-            (cursor.lastrowid, remaining, remaining, "Imported from inventory CSV snapshot", timestamp),
+               (spool_id, kind, delta_g, remaining_after_g, note, created_at, actor_id, source)
+               VALUES (?, 'initial', ?, ?, ?, ?, ?, 'csv_import')""",
+            (cursor.lastrowid, remaining, remaining, "Imported from inventory CSV snapshot", timestamp, actor_id),
         )
     return result
