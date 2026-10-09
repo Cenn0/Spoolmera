@@ -1,62 +1,75 @@
+@if(auth.error()){<div class="error-banner" role="alert">{{auth.error() | t}} <button type="button" (click)="retryAuthentication()">{{'Retry connection' | t}}</button></div>}
 @if (!auth.ready()) {
-  <main class="login-screen"><p role="status">Loading secure workspace…</p></main>
+  <main class="login-screen"><section><fm-theme-picker /><fm-language-picker /><p role="status">{{'Loading secure workspace…' | t}}</p></section></main>
 } @else if (!auth.user()) {
   <fm-login (authenticated)="afterLogin()" />
 } @else {
+<a class="skip-link" href="#main-content">{{'Skip to content'|t}}</a>
 <div class="shell">
-  <aside class="sidebar" [class.nav-open]="navOpen()" aria-label="Main navigation">
-    <a class="brand" routerLink="/" (click)="closeNav()" aria-label="Filament Manager home">
+  @if(navOpen()){<button type="button" class="nav-backdrop" tabindex="-1" (click)="closeNav()" [attr.aria-label]="'Close navigation'|t"></button>}
+  <aside [attr.role]="navOpen()?'dialog':null" [attr.aria-modal]="navOpen()?'true':null" id="workspace-navigation" class="sidebar" [class.nav-open]="navOpen()" [attr.aria-label]="'Main navigation' | t">
+    <button type="button" class="drawer-close" (click)="closeNav()" [attr.aria-label]="'Close navigation'|t">×</button>
+    <a class="brand" routerLink="/" (click)="closeNav()" [attr.aria-label]="'Filament Manager home' | t">
       <span class="brand-mark" aria-hidden="true"><span></span></span>
-      <span class="brand-label"><strong>FILAMENT</strong><small>MANAGER <em>/ WORKSPACE</em></small></span>
+      <span class="brand-label"><strong>FILAMENT</strong><small>MANAGER <em>{{'/ WORKSPACE' | t}}</em></small></span>
     </a>
-    <span class="section-caption">WORKSPACE</span>
-    <nav class="side-nav" aria-label="Workspace">
-      <a routerLink="/" [routerLinkActiveOptions]="{exact:true}" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">▦</span> Overview</a>
-      <a routerLink="/spools" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">◎</span> Spools <span class="nav-count">{{ inventory.overview().total_spools }}</span></a>
-      <a routerLink="/filaments" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">▤</span> Filaments</a>
-      <a routerLink="/catalog" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">⌕</span> Open catalog</a>
-      <a routerLink="/history" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">◷</span> History</a>
-      <a routerLink="/jobs" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">▣</span> Print jobs</a>
-      <a routerLink="/printers" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">▥</span> Printers</a>
-      <a routerLink="/integrations" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">⌘</span> Integrations</a>
-      <a routerLink="/account" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">♧</span> My account</a>
-      @if(auth.isAdmin()) {<a routerLink="/users" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon">♙</span> Users</a>}
+    <span class="section-caption">{{'WORKSPACE' | t}}</span>
+    <nav class="side-nav" [attr.aria-label]="'Workspace' | t">
+      <a routerLink="/" [routerLinkActiveOptions]="{exact:true}" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon" aria-hidden="true">▦</span> {{'Overview' | t}}</a>
+      <a routerLink="/spools" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon" aria-hidden="true">◎</span> {{'Spools' | t}} <span class="nav-count">{{ i18n.number(inventory.overview().total_spools) }}</span></a>
+      <a routerLink="/filaments" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon" aria-hidden="true">▤</span> {{'Filaments' | t}}</a>
+      <a routerLink="/catalog" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon" aria-hidden="true">⌕</span> {{'Open catalog' | t}}</a>
+      <a routerLink="/restock" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon" aria-hidden="true">↗</span> {{'Restock' | t}}</a>
+      <a routerLink="/history" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon" aria-hidden="true">◷</span> {{'History' | t}}</a>
+      <a routerLink="/jobs" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon" aria-hidden="true">▣</span> {{'Print jobs' | t}}</a>
+      <a routerLink="/printers" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon" aria-hidden="true">▥</span> {{'Printers' | t}}</a>
+      <a routerLink="/integrations" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon" aria-hidden="true">⌘</span> {{'Integrations' | t}}</a>
+      <a routerLink="/account" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon" aria-hidden="true">♧</span> {{'My account' | t}}</a>
+      @if(auth.canEdit()){<a routerLink="/diagnostics" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon" aria-hidden="true">◉</span> {{'Operations' | t}}</a>}
+      @if(auth.isAdmin()) {<a routerLink="/users" routerLinkActive="active" (click)="closeNav()"><span class="nav-icon" aria-hidden="true">♙</span> {{'Users' | t}}</a>}
     </nav>
     <div class="sidebar-bottom">
       <div class="server-card">
-        <span class="server-title"><span class="live-dot"></span> SELF-HOSTED INSTANCE</span>
-        <strong>Your materials. Your server.</strong>
-        <span>Your inventory remains under your control.</span>
+        <span class="server-title"><span class="live-dot"></span> {{'SELF-HOSTED INSTANCE' | t}}</span>
+        <strong>{{'Your materials. Your server.' | t}}</strong>
+        <span>{{'Your inventory remains under your control.' | t}}</span>
       </div>
       <div class="sidebar-meta"><span>FILAMENT MANAGER</span><span>© {{ year }}</span></div>
     </div>
   </aside>
 
-  <div class="workspace">
+  <div class="workspace" [inert]="navOpen()">
     <header class="topbar">
-      <button class="menu-toggle" type="button" (click)="navOpen.set(!navOpen())" aria-label="Toggle navigation" [attr.aria-expanded]="navOpen()">☰</button>
-      <div class="breadcrumbs"><span>WORKSPACE</span><b>/</b><strong>Material inventory</strong></div>
+      <button class="menu-toggle" type="button" (click)="toggleNav()" aria-controls="workspace-navigation" [attr.aria-label]="'Toggle navigation' | t" [attr.aria-expanded]="navOpen()">☰</button>
+      <div class="breadcrumbs"><span>{{'WORKSPACE' | t}}</span><b>/</b><strong>{{'Material inventory' | t}}</strong></div>
       <div class="top-actions">
-        <span class="system-state"><span class="live-dot" [class.offline]="!!inventory.error()"></span>{{ inventory.error() ? 'Unavailable' : inventory.loading() ? 'Loading' : 'Local instance' }}</span>
-        <span class="user-chip">{{auth.user()?.username}} · {{auth.user()?.role}}</span>
-        <button type="button" class="logout-action" (click)="auth.logout()" aria-label="Sign out">Sign out</button>
-        @if(auth.canEdit()){<button type="button" class="btn primary add-spool" (click)="openSpool()"><span aria-hidden="true">+</span> Add spool</button>}
+        <span class="system-state" [attr.title]="inventory.lastUpdated()?i18n.t('Inventory refreshed: {date}',{date:dateText(inventory.lastUpdated())}):i18n.t('Inventory has not loaded')"><span class="live-dot" [class.offline]="!!inventory.error()"></span>{{ (inventory.error() ? 'Unavailable' : inventory.loading() ? (inventory.ready()?'Refreshing':'Loading') : 'Local instance') | t }}</span>
+        <fm-theme-picker />
+        <fm-language-picker />
+        <span class="user-chip">{{auth.user()?.username}} · {{roleLabel(auth.user()?.role)}}</span>
+        <button type="button" class="logout-action" (click)="auth.logout()" [disabled]="auth.signingOut()" [attr.aria-label]="'Sign out' | t">{{'Sign out' | t}}</button>
+        @if(auth.canEdit()){<button type="button" class="btn primary add-spool" (click)="openSpool()"><span aria-hidden="true">+</span> {{'Add spool' | t}}</button>}
       </div>
     </header>
 
     @if (inventory.error()) {
-      <div class="error-banner" role="alert">Unable to load inventory: {{ inventory.error() }} <button type="button" (click)="inventory.load()">Retry</button></div>
+      <div class="error-banner" role="alert">{{'Unable to load inventory: {error}' | t:{error:i18n.message(inventory.error())} }} <button type="button" (click)="inventory.load()">{{'Retry' | t}}</button></div>
     }
     @if (notices.message()) {
       <div class="notice" [class.notice-error]="notices.isError()" [attr.role]="notices.isError() ? 'alert' : 'status'">
-        <span>{{ notices.message() }}</span><button type="button" (click)="notices.clear()" aria-label="Dismiss notification">×</button>
+        <span>{{ notices.message() | t }}</span><button type="button" (click)="notices.clear()" [attr.aria-label]="'Dismiss notification' | t">×</button>
       </div>
     }
-    <main class="main-content">
+    <main id="main-content" class="main-content" tabindex="-1">
       <router-outlet />
     </main>
     <fm-dialogs />
   </div>
 </div>
-
+<nav class="mobile-navigation" [inert]="navOpen()" [attr.aria-label]="'Quick navigation'|t">
+  <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}" (click)="closeNav()"><span aria-hidden="true">▦</span>{{'Overview'|t}}</a>
+  <a routerLink="/spools" routerLinkActive="active" (click)="closeNav()"><span aria-hidden="true">◎</span>{{'Spools'|t}}</a>
+  <a routerLink="/jobs" routerLinkActive="active" (click)="closeNav()"><span aria-hidden="true">▣</span>{{'Print jobs'|t}}</a>
+  <button type="button" (click)="toggleNav()" [attr.aria-expanded]="navOpen()" aria-controls="workspace-navigation"><span aria-hidden="true">☰</span>{{'More'|t}}</button>
+</nav>
 }

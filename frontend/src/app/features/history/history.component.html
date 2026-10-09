@@ -1,0 +1,33 @@
+<section class="page-head"><div><span class="eyebrow">{{'MOVEMENT RECORDS'|t}}</span><h1><em>{{'Inventory history.'|t}}</em></h1><p>{{'Follow every registration, consumption and correction, including archived spools.'|t}}</p></div></section>
+@if(error()){<p class="form-error" role="alert">{{error()|t}}</p>}
+<section class="panel workflow-panel">
+  <form class="workflow-form" (ngSubmit)="apply()">
+    <div class="form-grid">
+      <label>{{'Movement type'|t}}<select id="movement-type" name="kind" [ngModel]="kind()" (ngModelChange)="kind.set($event)"><option value="">{{'All movements'|t}}</option><option value="initial">{{'Registered'|t}}</option><option value="consume">{{'Consumption'|t}}</option><option value="adjust">{{'Adjustment'|t}}</option></select></label>
+      <label>{{'Spool number'|t}}<input name="spool" type="number" min="1" step="1" [(ngModel)]="spoolId" [placeholder]="'All spools'|t"></label>
+      <label>{{'Job number'|t}}<input name="job" type="number" min="1" step="1" [(ngModel)]="jobId" [placeholder]="'All jobs'|t"></label>
+      <label>{{'Recorded by (user number)'|t}}<input name="actor" type="number" min="1" step="1" [(ngModel)]="actorId" [placeholder]="'All users'|t"></label>
+      <label>{{'Source'|t}}<select name="source" [(ngModel)]="source"><option value="">{{'All sources'|t}}</option><option value="registration">{{'Spool registration'|t}}</option><option value="manual">{{'Manual entry'|t}}</option><option value="print_job">{{'Print job'|t}}</option><option value="job_correction">{{'Job correction'|t}}</option><option value="weighing">{{'Scale measurement'|t}}</option><option value="measurement_reconciliation">{{'Measurement reconciliation'|t}}</option><option value="spoolman_import">{{'Spoolman import'|t}}</option><option value="csv_import">{{'CSV import'|t}}</option></select></label>
+      <label>{{'From date'|t}}<input name="from" type="date" [(ngModel)]="fromDate"></label>
+      <label>{{'Through date'|t}}<input name="to" type="date" [(ngModel)]="toDate"></label>
+    </div>
+    <div class="workflow-buttons"><button class="btn primary" type="submit">{{'Apply filters'|t}}</button><button class="btn ghost" type="button" (click)="reset()">{{'Clear filters'|t}}</button></div>
+  </form>
+</section>
+<section class="panel data-panel">
+  <div class="result-count">{{'{count} matching movements loaded'|t:{count:i18n.number(items().length)} }} <button class="btn ghost" type="button" [disabled]="loading()" (click)="load()">{{'Refresh history'|t}}</button> @if(loading()){<span role="status"> {{'· Loading…'|t}}</span>}</div>
+  <div class="table-wrap"><table class="data-table"><thead><tr><th>{{'Time / entry'|t}}</th><th>{{'Filament'|t}}</th><th>{{'Movement'|t}}</th><th>{{'Change'|t}}</th><th>{{'Balance'|t}}</th><th>{{'Origin / note'|t}}</th></tr></thead>
+    <tbody>
+      @for(item of items();track item.id){<tr [attr.id]="'movement-'+item.id"><td class="subdued">{{dateText(item.created_at)}}<small>#{{item.id}}</small></td>
+        <td><span class="item-name"><span class="swatch small" [style.background-color]="item.color_hex"></span><a [href]="'/?spool='+item.spool_uid">{{item.brand}} · {{item.product_name}}<small>{{'Spool #{id}'|t:{id:''+item.spool_id} }}</small></a></span></td>
+        <td>{{(item.kind==='initial'?'Registered':item.kind==='consume'?'Consumption':'Adjustment')|t}}</td><td><strong [class.negative]="item.delta_g<0">{{item.delta_g>0?'+':''}}{{grams(item.delta_g)}}</strong></td><td>{{grams(item.remaining_after_g)}}</td>
+        <td class="history-origin"><a routerLink="/history" [queryParams]="{source:item.source}">{{sourceLabel(item.source)|t}}</a>@if(item.actor_id){<a routerLink="/history" [queryParams]="{actor:item.actor_id}">{{item.actor_name || ('User #{id}'|t:{id:''+item.actor_id})}}</a>}@else{<small>{{'Automatic / previous data'|t}}</small>}@if(item.job_id){<a routerLink="/jobs" [queryParams]="{job:item.job_id}">{{'Job #{id}'|t:{id:''+item.job_id} }} · {{item.job_file_name}}</a>}@if(item.corrects_movement_id){<small>{{'Corrects movement #{id}'|t:{id:''+item.corrects_movement_id} }}</small>}<span>{{item.note || '—'}}</span></td></tr>}
+      @empty{<tr><td colspan="6"><div class="placeholder">{{(loading()?'Loading movements…':'No movements match these filters.')|t}}</div></td></tr>}
+    </tbody>
+  </table></div>
+  <div class="mobile-cards">
+    @for(item of items();track item.id){<article class="mobile-spool"><div class="mobile-spool-head"><a [href]="'/?spool='+item.spool_uid">{{item.brand}} · {{item.product_name}} · #{{item.spool_id}}</a><strong [class.negative]="item.delta_g<0">{{item.delta_g>0?'+':''}}{{grams(item.delta_g)}}</strong></div><p>{{dateText(item.created_at)}} · {{sourceLabel(item.source)|t}} · {{item.actor_name || ('Automatic / previous data'|t)}}</p><p>{{item.note || (item.kind|t)}}</p><small>{{'Balance: {weight} · Entry #{id}'|t:{weight:grams(item.remaining_after_g),id:''+item.id} }}</small>@if(item.job_id){<a routerLink="/jobs" [queryParams]="{job:item.job_id}">{{'Job #{id}'|t:{id:''+item.job_id} }}</a>}@if(item.corrects_movement_id){<p>{{'Corrects movement #{id}'|t:{id:''+item.corrects_movement_id} }}</p>}</article>}
+    @empty{<div class="placeholder">{{(loading()?'Loading movements…':'No movements match these filters.')|t}}</div>}
+  </div>
+</section>
+<div class="pagination-actions">@if(nextCursor()){<button class="btn ghost" type="button" [disabled]="loading()" (click)="load(true)">{{'Load older movements'|t}}</button>}@else if(items().length&&!loading()){<span class="helper">{{'All matching movements are loaded.'|t}}</span>}</div>

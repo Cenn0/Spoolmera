@@ -1,0 +1,76 @@
+<section class="page-head"><div><span class="eyebrow">{{'DEVICE CONNECTIONS'|t}}</span><h1>{{'Connected'|t}} <em>{{'printers.'|t}}</em></h1>
+  <p>{{'Local OctoPrint and Moonraker integrations. Record the physical roll loaded in each tool and check connection and operation status.'|t}}</p></div><button class="btn ghost" type="button" [disabled]="loading()||busy()" (click)="refresh()">{{'Refresh printers'|t}}</button></section>
+@if(error()){<p class="form-error" role="alert">{{error()|t}}</p>}
+@if(auth.isAdmin()){
+<section class="panel workflow-panel">
+  <div class="panel-heading"><div><span class="eyebrow">{{'ADMINISTRATION'|t}}</span><h2>{{(editingId?'Edit printer':'Add printer')|t}}</h2></div></div>
+  <form class="workflow-form" #printerForm="ngForm" (ngSubmit)="create()">
+    <div class="form-grid">
+      <label>{{'Friendly name'|t}}<input name="name" [(ngModel)]="model.name" required maxlength="80" [placeholder]="'Workshop MK4'|t"></label>
+      <label>{{'Controller'|t}}<select name="kind" [(ngModel)]="model.kind"><option value="moonraker">Moonraker / Klipper</option><option value="octoprint">OctoPrint</option></select></label>
+      <label>{{'API URL (private IP + port)'|t}}<input name="base_url" [(ngModel)]="model.base_url" required placeholder="http://192.168.1.20:7125"></label>
+      <label>{{'Token environment variable'|t}}<input name="token_env" [(ngModel)]="model.token_env" placeholder="FILAMENT_PRINTER_TOKEN_WORKSHOP"></label>
+    </div>
+    <p class="helper">{{'Ask the server operator to allow this private printer address and configure its API token before testing the connection. Use a friendly name that identifies the physical printer.'|t}}</p>
+    <button class="btn primary" type="submit" [disabled]="busy()||printerForm.invalid">{{(editingId?'Save printer':'Add printer')|t}}</button>@if(editingId){<button class="btn ghost" type="button" (click)="cancelEdit()">{{'Cancel editing'|t}}</button>}
+  </form>
+</section>
+}
+<section class="panel workflow-panel"><div class="panel-heading"><div><span class="eyebrow">{{'INVENTORY SOURCES'|t}}</span><h2>{{'Configured connections'|t}}</h2></div></div>
+  <div class="workflow-list">
+    @for(p of printers();track p.id){
+      <article class="workflow-row"><div class="workflow-main"><strong>{{p.name}}</strong>
+        <span>{{p.kind}} · {{auth.isAdmin() ? p.base_url : ('Connection details restricted'|t)}}</span>
+        @if(auth.isAdmin()){<small>{{p.token_env||('No API key configured'|t)}}</small>}</div>
+        <span class="status" [class.opened]="p.enabled">{{(p.enabled?'Enabled':'Disabled')|t}}</span>
+        @if(auth.isAdmin()){
+          <div class="workflow-buttons"><button type="button" class="btn ghost" [disabled]="busy()||!p.enabled" (click)="probe(p)">{{'Test connection'|t}}</button>
+            @if(capabilities().write_enabled && p.enabled){
+              <button type="button" class="btn ghost" [disabled]="busy()" (click)="control(p,'pause')">{{'Pause'|t}}</button>
+              <button type="button" class="btn ghost" [disabled]="busy()" (click)="control(p,'resume')">{{'Resume'|t}}</button>
+              <button type="button" class="btn ghost" [disabled]="busy()" (click)="control(p,'cancel')">{{'Cancel print'|t}}</button>
+            }
+            <button type="button" class="btn ghost" [disabled]="busy()" (click)="edit(p)">{{'Edit connection'|t}}</button><button type="button" class="btn ghost" [disabled]="busy()" (click)="toggle(p)">{{(p.enabled?'Disable':'Enable')|t}}</button></div>
+        }
+      </article>
+      <div class="printer-detail">
+        <h3>{{'Recorded loaded rolls'|t}} · {{p.name}}</h3>
+        @for(slot of slots()[p.id] || [];track slot.tool){<div class="detail-movement"><strong>{{'Tool {tool}'|t:{tool:''+slot.tool} }}</strong><a [href]="'/?spool='+slot.spool_uid">#{{slot.spool_id}} · {{slot.brand}} · {{slot.product_name}}</a>@if(auth.canEdit()){<button type="button" class="btn ghost" [disabled]="busy()" (click)="unloadSlot(slot.tool,p.id)">{{'Remove assignment'|t}}</button>}</div>}
+        @empty{<p class="helper">{{'No rolls recorded for this printer. Assign a tool and physical spool below.'|t}}</p>}
+        @if(auth.canEdit()){
+          @for(operation of operations()[p.id] || [];track operation.operation_id){
+            <div class="confirm-box"><strong>{{(operation.kind==='upload'?'File upload':'Print start')|t}} · {{(operation.state==='unknown'?'Outcome uncertain':'In progress / awaiting observation')|t}}</strong><p>{{dateText(operation.updated_at)}} · {{'Job #{job}'|t:{job:''+operation.job_id} }}</p>
+              @if(operation.kind==='upload'&&operation.state==='unknown'&&auth.isAdmin()){<button class="btn ghost" type="button" [disabled]="busy()" (click)="clearOperation=operation;clearReason='';clearChecked=false">{{'Review uncertain upload'|t}}</button>}
+              @if(operation.kind==='start'){<a class="btn ghost" routerLink="/jobs" [queryParams]="{job:operation.job_id}">{{'Review start in Print jobs'|t}}</a>}
+            </div>
+          }
+        }
+      </div>
+    } @empty {<div class="placeholder">{{(loading()?'Loading printers…':'No printers configured.')|t}}</div>}
+  </div>
+</section>
+@if(auth.isAdmin()){<p class="helper">{{(capabilities().write_enabled?'Write operations are enabled by the server operator. Cancellation stops the physical job and leaves uncertain filament consumption for manual review.':'Write operations are disabled by the server operator. Cancellation stops the physical job and leaves uncertain filament consumption for manual review.')|t}}</p>}
+
+<section class="panel workflow-panel"><div class="panel-heading"><div><span class="eyebrow">{{'PHYSICAL MATERIAL'|t}}</span><h2>{{'Assign a loaded roll'|t}}</h2></div></div><div class="workflow-form">
+  <p class="helper">{{'These assignments are your record of physical loading. Check the actual printer before confirming a job; changing this record does not load or unload filament.'|t}}</p>
+  @if(auth.canEdit()){
+    <div class="assignment-board">
+      <div><label class="search-field"><span aria-hidden="true">⌕</span><input type="search" [value]="paletteQuery()" (input)="paletteQuery.set($any($event.target).value)" [placeholder]="'Find a spool to assign'|t" [attr.aria-label]="'Find a spool to assign'|t"></label>
+      <div class="spool-palette">
+        @for(spool of palette();track spool.id){<button type="button" class="palette-spool" [class.selected]="slotSpool===spool.id" [attr.aria-pressed]="slotSpool===spool.id" [disabled]="busy()" draggable="true" (dragstart)="startSpoolDrag($event,spool)" (dragend)="finishSpoolDrag()" (click)="slotSpool=spool.id">
+          <fm-spool-visual [color]="spool.color_hex" /><span><strong>{{spool.brand}} · {{spool.color_name}}</strong><small>#{{spool.id}} · {{spool.material}} · {{grams(spool.remaining_g)}}</small></span><span aria-hidden="true">⠿</span></button>}
+        @empty{<p class="helper">{{'No matching spools.'|t}}</p>}
+      </div></div>
+      <div class="printer-drop-targets">
+        @for(p of printers();track p.id){<button type="button" class="printer-drop-target" [class.drop-active]="dropPrinter()===p.id" [class.selected]="printerSelection===p.id" [attr.aria-pressed]="printerSelection===p.id" [disabled]="busy()" (dragover)="overPrinter($event,p.id)" (dragleave)="dropPrinter.set(null)" (drop)="dropSpool($event,p.id)" (click)="printerSelection=p.id">
+          <span aria-hidden="true">▥</span><strong>{{p.name}}</strong><small>{{'Drop a roll here or select this printer'|t}}</small></button>}
+      </div>
+    </div>
+    <form #slotForm="ngForm" (ngSubmit)="assignSlot()"><div class="form-grid">
+      <label>{{'Printer'|t}}<select name="slotPrinter" [(ngModel)]="printerSelection" required><option [ngValue]="0">{{'Choose printer'|t}}</option>@for(p of printers();track p.id){<option [ngValue]="p.id">{{p.name}}</option>}</select></label>
+      <label>{{'Tool number'|t}}<input name="slotTool" type="number" min="0" max="15" step="1" required [(ngModel)]="slotTool"></label>
+      <label class="full">{{'Physical spool'|t}}<select name="slotSpool" [(ngModel)]="slotSpool" required><option [ngValue]="0">{{'Choose the loaded roll'|t}}</option>@for(spool of data.available();track spool.id){<option [ngValue]="spool.id">#{{spool.id}} · {{spool.brand}} · {{spool.product_name}} · {{spool.color_name}} · {{grams(spool.remaining_g)}}</option>}</select></label>
+    </div><button class="btn primary" type="submit" [disabled]="busy()||slotForm.invalid||!printerSelection||!slotSpool">{{'Save slot assignment'|t}}</button></form>
+  }@else{<p class="helper">{{'An editor or administrator can update loaded-roll assignments.'|t}}</p>}
+</div></section>
+@if(clearOperation;as operation){<section class="confirm-box"><h2>{{'Review uncertain upload'|t}}</h2><p>{{'Check the printer’s file list and ensure the transfer has stopped before releasing this operation. If the correct file is present, you can continue with the registered job.'|t}}</p><label>{{'What did you verify?'|t}}<textarea [(ngModel)]="clearReason" minlength="10" maxlength="1000" [disabled]="busy()"></textarea></label><label class="checkbox-row"><input type="checkbox" [(ngModel)]="clearChecked" [disabled]="busy()"> {{'I checked the physical printer and no upload is still running.'|t}}</label><div class="workflow-buttons"><button class="btn ghost" type="button" [disabled]="busy()" (click)="clearOperation=null">{{'Keep blocked'|t}}</button><button class="btn primary" type="button" [disabled]="busy()||!clearChecked||clearReason.trim().length<10" (click)="clearUpload()">{{'Release upload operation'|t}}</button></div></section>}

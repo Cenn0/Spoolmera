@@ -2,15 +2,11 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { ManagedUser } from './auth.service';
+import { ApiJob, ApiPrinter, ApiJobMaterial, ApiMultiJobInput, ApiDiagnostics, ApiAlerts, ApiSlot, ApiReadiness, ApiInspection, ApiPrinterOperation, ApiScaleMeasurement } from './core/api/generated-contracts';
+import { ConsumptionSnapshot, ConsumptionInput, ConsumptionResult } from './features/print-jobs/consumption-contracts';
 
-export interface Printer {
-  id:number; name:string; kind:'moonraker'|'octoprint'; base_url:string;
-  token_env:string; enabled:number; created_at:string;
-}
-export interface JobMaterial {
-  tool:number; spool_id:number;estimated_g:number;movement_id:number|null;
-  spool_uid:string;brand:string;product_name:string;
-}
+export type Printer = ApiPrinter;
+export type JobMaterial = ApiJobMaterial;
 export interface CloudReceipt {
   source:string;event_id:string;job_id:number;disposition:string;received_at:string;
 }
@@ -21,37 +17,25 @@ export interface PrinterCommand {
   state:'sending'|'acknowledged'|'unknown'|'rejected'|'confirmed'|'cleared';
   http_status:number|null;detail:string;created_at:string;updated_at:string;
 }
-export interface PrintJob {
-  id:number; printer_id:number;printer_name:string;spool_id:number;spool_uid:string;
-  brand:string;product_name:string;file_name:string;estimated_g:number;
-  status:'pending'|'printing'|'completed'|'needs_review'|'cancelled';
-  movement_id:number|null;note:string;external_job_id:string|null;created_at:string;
-  start_command_state:PrinterCommand['state']|null;
-  materials:JobMaterial[];
-}
-export interface JobReadiness {
-  job_id:number;status:string;ready:boolean;reserved:boolean;
-  materials:{tool:number;spool_id:number;estimated_g:number;remaining_g:number;
-    available_g:number;others_reserved_g:number;own_reservation_g:number|null;
-    brand:string;product_name:string;ready:boolean;loaded_match:boolean}[];
-}
-export interface PrinterSlot {tool:number;spool_id:number;spool_uid:string;brand:string;product_name:string;}
-export interface FileInspection {
-  file_stored:boolean;verified:boolean;source:string;needs_manual_estimate:boolean;
-  plates:{plate:number;materials:{tool:number;estimated_g:number}[]}[];
-}
+export type PrintJob = ApiJob;
+export type JobReadiness=ApiReadiness;
+export type PrinterSlot=ApiSlot;
+export type FileInspection=ApiInspection;
+export type PrinterOperation=ApiPrinterOperation;
 export interface AutomationToken {id:number;label:string;scope:'inventory_read'|'events_read';
   created_at:string;revoked_at:string|null;}
 export interface IssuedToken {id:number;label:string;scope:'inventory_read'|'events_read';token:string;warning:string;}
-export interface ScaleMeasurement {
-  id:number;source:string;event_id:string;spool_uid:string;gross_g:number;
-  tare_g:number|null;current_tare_g:number;remaining_g:number;received_at:string;
-  brand:string;product_name:string;status:string;
-}
+export type ScaleMeasurement=ApiScaleMeasurement;
 export interface PrinterInput {name:string;kind:string;base_url:string;token_env:string;enabled:boolean;}
 @Injectable({providedIn:'root'})
 export class WorkspaceService {
   private readonly http=inject(HttpClient);
+  alerts():Promise<ApiAlerts>{return firstValueFrom(this.http.get<ApiAlerts>('/api/alerts'));}
+  printerOperations(id:number):Promise<PrinterOperation[]>{return firstValueFrom(this.http.get<PrinterOperation[]>('/api/printers/'+id+'/operations'));}
+  clearUploadOperation(printerId:number,operationId:string,reason:string):Promise<void>{return firstValueFrom(this.http.post<void>('/api/printers/'+printerId+'/operations/'+encodeURIComponent(operationId)+'/clear',{reason}));}
+  diagnostics():Promise<ApiDiagnostics>{return firstValueFrom(this.http.get<ApiDiagnostics>('/api/diagnostics'));}
+  consumption(id:number):Promise<ConsumptionSnapshot>{return firstValueFrom(this.http.get<ConsumptionSnapshot>('/api/jobs/'+id+'/consumption'));}
+  reconcileConsumption(id:number,body:ConsumptionInput):Promise<ConsumptionResult>{return firstValueFrom(this.http.post<ConsumptionResult>('/api/jobs/'+id+'/consumption',body));}
   printerCapabilities():Promise<PrinterCapabilities>{
     return firstValueFrom(this.http.get<PrinterCapabilities>('/api/printers/capabilities'));
   }
@@ -83,8 +67,7 @@ export class WorkspaceService {
   controlPrinter(printerId:number,action:'pause'|'resume'|'cancel'):Promise<void>{
     return firstValueFrom(this.http.post<void>('/api/printers/'+printerId+'/control',{action}));
   }
-  createMultiJob(body:{printer_id:number;file_name:string;note:string;
-    materials:{tool:number;spool_id:number;estimated_g:number}[]}):Promise<{id:number}>{
+  createMultiJob(body:ApiMultiJobInput):Promise<{id:number}>{
     return firstValueFrom(this.http.post<{id:number}>('/api/jobs/multi',body));
   }
   readiness(jobId:number):Promise<JobReadiness> {

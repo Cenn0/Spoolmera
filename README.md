@@ -13,6 +13,7 @@
 ## Features
 
 - **Angular 22 Material Workspace**: responsive dashboard, searchable spool inventory, product catalog, movement ledger and capability pages.
+- **English and German interface**: instant language selection on sign-in and inside the app, saved browser preference, localized numbers/dates/prices and printable labels. Open forms retain their values when switching languages.
 - Dashboard for total stock, opened spools, low-stock warnings, and material distribution.
 - Separate product catalogue (brand, material, color, diameter) and physical spool inventory.
 - Per-spool starting weight, remaining weight, storage location, condition, and notes.
@@ -38,6 +39,24 @@ Available in v0.6: session-based authentication and role-based users; local Moon
 - Currency-aware purchase-cost estimates, admin SQLite backup download and fail-closed offline restore.
 
 See [feature details and status](docs/roadmap-implementation.md).
+
+### v0.10.0 review completion (experimental)
+
+- Actual and partial job consumption, explicit zero use and linked corrections, with current measurements when earlier weighing would otherwise be counted twice.
+- Revision-aware scale review and restart-safe material mappings, including a single nonzero tool such as T3.
+- Durable per-printer start/upload coordination, fresh stock checks and explicit review of uncertain operations.
+- Complete printer-slot, import-preview and purchase-metadata workflows with role-appropriate controls.
+- Searchable, paginated movement history and archive, audited reactivation, atomic batch registration and multi-label printing.
+- Product restock targets with physical stock and advisory reservations shown separately.
+- Supervised polling, an operations view, bounded online backups and validated offline restore that preserves runtime ownership.
+- Optional targeted notifications with isolated credentials and recovery-aware deduplication.
+- Generated API contracts, hash-locked Python dependencies, pinned base images and versioned CI test artifacts.
+
+See [implementation and validation](docs/implementation-2026-10-09.md) and [build inputs and updates](docs/build-reproducibility.md).
+
+### Interface language
+
+Select **English** or **Deutsch** in the language selector on the sign-in page or in the application header. The first visit follows the browser's supported language preferences and falls back to English. An explicit choice is saved for that browser and applies after signing out or reloading. Product names, notes, file names, configured currencies and stored API values retain their original meaning. See [language behavior and translation maintenance](docs/interface-languages.md).
 
 **Hardware and interoperability limits:** Native Bambu/Prusa cloud control, complete Spoolman API emulation, unassisted OpenPrintTag decoding, OIDC/SSO and direct USB load-cell drivers are **not implemented**. No real device has been certified. The default one-container deployment works without the optional integrations.
 
@@ -128,7 +147,7 @@ python -m venv .venv
 source .venv/bin/activate
 # Windows PowerShell:
 # .venv\Scripts\Activate.ps1
-python -m pip install -r requirements-dev.txt
+python -m pip install --require-hashes -r requirements-dev.txt
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8765
 ```
 
@@ -147,6 +166,7 @@ Type-check and build Angular:
 ```bash
 cd frontend
 npm run typecheck
+npm test
 npm run build
 ```
 
@@ -180,9 +200,9 @@ Configuration:
 
 ### Migrations and backups
 
-Schema v5 adds durable printer commands, observed print runs, accounting state, actor/source-aware stock movements, worker leases and polling diagnostics. It extends v4 multi-material mapping and signed cloud receipts while retaining older UUIDs, numeric IDs and history. The earlier v0.2 migration added UUIDs to existing products and spools in-place, keeping their numeric IDs and movement history. Before upgrading an existing installation, **take a consistent SQLite backup** (via SQLite backup API or a stopped container and its volume data). The migration is designed to be idempotent but does not replace a backup.
+Schema v10 adds stock revisions, measurement anchors, reviewed consumption totals, per-printer operation state, batch retry identities and restock targets. Version-gated migrations retain UUIDs, numeric IDs, explicit tool assignments and existing movement history from supported earlier schemas. **Take a consistent SQLite backup before upgrading.** Historical material inconsistencies appear in Operations for deliberate review; migration does not guess which earlier stock movements to correct.
 
-Back up SQLite consistently with its online backup API, not by copying a live database file without a snapshot. Run `python scripts/backup.py /path/to/new-backup.sqlite3 --database /path/to/filaments.sqlite3` on a host with read access to the mounted data volume. The command refuses overwrite and checks backup integrity. Restore only while the application is stopped. See [Architecture and recovery](docs/architecture.md).
+Use the administrator backup download or `python scripts/backup.py /path/to/new-backup.sqlite3 --database /path/to/filaments.sqlite3` with access to the mounted data volume. Backups include committed WAL content and enforce size, time and free-space bounds. Restore only with the application stopped, following [the supported recovery commands](docs/operations.md). Restore validates the application schema, retains damaged target bytes and preserves file ownership. Restored sessions and machine tokens are revoked; sign in again and reissue integration tokens. Run one API process per database.
 
 ## Architecture
 

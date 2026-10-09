@@ -25,11 +25,16 @@ export const csrfInterceptor: HttpInterceptorFn = (request, next) => {
 export class AuthService {
   private readonly http=inject(HttpClient);
   readonly ready=signal(false);
+  readonly error=signal('');
+  readonly signingOut=signal(false);
+  private initialization:Promise<void>|null=null;
+  ensureReady():Promise<void>{return this.ready()?Promise.resolve():(this.initialization ||= this.init());}
   readonly needsSetup=signal(false);
   readonly user=signal<CurrentUser|null>(null);
   readonly isAdmin=computed(()=>this.user()?.role==='admin');
   readonly canEdit=computed(()=>this.user()?.role!=='viewer' && !!this.user());
   async init():Promise<void> {
+    this.error.set('');
     try {
       const status=await firstValueFrom(this.http.get<{needs_setup:boolean}>('/api/auth/status'));
       this.needsSetup.set(status.needs_setup);
@@ -40,9 +45,13 @@ export class AuthService {
           if(!(error instanceof HttpErrorResponse && error.status===401)) throw error;
         }
       }
+    } catch(error) {
+      this.error.set(error instanceof HttpErrorResponse && error.status===0 ? 'Unable to reach the server. Retry loading the sign-in page.' : 'Authentication is unavailable. Retry loading the sign-in page.');
+      throw error;
     } finally { this.ready.set(true); }
   }
   private accept(user:CurrentUser):void {
+    this.error.set('');
     csrfHeader.set(user.csrf_token);
     this.user.set(user);
     this.needsSetup.set(false);
@@ -56,8 +65,11 @@ export class AuthService {
     this.accept(await firstValueFrom(this.http.post<CurrentUser>('/api/auth/login',{username,password})));
   }
   async logout():Promise<void> {
-    await firstValueFrom(this.http.post('/api/auth/logout',{}));
-    this.clear();
+    if(this.signingOut())return;
+    this.signingOut.set(true);this.error.set('');
+    try{await firstValueFrom(this.http.post('/api/auth/logout',{}));this.clear();}
+    catch{this.error.set('Sign out could not be confirmed. Check the connection and retry.');}
+    finally{this.signingOut.set(false);}
   }
   clear():void {csrfHeader.set('');this.user.set(null);}
   async password(old_password:string,new_password:string):Promise<void>{

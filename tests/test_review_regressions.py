@@ -1,5 +1,6 @@
 """Review regressions: authentication, controller contracts and stock accounting."""
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 import time
 
 import pytest
@@ -49,14 +50,14 @@ def test_password_reset_preserves_spaces(workspace):
     user_id = response.json()["id"]
     secret = "  replacement-password-2026  "
     assert client.patch(f"/api/auth/users/{user_id}", json={"password": secret}).status_code == 200
-    with TestClient(application) as other:
+    with closing(TestClient(application)) as other:
         assert other.post("/api/auth/login", json={"username": " space-user ", "password": secret}).status_code == 200
         assert other.post("/api/auth/login", json={"username": "space-user", "password": secret.strip()}).status_code == 401
 
 
 def test_self_password_change_revokes_other_sessions(workspace):
     client, application, _, _, _, _ = workspace
-    with TestClient(application) as other:
+    with closing(TestClient(application)) as other:
         login = other.post("/api/auth/login", json={"username": "testadmin", "password": PASSWORD})
         assert login.status_code == 200
         previous = client.cookies.get(COOKIE)
@@ -99,7 +100,7 @@ def test_last_admin_cannot_be_removed(workspace, changes):
 def test_role_change_revokes_existing_access(workspace):
     client, application, _, _, _, _ = workspace
     user = client.post("/api/auth/users", json={"username": "editor", "password": PASSWORD, "role": "editor"})
-    with TestClient(application) as other:
+    with closing(TestClient(application)) as other:
         assert other.post("/api/auth/login", json={"username": "editor", "password": PASSWORD}).status_code == 200
         assert client.patch(f"/api/auth/users/{user.json()['id']}", json={"role": "viewer"}).status_code == 200
         assert other.get("/api/jobs").status_code == 401

@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from app.auth import audit
 from app.database import session, utc_now
 from app.models import WeighInput, DryingInput
+from app.services.accounting_service import assert_measurement_context, record_measurement_anchor
 
 
 def record_weighing(db_path: Path, spool_id: int, payload: WeighInput, actor_id: int) -> dict:
@@ -13,34 +14,42 @@ def record_weighing(db_path: Path, spool_id: int, payload: WeighInput, actor_id:
 
 
 def record_weighing_in_transaction(db, spool_id: int, payload: WeighInput, actor_id: int) -> dict:
-        spool = db.execute(
-            "SELECT initial_g,remaining_g,tare_g FROM spools WHERE id=? AND archived_at IS NULL",
-            (spool_id,),
-        ).fetchone()
-        if spool is None:
-            raise HTTPException(404, "Active spool not found.")
-        tare = spool["tare_g"] if payload.tare_g is None else payload.tare_g
-        if tare > payload.gross_g:
-            raise HTTPException(422, "Gross weight must not be smaller than empty spool weight.")
-        net = payload.gross_g - tare
-        if net > spool["initial_g"]:
-            raise HTTPException(409, "Measured filament exceeds registered starting weight.")
-        reserved = db.execute("SELECT COALESCE(SUM(reserved_g),0) FROM job_reservations WHERE spool_id=?",
-                              (spool_id,)).fetchone()[0]
-        if net < reserved:
-            raise HTTPException(409, "Measured inventory is below active reservations. Release or reconcile reservations first.")
-        difference = net - spool["remaining_g"]
-        if difference:
-            db.execute(
-                "INSERT INTO movements(spool_id,kind,delta_g,remaining_after_g,note,created_at,actor_id,source) "
-                "VALUES(?,'adjust',?,?,?,?,?,'weighing')",
-                (spool_id, difference, net, payload.note, utc_now(), actor_id),
-            )
-        db.execute("UPDATE spools SET remaining_g=?,tare_g=?, "
-                   "opened=CASE WHEN ? < initial_g THEN 1 ELSE opened END WHERE id=?",
-                   (net, tare, net, spool_id))
-        audit(db, actor_id, "spool_weigh", "spool", spool_id)
-        return {"remaining_g": net, "tare_g": tare, "difference_g": difference}
+    spool = db.execute(
+        "SELECT initial_g,remaining_g,tare_g,stock_revision FROM spools WHERE id=? AND archived_at IS NULL",
+        (spool_id,),
+    ).fetchone()
+    if spool is None:
+        raise HTTPException(404, "Active spool not found.")
+    if (payload.expected_stock_revision is not None and
+            payload.expected_stock_revision != spool["stock_revision"]):
+        raise HTTPException(409, "Spool stock or tare changed. Reload its current state before applying this measurement.")
+    tare = spool["tare_g"] if payload.tare_g is None else payload.tare_g
+    if tare > payload.gross_g:
+        raise HTTPException(422, "Gross weight must not be smaller than empty spool weight.")
+    net = payload.gross_g - tare
+    if net > spool["initial_g"]:
+        raise HTTPException(409, "Measured filament exceeds registered starting weight.")
+    # A measurement taken after a physical print may already include material
+    # that the poller has not booked. Its use must be attributed explicitly.
+    assert_measurement_context(db, spool_id)
+    reserved = db.execute("SELECT COALESCE(SUM(reserved_g),0) FROM job_reservations WHERE spool_id=?",
+                          (spool_id,)).fetchone()[0]
+    if net < reserved:
+        raise HTTPException(409, "Measured inventory is below active reservations. Release or reconcile reservations first.")
+    difference = net - spool["remaining_g"]
+    movement_id = None
+    if difference:
+        movement_id = db.execute(
+            "INSERT INTO movements(spool_id,kind,delta_g,remaining_after_g,note,created_at,actor_id,source) "
+            "VALUES(?,'adjust',?,?,?,?,?,'weighing')",
+            (spool_id, difference, net, payload.note, utc_now(), actor_id),
+        ).lastrowid
+    db.execute("UPDATE spools SET remaining_g=?,tare_g=?, "
+               "opened=CASE WHEN ? < initial_g THEN 1 ELSE opened END WHERE id=?",
+               (net, tare, net, spool_id))
+    record_measurement_anchor(db, spool_id, net, tare, actor_id, payload.note, movement_id=movement_id)
+    audit(db, actor_id, "spool_weigh", "spool", spool_id)
+    return {"remaining_g": net, "tare_g": tare, "difference_g": difference}
 
 
 def record_drying(db_path: Path, spool_id: int, payload: DryingInput, actor_id: int) -> dict:

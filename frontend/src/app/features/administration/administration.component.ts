@@ -1,14 +1,15 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService, ManagedUser } from '../../auth.service';
-import { InventoryService, apiError } from '../../inventory.service';
+import { apiError } from '../../inventory.service';
 import { NoticeService } from '../../dialog.service';
-import { PrintJob, Printer, PrinterInput, PrinterCapabilities, SliceProfiles, WorkspaceService } from '../../workspace.service';
-import { grams } from '../../models';
+import { WorkspaceService } from '../../workspace.service';
+import { I18nService } from '../../core/i18n/i18n.service';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
-@Component({standalone:true,imports:[FormsModule],templateUrl:'../../users.html'})
+@Component({standalone:true,imports:[FormsModule,TranslatePipe],templateUrl:'../../users.html'})
 export class UsersComponent implements OnInit {
-  readonly api=inject(WorkspaceService);readonly auth=inject(AuthService);readonly notice=inject(NoticeService);
+  readonly i18n=inject(I18nService);readonly api=inject(WorkspaceService);readonly auth=inject(AuthService);readonly notice=inject(NoticeService);
   readonly users=signal<ManagedUser[]>([]);readonly error=signal('');readonly busy=signal(false);
   username='';password='';role:'viewer'|'editor'|'admin'='viewer';
   readonly resetFor=signal<number|null>(null);
