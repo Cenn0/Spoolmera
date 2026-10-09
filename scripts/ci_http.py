@@ -10,13 +10,18 @@ from urllib.parse import urlsplit
 
 class DisposableClient:
     def __init__(self, base: str):
-        parsed = urlsplit(base)
-        if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
-            raise ValueError("CI smoke clients only target an explicit loopback HTTP service.")
-        self.base, self.csrf = base.rstrip("/"), ""
+        self.set_base(base)
+        self.csrf = ""
         self.username, self.password = "ci-recovery-admin", secrets.token_urlsafe(32)
         self.client = urllib.request.build_opener(urllib.request.ProxyHandler({}),
                          urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+
+    def set_base(self, base: str) -> None:
+        """Follow a changed ephemeral host port while retaining the test session."""
+        parsed = urlsplit(base)
+        if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
+            raise ValueError("CI smoke clients only target an explicit loopback HTTP service.")
+        self.base = base.rstrip("/")
 
     def call(self, path: str, method: str = "GET", payload=None, *, expected: int = 200,
              headers: dict | None = None, timeout: int = 5):

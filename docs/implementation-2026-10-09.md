@@ -53,7 +53,7 @@ Restored browser sessions and machine tokens are revoked, and the notification i
 
 ## Verification evidence
 
-The complete backend suite was run in a fresh CPython 3.12 environment installed from the new lockfiles using `--require-hashes`: **221 passed, 2 skipped**. The two skipped checks require mapping UID 10001, which this local execution host does not support; the actual Docker recovery gate verifies that boundary on the container platform. A Starlette warning about the existing httpx test adapter remains; it is not a failed test.
+The complete application backend suite was run in a fresh CPython 3.12 environment installed from the new lockfiles using `--require-hashes`: **221 passed, 2 skipped**. Two additional recovery-harness regression tests subsequently passed and join the final CI suite. The two skipped checks require mapping UID 10001, which this local execution host does not support; the actual Docker recovery gate verifies that boundary on the container platform. A Starlette warning about the existing httpx test adapter remains; it is not a failed test.
 
 Frontend verification: **46 tests across 12 files passed**, TypeScript checking passed, and the production Angular build passed without Angular warnings. Generated API contracts match their Pydantic sources. The existing test helpers for multiple user sessions now share a running application instead of accidentally starting a second application lifespan.
 
@@ -68,6 +68,8 @@ The [current PR checks](https://github.com/Cenn0/FilamentManager/pull/8/checks) 
 | `security-audit` | Locked Python runtime and npm runtime dependency audit gates |
 
 Docker and a real browser are not available in the local execution host. Its browser-download endpoint returned HTML rather than an executable archive, so local compilation/component tests are not represented as browser validation. Remote gate results must be read at the tested PR commit. Browser failures retain a trace, screenshot and server log for diagnosis.
+
+The first full CI run exposed two integration issues: the expanded desktop navigation needed its own vertical scroll area, and the recovery harness needed to resolve Docker's dynamic host port after every container restart. Both are corrected without bypassing normal browser clicks or weakening recovery assertions. Recovery failure output now includes bounded, redacted container diagnostics; the extra harness tests verify rebinding while retaining the test session and preserving useful failure evidence.
 
 ## Supported and unverified behavior
 
