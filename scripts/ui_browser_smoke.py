@@ -163,11 +163,24 @@ def run_ui_workflows(browser, errors):
         # scroll lane; scrolling the entire section during a native drag can
         # otherwise cancel the gesture before the browser dispatches drop.
         target = page.locator('.storage-lane[data-location="Lab / Bin C"] .storage-empty')
+        page.evaluate("""() => {
+          window.storageDragEvents=[];
+          for(const type of ['dragstart','dragenter','dragover','drop','dragend']){
+            document.addEventListener(type, event => {
+              if(window.storageDragEvents.length<35){
+                window.storageDragEvents.push({type, target:event.target.tagName+'.'+String(event.target.className).slice(0,80),
+                  prevented:event.defaultPrevented, x:event.clientX,y:event.clientY,
+                  types:[...(event.dataTransfer?.types||[])]});
+              }
+            }, true);
+          }
+        }""")
         source.locator('.drag-handle').hover()
         page.mouse.down()
         target.hover()
         target.hover()
         page.mouse.up()
+        print('Storage drag events:',json.dumps(page.evaluate('window.storageDragEvents ?? []')))
         expect(page.locator('.storage-confirm')).to_be_visible()
         expect(page.get_by_role('button', name='Save location', exact=True)).to_be_disabled()
         assert page.request.get(BASE + '/api/spools/by-uid/' + uid).json()['location'] == before_move['location']
