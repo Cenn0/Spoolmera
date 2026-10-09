@@ -1,5 +1,7 @@
 """Real browser UX regressions. Fixtures are synthetic; no physical printer writes."""
 import os
+import json
+import re
 from pathlib import Path
 from playwright.sync_api import expect
 
@@ -18,6 +20,7 @@ def run_ui_workflows(browser, errors):
     folder = Path(os.environ.get('FILAMENT_BROWSER_ARTIFACT_DIR', '/tmp/filament-ui-previews'))
     folder.mkdir(parents=True, exist_ok=True)
     context = browser.new_context(locale='en-US', color_scheme='dark', viewport={'width': 1440, 'height': 1000})
+    context.tracing.start(screenshots=True, snapshots=True, sources=True)
     page = context.new_page()
     page.on('pageerror', lambda error: errors.append(str(error)))
     try:
@@ -84,7 +87,29 @@ def run_ui_workflows(browser, errors):
         page.locator('.side-nav a[href="/printers"]').click()
         slots = page.request.get(BASE + '/api/printers/1/slots').json()
         page.locator('input[name="slotTool"]').fill('4')
-        page.locator('.palette-spool').first.drag_to(page.locator('.printer-drop-target').first)
+        # Use the documented native mouse sequence: dragover needs two moves in
+        # some engines. Do not synthesize drop events or bypass application guards.
+        # https://playwright.dev/python/docs/input#dragging-manually
+        page.evaluate("""() => {
+          window.printerDragEvents = [];
+          for (const type of ['dragstart','dragenter','dragover','drop','dragend']) {
+            document.addEventListener(type, e => {
+              if (window.printerDragEvents.length < 80) window.printerDragEvents.push({
+                type, target: e.target.tagName + '.' + e.target.className,
+                canceled: e.defaultPrevented, effect: e.dataTransfer?.dropEffect,
+                allowed: e.dataTransfer?.effectAllowed, types: [...(e.dataTransfer?.types ?? [])]
+              });
+            });
+          }
+        }""")
+        source = page.locator('.palette-spool').first
+        target = page.locator('.printer-drop-target').first
+        source.hover()
+        page.mouse.down()
+        target.hover()
+        target.hover()
+        expect(target).to_have_class(re.compile(r'\bdrop-active\b'))
+        page.mouse.up()
         expect(page.locator('select[name="slotSpool"]')).not_to_have_value('0: 0')
         assert page.request.get(BASE + '/api/printers/1/slots').json() == slots
         page.get_by_role('button', name='Save slot assignment', exact=True).click()
@@ -172,6 +197,10 @@ def run_ui_workflows(browser, errors):
         page.screenshot(path=str(folder / 'ui-de-mobile-dark.png'))
         print('UI browser checks passed: real spool/label and printer drops, safe file previews, exact product filtering, light/dark/system, draft persistence, mobile drawer and six viewport widths.')
     except Exception:
+        events = page.evaluate('window.printerDragEvents ?? []')
+        (folder / 'ui-drag-events.json').write_text(json.dumps(events, indent=2))
+        print('Native printer drag events:', json.dumps(events))
+        context.tracing.stop(path=str(folder / 'ui-trace.zip'))
         page.screenshot(path=str(folder / 'failure-ui.png'), full_page=True)
         raise
     finally:
