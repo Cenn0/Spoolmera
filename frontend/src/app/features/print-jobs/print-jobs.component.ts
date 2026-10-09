@@ -6,14 +6,15 @@ import { AuthService } from '../../auth.service';
 import { InventoryService, apiError } from '../../inventory.service';
 import { NoticeService } from '../../dialog.service';
 import { PrintJob, Printer, PrinterCapabilities, SliceProfiles, WorkspaceService, JobReadiness, FileInspection, PrinterOperation } from '../../workspace.service';
-import { grams } from '../../models';
 import { RequestOwner } from '../../core/request-owner';
+import { I18nService, LocalizedMessage, TranslatePipe } from '../../core/i18n';
 import { ConsumptionComponent } from './consumption.component';
 
 type Mapping = {tool: number; spool_id: number; estimated_g: number | null};
 type SlotSuggestion = {tool: number; spool_id: number; name: string; estimated_g: number};
-@Component({standalone: true, imports: [FormsModule, RouterLink, ConsumptionComponent], templateUrl: './print-jobs.component.html'})
+@Component({standalone: true, imports: [FormsModule, RouterLink, ConsumptionComponent, TranslatePipe], templateUrl: './print-jobs.component.html'})
 export class JobsComponent implements OnInit, OnDestroy {
+  readonly i18n=inject(I18nService);
   readonly route=inject(ActivatedRoute);private readonly destroy=inject(DestroyRef);
   readonly focusedJob=signal<number|null>(null);
   readonly api = inject(WorkspaceService); readonly data = inject(InventoryService);
@@ -21,7 +22,7 @@ export class JobsComponent implements OnInit, OnDestroy {
   readonly printers = signal<Printer[]>([]); readonly jobs = signal<PrintJob[]>([]);
   readonly visibleJobs=computed(()=>this.jobs().filter(job=>!this.focusedJob()||job.id===this.focusedJob()));
   readonly operations=signal<Record<number,PrinterOperation[]>>({});
-  readonly busy = signal(false); readonly loading = signal(true); readonly error = signal(''); readonly grams = grams;
+  readonly busy = signal(false); readonly loading = signal(true); private readonly errorValue=signal<string|LocalizedMessage>('');readonly error=computed(()=>this.i18n.t(this.errorValue())); readonly grams=(value:number)=>this.i18n.grams(value);
   readonly readiness = signal<Record<number, JobReadiness>>({});
   readonly inspection = signal<FileInspection | null>(null);
   readonly slotSuggestions = signal<SlotSuggestion[]>([]);
@@ -53,7 +54,7 @@ export class JobsComponent implements OnInit, OnDestroy {
   @HostListener('window:focus')
   async onFocus(): Promise<void> { if (!this.busy()) await this.refresh(); }
   async refresh(): Promise<boolean> {
-    const request = this.refreshOwner.begin(); this.loading.set(true); this.error.set('');
+    const request = this.refreshOwner.begin(); this.loading.set(true); this.errorValue.set('');
     try {
       const [printers, jobs] = await Promise.all([this.api.printers(), this.api.jobs()]);
       if (!this.refreshOwner.owns(request)) return false;
@@ -71,7 +72,7 @@ export class JobsComponent implements OnInit, OnDestroy {
         }
       }
       return true;
-    } catch (error) { if (this.refreshOwner.owns(request)) this.error.set(apiError(error)); return false; }
+    } catch (error) { if (this.refreshOwner.owns(request)) this.errorValue.set(apiError(error)); return false; }
     finally { if (this.refreshOwner.owns(request)) this.loading.set(false); }
   }
   choose(event: Event): void {
@@ -81,7 +82,7 @@ export class JobsComponent implements OnInit, OnDestroy {
     this.fileName = this.upload?.name || '';
     this.inspectionOwner.invalidate(); this.inspection.set(null); this.inspectedFile = null;
     this.firstTool = 0; this.estimatedG = null; this.extraMaterials.set([]);
-    this.invalidateSuggestions(); this.error.set('');
+    this.invalidateSuggestions(); this.errorValue.set('');
   }
   invalidateSuggestions(): void {
     this.suggestionOwner.invalidate(); this.slotSuggestions.set([]); this.suggestionContext = '';
@@ -102,13 +103,13 @@ export class JobsComponent implements OnInit, OnDestroy {
   }
   async inspect(): Promise<void> {
     const file = this.upload; if (!file || this.busy()) return;
-    const request = this.inspectionOwner.begin(); this.busy.set(true); this.error.set(''); this.inspection.set(null);
+    const request = this.inspectionOwner.begin(); this.busy.set(true); this.errorValue.set(''); this.inspection.set(null);
     try {
       const result = await this.api.inspectFile(file);
       if (!this.inspectionOwner.owns(request) || this.upload !== file) return;
       this.inspection.set(result); this.inspectedFile = file; this.plateIndex = 0; this.invalidateSuggestions();
       if (result.needs_manual_estimate) this.notice.show('No reliable material weights were found. Use manual mapping and enter the actual tool numbers and estimates.');
-    } catch (error) { if (this.inspectionOwner.owns(request)) this.error.set(apiError(error)); }
+    } catch (error) { if (this.inspectionOwner.owns(request)) this.errorValue.set(apiError(error)); }
     finally { this.busy.set(false); }
   }
   applyInspection(): void {
@@ -130,9 +131,9 @@ export class JobsComponent implements OnInit, OnDestroy {
   async suggestLoadedSpools(): Promise<void> {
     if (this.busy() || !this.printerId) return;
     const mappings = [{tool: this.firstTool, estimated_g: this.estimatedG || 0}, ...this.extraMaterials().map(m => ({tool: m.tool, estimated_g: m.estimated_g || 0}))];
-    if (mappings.some(m => m.estimated_g <= 0)) { this.error.set('Enter a positive estimate for every tool first.'); return; }
+    if (mappings.some(m => m.estimated_g <= 0)) { this.errorValue.set('Enter a positive estimate for every tool first.'); return; }
     const context = this.mappingKey(), request = this.suggestionOwner.begin();
-    this.busy.set(true); this.error.set(''); this.slotSuggestions.set([]);
+    this.busy.set(true); this.errorValue.set(''); this.slotSuggestions.set([]);
     try {
       const slots = await this.api.printerSlots(this.printerId);
       if (!this.suggestionOwner.owns(request) || this.mappingKey() !== context) return;
@@ -140,105 +141,107 @@ export class JobsComponent implements OnInit, OnDestroy {
         const slot = slots.find(item => item.tool === mapping.tool);
         const spool = this.data.spools().find(item => item.id === slot?.spool_id);
         return spool && spool.remaining_g >= mapping.estimated_g
-          ? [{...mapping, spool_id: spool.id, name: 'Spool #'+spool.id+' · '+spool.brand+' · '+spool.product_name+' · '+spool.color_name}] : [];
+          ? [{...mapping, spool_id: spool.id, name: spool.brand+' · '+spool.product_name+' · '+spool.color_name}] : [];
       });
-      if (proposals.length !== mappings.length) { this.error.set('Some tools have no recorded roll or insufficient material. Assign the rolls manually.'); return; }
+      if (proposals.length !== mappings.length) { this.errorValue.set('Some tools have no recorded roll or insufficient material. Assign the rolls manually.'); return; }
       this.suggestionContext = context; this.slotSuggestions.set(proposals);
-    } catch (error) { if (this.suggestionOwner.owns(request)) this.error.set(apiError(error)); }
+    } catch (error) { if (this.suggestionOwner.owns(request)) this.errorValue.set(apiError(error)); }
     finally { this.busy.set(false); }
   }
   applyLoadedSpools(): void {
     if (this.mappingKey() !== this.suggestionContext) { this.invalidateSuggestions(); return; }
     const suggestions = this.slotSuggestions();
-    if (!suggestions.length || !window.confirm('Use these recorded slot assignments? Verify the physical rolls loaded in the printer.')) return;
+    if (!suggestions.length || !window.confirm(this.i18n.t('Use these recorded slot assignments? Verify the physical rolls loaded in the printer.'))) return;
     this.spoolId = suggestions.find(item => item.tool === this.firstTool)?.spool_id || 0;
     this.extraMaterials.update(items => items.map(item => ({...item, spool_id: suggestions.find(s => s.tool === item.tool)?.spool_id || 0})));
     this.invalidateSuggestions();
   }
   async checkReadiness(job: PrintJob): Promise<void> {
-    if (this.busy()) return; this.busy.set(true); this.error.set('');
+    if (this.busy()) return; this.busy.set(true); this.errorValue.set('');
     try { const result = await this.api.readiness(job.id); this.readiness.update(old => ({...old, [job.id]: result})); }
-    catch (error) { this.error.set(apiError(error)); } finally { this.busy.set(false); }
+    catch (error) { this.errorValue.set(apiError(error)); } finally { this.busy.set(false); }
   }
   async setReservation(job: PrintJob, enabled: boolean): Promise<void> {
-    if (this.busy()) return; this.busy.set(true); this.error.set('');
+    if (this.busy()) return; this.busy.set(true); this.errorValue.set('');
     try { const result = enabled ? await this.api.reserve(job.id) : await this.api.release(job.id);
       this.readiness.update(old => ({...old, [job.id]: result})); this.notice.show(enabled ? 'Material reserved. No stock was consumed.' : 'Reservation released.');
-    } catch (error) { this.error.set(apiError(error)); } finally { this.busy.set(false); }
+    } catch (error) { this.errorValue.set(apiError(error)); } finally { this.busy.set(false); }
   }
   chooseStl(event: Event): void { this.stlFile = (event.target as HTMLInputElement).files?.[0] || null; }
   async sliceModel(): Promise<void> {
     const file = this.stlFile; if (!file || !this.sliceProfile || this.busy()) return;
-    this.busy.set(true); this.error.set('');
+    this.busy.set(true); this.errorValue.set('');
     try {
       const result = await this.api.sliceStl(file, this.sliceProfile), url = URL.createObjectURL(result.content);
       const anchor = document.createElement('a'); anchor.href = url; anchor.download = file.name.replace(/\.stl$/i, '.gcode');
       document.body.appendChild(anchor); anchor.click(); anchor.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 30000);
-      this.notice.show('G-code generated' + (result.estimated ? ' · estimated ' + result.estimated + ' g' : '') + '. Inspect it before printing.');
-    } catch (error) { this.error.set(apiError(error)); } finally { this.busy.set(false); }
+      this.notice.show(result.estimated
+        ? this.i18n.message('G-code generated · estimated {amount} g. Inspect it before printing.', {amount: Number.isFinite(Number(result.estimated)) ? Number(result.estimated) : result.estimated})
+        : 'G-code generated. Inspect it before printing.');
+    } catch (error) { this.errorValue.set(apiError(error)); } finally { this.busy.set(false); }
   }
   async uploadPending(job: PrintJob, event: Event): Promise<void> {
     const input = event.target as HTMLInputElement, file = input.files?.[0]; input.value = '';
     if (!file || this.busy() || this.uncertainUploads().includes(job.printer_id) || (this.operations()[job.printer_id]||[]).length) return;
-    if (file.name !== job.file_name) { this.error.set('Choose the exact registered G-code filename.'); return; }
-    if (!window.confirm('Upload ' + file.name + ' to ' + job.printer_name + '?')) return;
-    this.busy.set(true);this.error.set('');let failure='';this.uncertainUploads.update(ids=>[...ids,job.printer_id]);
+    if (file.name !== job.file_name) { this.errorValue.set('Choose the exact registered G-code filename.'); return; }
+    if (!window.confirm(this.i18n.t('Upload {file} to {printer}?', {file:file.name,printer:job.printer_name}))) return;
+    this.busy.set(true);this.errorValue.set('');let failure='';this.uncertainUploads.update(ids=>[...ids,job.printer_id]);
     try{await this.api.uploadJob(job.id,file);this.notice.show('File transferred. Print not started.');}
     catch(error){failure=apiError(error);}
-    finally{const refreshed=await this.refresh();if(!refreshed&&failure)this.uncertainUploads.update(ids=>ids.includes(job.printer_id)?ids:[...ids,job.printer_id]);if(failure)this.error.set(failure+' Review the printer operation before retrying an uncertain upload.');this.busy.set(false);}
+    finally{const refreshed=await this.refresh();if(!refreshed&&failure)this.uncertainUploads.update(ids=>ids.includes(job.printer_id)?ids:[...ids,job.printer_id]);if(failure)this.errorValue.set(this.i18n.message('{error} Review the printer operation before retrying an uncertain upload.',{error:this.i18n.message(failure)}));this.busy.set(false);}
   }
   async clearStart(job: PrintJob): Promise<void> {
     if (!this.auth.isAdmin() || this.busy() || this.clearFor() !== job.id || this.clearReason.trim().length < 10) return;
-    if (!window.confirm('Have you checked that the printer is idle and this previous operation is no longer running? Releasing it permits a later operation.')) return;
-    this.busy.set(true); this.error.set('');
+    if (!window.confirm(this.i18n.t('Have you checked that the printer is idle and this previous operation is no longer running? Releasing it permits a later operation.'))) return;
+    this.busy.set(true); this.errorValue.set('');
     try {
       const commands = await this.api.jobCommands(job.id), last = commands.find(item => item.action === 'start');
       if (!last || !['unknown', 'acknowledged', 'confirmed'].includes(last.state)) throw new Error('No releasable start command was found. Refresh the job state.');
       await this.api.clearPrinterCommand(last.id, this.clearReason.trim());
       this.clearFor.set(null); this.clearReason = ''; await this.refresh(); this.notice.show('Start command cleared after verification.');
-    } catch (error) { this.error.set(apiError(error)); } finally { this.busy.set(false); }
+    } catch (error) { this.errorValue.set(apiError(error)); } finally { this.busy.set(false); }
   }
   async start(job: PrintJob): Promise<void> {
     if (!this.auth.isAdmin() || this.busy() || this.uncertainStarts().includes(job.id) || this.uncertainUploads().includes(job.printer_id) || (job.start_command_state&&job.start_command_state!=='cleared') || (this.operations()[job.printer_id]||[]).length) return;
-    if (!window.confirm('Start ' + job.file_name + ' on ' + job.printer_name + '? The printer will physically begin printing.')) return;
-    this.busy.set(true); this.error.set(''); this.uncertainStarts.update(ids => [...ids, job.id]);
+    if (!window.confirm(this.i18n.t('Start {file} on {printer}? The printer will physically begin printing.',{file:job.file_name,printer:job.printer_name}))) return;
+    this.busy.set(true); this.errorValue.set(''); this.uncertainStarts.update(ids => [...ids, job.id]);
     let failure = '';
     try { await this.api.startJob(job.id); this.notice.show('Start acknowledged. Waiting for independently observed printer progress.'); }
     catch (error) { failure = apiError(error); }
     finally {
       const refreshed = await this.refresh();
       if (!refreshed) this.uncertainStarts.update(ids => ids.includes(job.id) ? ids : [...ids, job.id]);
-      if (failure) this.error.set(failure + (refreshed ? ' Review the refreshed command state.' : ' Start outcome is unknown. Refresh and verify the printer before retrying.'));
+      if (failure) this.errorValue.set(this.i18n.message(refreshed ? '{error} Review the refreshed command state.' : '{error} Start outcome is unknown. Refresh and verify the printer before retrying.', {error:this.i18n.message(failure)}));
       this.busy.set(false);
     }
   }
   async submit(): Promise<void> {
     if (this.busy() || !this.auth.canEdit()) return;
-    if (this.upload) { this.error.set('Inspect and apply the selected file, or switch to manual mapping first.'); return; }
+    if (this.upload) { this.errorValue.set('Inspect and apply the selected file, or switch to manual mapping first.'); return; }
     const materials = [{tool: this.firstTool, spool_id: this.spoolId, estimated_g: this.estimatedG}, ...this.extraMaterials()];
     if (!this.printerId || !this.fileName.trim() || materials.some(m => !Number.isInteger(m.tool) || m.tool < 0 || m.tool > 15 || !m.spool_id || !Number.isInteger(m.estimated_g) || Number(m.estimated_g) <= 0)) {
-      this.error.set('Select a printer and each physical roll, and enter tool numbers 0–15 and positive whole-gram estimates.'); return;
+      this.errorValue.set('Select a printer and each physical roll, and enter tool numbers 0–15 and positive whole-gram estimates.'); return;
     }
-    if (new Set(materials.map(m => m.tool)).size !== materials.length) { this.error.set('Each tool number must be unique.'); return; }
-    this.busy.set(true); this.error.set('');
+    if (new Set(materials.map(m => m.tool)).size !== materials.length) { this.errorValue.set('Each tool number must be unique.'); return; }
+    this.busy.set(true); this.errorValue.set('');
     try {
       await this.api.createMultiJob({printer_id: this.printerId, file_name: this.fileName.trim(), note: this.note,
         materials: materials.map(m => ({...m, estimated_g: Number(m.estimated_g)}))});
       this.fileName = ''; this.upload = null; this.estimatedG = null; this.note = ''; this.firstTool = 0;
       this.extraMaterials.set([]); this.inspection.set(null); this.invalidateSuggestions(); await this.refresh();
       this.notice.show('Print-job mapping registered. Transfer and start the file separately when ready.');
-    } catch (error) { this.error.set(apiError(error)); } finally { this.busy.set(false); }
+    } catch (error) { this.errorValue.set(apiError(error)); } finally { this.busy.set(false); }
   }
   async poll(printerId: number): Promise<void> {
-    if (this.busy()) return; this.busy.set(true); this.error.set('');
-    try { const state = await this.api.poll(printerId); await this.refresh(); this.notice.show('Printer: ' + state.state + ' · ' + state.updated_jobs + ' job(s) updated.'); }
-    catch (error) { this.error.set(apiError(error)); } finally { this.busy.set(false); }
+    if (this.busy()) return; this.busy.set(true); this.errorValue.set('');
+    try { const state = await this.api.poll(printerId); await this.refresh(); this.notice.show(this.i18n.message('Printer: {state} · {jobs} job(s) updated.',{state:this.i18n.message(state.state),jobs:state.updated_jobs})); }
+    catch (error) { this.errorValue.set(apiError(error)); } finally { this.busy.set(false); }
   }
   async cancel(job: PrintJob): Promise<void> {
-    if (this.busy() || !window.confirm('Stop tracking this job? The physical printer will continue. Review any material it has consumed.')) return;
-    this.busy.set(true); this.error.set('');
+    if (this.busy() || !window.confirm(this.i18n.t('Stop tracking this job? The physical printer will continue. Review any material it has consumed.'))) return;
+    this.busy.set(true); this.errorValue.set('');
     try { await this.api.cancelJob(job.id); await this.refresh(); this.notice.show('Tracking stopped. Review material consumption separately.'); }
-    catch (error) { this.error.set(apiError(error)); } finally { this.busy.set(false); }
+    catch (error) { this.errorValue.set(apiError(error)); } finally { this.busy.set(false); }
   }
   async accountingSaved(): Promise<void> { this.accountingJob.set(null); await this.refresh(); }
 }

@@ -13,6 +13,7 @@
 ## Features
 
 - **Angular 22 Material Workspace**: responsive dashboard, searchable spool inventory, product catalog, movement ledger and capability pages.
+- **English and German interface**: instant language selection on sign-in and inside the app, saved browser preference, localized numbers/dates/prices and printable labels. Open forms retain their values when switching languages.
 - Dashboard for total stock, opened spools, low-stock warnings, and material distribution.
 - Separate product catalogue (brand, material, color, diameter) and physical spool inventory.
 - Per-spool starting weight, remaining weight, storage location, condition, and notes.
@@ -52,6 +53,10 @@ See [feature details and status](docs/roadmap-implementation.md).
 - Generated API contracts, hash-locked Python dependencies, pinned base images and versioned CI test artifacts.
 
 See [implementation and validation](docs/implementation-2026-10-09.md) and [build inputs and updates](docs/build-reproducibility.md).
+
+### Interface language
+
+Select **English** or **Deutsch** in the language selector on the sign-in page or in the application header. The first visit follows the browser's supported language preferences and falls back to English. An explicit choice is saved for that browser and applies after signing out or reloading. Product names, notes, file names, configured currencies and stored API values retain their original meaning. See [language behavior and translation maintenance](docs/interface-languages.md).
 
 **Hardware and interoperability limits:** Native Bambu/Prusa cloud control, complete Spoolman API emulation, unassisted OpenPrintTag decoding, OIDC/SSO and direct USB load-cell drivers are **not implemented**. No real device has been certified. The default one-container deployment works without the optional integrations.
 

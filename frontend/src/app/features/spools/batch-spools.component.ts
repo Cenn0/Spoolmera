@@ -1,3 +1,4 @@
+import { I18nService, TranslatePipe } from '../../core/i18n';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -5,14 +6,15 @@ import { AuthService } from '../../auth.service';
 import { InventoryService, apiError } from '../../inventory.service';
 import { NoticeService } from '../../dialog.service';
 import { ApiSpoolBatch } from '../../core/api/generated-contracts';
-import { SpoolInput, grams, money } from '../../models';
+import { SpoolInput } from '../../models';
 
-@Component({standalone:true,imports:[FormsModule,RouterLink],templateUrl:'./batch-spools.component.html'})
+@Component({standalone:true,imports:[TranslatePipe,FormsModule,RouterLink],templateUrl:'./batch-spools.component.html'})
 export class BatchSpoolsComponent {
+  readonly i18n=inject(I18nService);
   readonly data=inject(InventoryService);readonly auth=inject(AuthService);readonly notice=inject(NoticeService);
   readonly busy=signal(false);readonly error=signal('');readonly result=signal<ApiSpoolBatch|null>(null);
   readonly preview=signal<{count:number;spool:SpoolInput;product:string;requestId:string}|null>(null);readonly uncertain=signal(false);
-  readonly grams=grams;readonly money=money;
+  readonly grams=(value:number)=>this.i18n.grams(value);readonly money=(cents:number|null|undefined,currency:string)=>this.i18n.money(cents,currency);
   count=2;confirmed=false;labelSize='60x40';
   spool:SpoolInput={product_id:0,initial_g:1000,remaining_g:null,opened:false,location:'',notes:'',tare_g:0,
     purchase_price_cents:null,purchase_currency:'EUR',purchased_on:null,batch:''};
@@ -33,7 +35,7 @@ export class BatchSpoolsComponent {
     return '/labels?uids='+result.items.map(spool=>spool.uid).join(',')+'&size='+this.labelSize;
   }
   acknowledgeCheck():void{
-    if(window.confirm('Have you checked the inventory and verified whether the previous batch was created?')){
+    if(window.confirm(this.i18n.t('Have you checked the inventory and verified whether the previous batch was created?'))){
       this.uncertain.set(false);this.changed();
     }
   }
@@ -47,11 +49,11 @@ export class BatchSpoolsComponent {
     this.busy.set(true);this.error.set('');
     try{
       this.result.set(await this.data.createBatch(preview.count,preview.spool,preview.requestId));this.uncertain.set(false);this.preview.set(null);this.confirmed=false;
-      this.notice.show('Registered '+preview.count+' physical spools with individual labels.');
+      this.notice.show(this.i18n.message('Registered {count} physical spools with individual labels.',{count:preview.count}));
     }catch(error){
       const status=(error as {status?:number}).status;
       if(!status||status>=500)this.uncertain.set(true);
-      this.error.set(apiError(error)+(this.uncertain()?' The response is uncertain. Retry this confirmed batch to retrieve the same result, or check the inventory before preparing another batch.':''));
+      this.error.set(apiError(error));
     }finally{this.busy.set(false);}
   }
 }

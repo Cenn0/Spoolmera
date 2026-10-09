@@ -1,43 +1,43 @@
 <dialog #dialog class="modal wide-modal" (cancel)="close($event)" (close)="close()" aria-labelledby="consumption-title">
-  <header class="modal-header"><div><span class="eyebrow">JOB {{job().id}}</span><h2 id="consumption-title">Review consumption</h2></div><button class="close-button" type="button" aria-label="Close consumption review" [disabled]="busy()" (click)="close()">×</button></header>
+  <header class="modal-header"><div><span class="eyebrow">{{'JOB {job}'|t:{job:''+job().id} }}</span><h2 id="consumption-title">{{'Review consumption'|t}}</h2></div><button class="close-button" type="button" [attr.aria-label]="'Close consumption review'|t" [disabled]="busy()" (click)="close()">×</button></header>
   <div class="modal-body">
-    <p class="helper">{{job().file_name}} · Enter the total material used by this job, including partial or failed prints. An existing booking is corrected by the difference; the original estimate is preserved.</p>
-    @if(error()){<div class="form-error" role="alert">{{error()}}</div>}
-    @if(loading()){<p role="status">Loading current job balances…</p>}
+    <p class="helper">{{job().file_name}} · {{'Enter the total material used by this job, including partial or failed prints. An existing booking is corrected by the difference; the original estimate is preserved.'|t}}</p>
+    @if(error()){<div class="form-error" role="alert">{{error()|t}}</div>}
+    @if(loading()){<p role="status">{{'Loading current job balances…'|t}}</p>}
     @if(snapshot();as state){
-      <p class="helper">Print: {{state.status}} · Consumption: {{state.accounting_status}} · Previously recorded as {{state.accounting_method || 'not yet reviewed'}}</p>
+      <p class="helper">{{'Print:'|t}} {{state.status|t}} · {{'Consumption:'|t}} {{state.accounting_status|t}} · {{'Previously recorded as'|t}} {{(state.accounting_method || 'not yet reviewed')|t}}</p>
       <form #form="ngForm" (ngSubmit)="submit()">
         <fieldset [disabled]="busy() || loading() || conflict()">
-          <label>How should consumption be recorded?
-            <select name="mode" [(ngModel)]="mode" (ngModelChange)="changed()"><option value="actual">Actual measured or confirmed use</option><option value="estimated">Use the original estimate</option><option value="discard">No material used</option></select>
+          <label>{{'How should consumption be recorded?'|t}}
+            <select name="mode" [(ngModel)]="mode" (ngModelChange)="changed()"><option value="actual">{{'Actual measured or confirmed use'|t}}</option><option value="estimated">{{'Use the original estimate'|t}}</option><option value="discard">{{'No material used'|t}}</option></select>
           </label>
           @for(material of state.materials;track material.spool_id;let index=$index){
             <section class="reconciliation-material">
-              <h3>{{material.brand}} · {{material.product_name}} · Spool #{{material.spool_id}} @if(material.archived){<span class="badge">Archived</span>}</h3>
-              <p class="helper">Estimated {{grams(material.estimated_g)}} · Already accounted {{grams(material.accounted_g)}} · Current stock {{grams(material.remaining_g)}}</p>
-              @if(material.measurement_reconciliation_required){<p class="helper">This roll was weighed after an earlier job booking: {{grams(material.last_measured_g ?? material.remaining_g)}} at {{dateText(material.last_measured_at)}}. Changing this job’s total requires a current measurement.</p>}
+              <h3>{{material.brand}} · {{material.product_name}} · {{'Spool #{id}'|t:{id:''+material.spool_id} }} @if(material.archived){<span class="badge">{{'Archived'|t}}</span>}</h3>
+              <p class="helper">{{'Estimated {estimated} · Already accounted {accounted} · Current stock {stock}'|t:{estimated:grams(material.estimated_g),accounted:grams(material.accounted_g),stock:grams(material.remaining_g)} }}</p>
+              @if(material.measurement_reconciliation_required){<p class="helper">{{'This roll was weighed after an earlier job booking: {weight} at {date}. Changing this job’s total requires a current measurement.'|t:{weight:grams(material.last_measured_g ?? material.remaining_g),date:dateText(material.last_measured_at)} }}</p>}
               <div class="form-grid">
                 @if(mode==='actual'){
-                  <label>Total actual use (g)<input [name]="'actual'+index" type="number" min="0" [max]="material.initial_g" step="1" required [(ngModel)]="rows[index].actual_g" (ngModelChange)="changed()" placeholder="Explicit amount, including 0"></label>
-                }@else{<p>New job total: <strong>{{mode==='estimated'?grams(material.estimated_g):'0 g'}}</strong></p>}
-                <div><span class="helper">Resulting stock</span><p><strong>{{expectedBalance(index)===null?'Enter the required values':grams(expectedBalance(index)!)}}</strong></p></div>
-                <label class="checkbox-row full"><input type="checkbox" [name]="'measured'+index" [(ngModel)]="rows[index].measured" (ngModelChange)="changed()"> Include a current scale measurement @if(measurementRequired(index)){<strong>(required for this correction)</strong>}</label>
+                  <label>{{'Total actual use (g)'|t}}<input [name]="'actual'+index" type="number" min="0" [max]="material.initial_g" step="1" required [(ngModel)]="rows[index].actual_g" (ngModelChange)="changed()" [placeholder]="'Explicit amount, including 0'|t"></label>
+                }@else{<p>{{'New job total:'|t}} <strong>{{mode==='estimated'?grams(material.estimated_g):grams(0)}}</strong></p>}
+                <div><span class="helper">{{'Resulting stock'|t}}</span><p><strong>{{expectedBalance(index)===null?('Enter the required values'|t):grams(expectedBalance(index)!)}}</strong></p></div>
+                <label class="checkbox-row full"><input type="checkbox" [name]="'measured'+index" [(ngModel)]="rows[index].measured" (ngModelChange)="changed()"> {{'Include a current scale measurement'|t}} @if(measurementRequired(index)){<strong>{{'(required for this correction)'|t}}</strong>}</label>
                 @if(rows[index].measured){
-                  <label>Gross weight (g)<input [name]="'gross'+index" type="number" min="0" max="200000" step="1" required [(ngModel)]="rows[index].gross_g" (ngModelChange)="changed()"></label>
-                  <label>Tare weight (g)<input [name]="'tare'+index" type="number" min="0" max="100000" step="1" required [(ngModel)]="rows[index].tare_g" (ngModelChange)="changed()"></label>
-                  <p class="helper full">{{measurementRequired(index)?'Gross − tare becomes the final stock balance. The job correction and measurement adjustment are recorded together.':'Gross − tare must match the resulting stock. The measurement and job consumption are saved together.'}}</p>
+                  <label>{{'Gross weight (g)'|t}}<input [name]="'gross'+index" type="number" min="0" max="200000" step="1" required [(ngModel)]="rows[index].gross_g" (ngModelChange)="changed()"></label>
+                  <label>{{'Tare weight (g)'|t}}<input [name]="'tare'+index" type="number" min="0" max="100000" step="1" required [(ngModel)]="rows[index].tare_g" (ngModelChange)="changed()"></label>
+                  <p class="helper full">{{(measurementRequired(index)?'Gross − tare becomes the final stock balance. The job correction and measurement adjustment are recorded together.':'Gross − tare must match the resulting stock. The measurement and job consumption are saved together.')|t}}</p>
                 }
               </div>
             </section>
           }
-          <label>Reason<textarea name="reason" [(ngModel)]="reason" (ngModelChange)="changed()" required minlength="3" maxlength="1000" rows="2" placeholder="For example: stopped after the first layer, 12 g including purge"></textarea></label>
-          <label class="checkbox-row"><input name="confirmed" type="checkbox" [(ngModel)]="confirmed"> I have checked the physical spools and confirm these consumption totals.</label>
+          <label>{{'Reason'|t}}<textarea name="reason" [(ngModel)]="reason" (ngModelChange)="changed()" required minlength="3" maxlength="1000" rows="2" [placeholder]="'For example: stopped after the first layer, 12 g including purge'|t"></textarea></label>
+          <label class="checkbox-row"><input name="confirmed" type="checkbox" [(ngModel)]="confirmed"> {{'I have checked the physical spools and confirm these consumption totals.'|t}}</label>
         </fieldset>
-        <footer class="modal-footer"><button class="btn ghost" type="button" [disabled]="busy()||loading()" (click)="reload()">Reload balances</button><button class="btn primary" type="submit" [disabled]="busy()||loading()||conflict()||form.invalid||!confirmed">{{busy()?'Saving…':'Confirm consumption'}}</button></footer>
+        <footer class="modal-footer"><button class="btn ghost" type="button" [disabled]="busy()||loading()" (click)="reload()">{{'Reload balances'|t}}</button><button class="btn primary" type="submit" [disabled]="busy()||loading()||conflict()||form.invalid||!confirmed">{{(busy()?'Saving…':'Confirm consumption')|t}}</button></footer>
       </form>
-      <h3 class="modal-section-title">Previous reviews</h3>
-      @for(operation of state.operations;track operation.id){<div class="detail-movement"><span>{{dateText(operation.created_at)}}</span><strong>{{operation.mode}}</strong><small>{{operation.actor_name || 'Automatic / previous data'}} · {{operation.reason}}</small></div>}@empty{<p class="helper">This job has no previous consumption review.</p>}
-      <a class="text-link" routerLink="/history" [queryParams]="{job:job().id}" (click)="close()">Open this job’s movement history →</a>
-    }@else if(!loading()){<button class="btn ghost" type="button" (click)="reload()">Retry loading balances</button>}
+      <h3 class="modal-section-title">{{'Previous reviews'|t}}</h3>
+      @for(operation of state.operations;track operation.id){<div class="detail-movement"><span>{{dateText(operation.created_at)}}</span><strong>{{operation.mode|t}}</strong><small>{{operation.actor_name || ('Automatic / previous data'|t)}} · {{operation.actor_id===null?(operation.reason|t):operation.reason}}</small></div>}@empty{<p class="helper">{{'This job has no previous consumption review.'|t}}</p>}
+      <a class="text-link" routerLink="/history" [queryParams]="{job:job().id}" (click)="close()">{{'Open this job’s movement history →'|t}}</a>
+    }@else if(!loading()){<button class="btn ghost" type="button" (click)="reload()">{{'Retry loading balances'|t}}</button>}
   </div>
 </dialog>

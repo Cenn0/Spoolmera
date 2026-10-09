@@ -1,3 +1,4 @@
+import { I18nService, TranslatePipe } from '../../core/i18n';
 import { Component, OnDestroy, computed, inject, signal, effect, untracked } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
@@ -7,14 +8,15 @@ import { CloudReceipt, Printer, WorkspaceService } from '../../workspace.service
 import { RouterLink } from '@angular/router';
 import { DialogService, NoticeService } from '../../dialog.service';
 import { InventoryService, apiError } from '../../inventory.service';
-import { Capabilities, dateText, grams, stockPercent } from '../../models';
+import { Capabilities, stockPercent } from '../../models';
 
 @Component({
   standalone: true,
-  imports: [RouterLink],
+  imports:[TranslatePipe,RouterLink],
   templateUrl:'./dashboard.component.html'
 })
 export class DashboardComponent implements OnDestroy {
+  readonly i18n=inject(I18nService);
   private readonly http=inject(HttpClient);
   readonly costs=signal<{consumed_g:number;currency_groups:{currency:string;consumed_g:number;known_cost_cents:number;unpriced_g:number}[];estimated:boolean}|null>(null);
   readonly costError=signal('');readonly costsLoading=signal(false);private readonly requests=new RequestOwner();
@@ -30,8 +32,8 @@ export class DashboardComponent implements OnDestroy {
   readonly data = inject(InventoryService);
   readonly dialogs = inject(DialogService);
   readonly auth = inject(AuthService);
-  readonly grams = grams;
-  readonly dateText = dateText;
+  readonly grams=(value:number)=>this.i18n.grams(value);
+  readonly dateText=(value:string|null|undefined)=>this.i18n.dateText(value);
   readonly percent = stockPercent;
   readonly low = this.data.lowStock;
   readonly materialStock = computed(() => {

@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, OnInit, effect, inject, input, output, signal, viewChild } from '@angular/core';
+import { Component, computed, ElementRef, OnDestroy, OnInit, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../auth.service';
@@ -7,20 +7,21 @@ import { NoticeService } from '../../dialog.service';
 import { PrintJob, WorkspaceService } from '../../workspace.service';
 import { ConsumptionInput, ConsumptionSnapshot } from './consumption-contracts';
 import { RequestOwner } from '../../core/request-owner';
-import { dateText, grams } from '../../models';
+import { I18nService, LocalizedMessage, TranslatePipe } from '../../core/i18n';
 
 interface ActualRow {spool_id:number;actual_g:number|null;measured:boolean;gross_g:number|null;tare_g:number;}
 
-@Component({selector:'fm-consumption',standalone:true,imports:[FormsModule,RouterLink],templateUrl:'./consumption.component.html'})
+@Component({selector:'fm-consumption',standalone:true,imports:[FormsModule,RouterLink,TranslatePipe],templateUrl:'./consumption.component.html'})
 export class ConsumptionComponent implements OnInit, OnDestroy {
+  readonly i18n=inject(I18nService);
   readonly job=input.required<PrintJob>();
   readonly closed=output<void>();readonly saved=output<void>();
   readonly api=inject(WorkspaceService);readonly auth=inject(AuthService);
   readonly data=inject(InventoryService);readonly notice=inject(NoticeService);
   readonly modal=viewChild<ElementRef<HTMLDialogElement>>('dialog');
   readonly snapshot=signal<ConsumptionSnapshot|null>(null);
-  readonly loading=signal(false);readonly busy=signal(false);readonly error=signal('');
-  readonly conflict=signal(false);readonly grams=grams;readonly dateText=dateText;
+  readonly loading=signal(false);readonly busy=signal(false);private readonly errorValue=signal<string|LocalizedMessage>('');readonly error=computed(()=>this.i18n.t(this.errorValue()));
+  readonly conflict=signal(false);readonly grams=(value:number)=>this.i18n.grams(value);readonly dateText=(value:string|null|undefined)=>this.i18n.dateText(value);
   private readonly requests=new RequestOwner();
   private submitted:{fingerprint:string;requestId:string}|null=null;
   rows:ActualRow[]=[];mode:'actual'|'estimated'|'discard'='actual';reason='';confirmed=false;
@@ -31,14 +32,14 @@ export class ConsumptionComponent implements OnInit, OnDestroy {
   changed():void{this.confirmed=false;}
   async reload():Promise<void>{
     if(this.busy())return;
-    const owner=this.requests.begin();this.loading.set(true);this.error.set('');
+    const owner=this.requests.begin();this.loading.set(true);this.errorValue.set('');
     try{
       const state=await this.api.consumption(this.job().id);
       if(!this.requests.owns(owner))return;
       this.snapshot.set(state);this.rows=state.materials.map(m=>({spool_id:m.spool_id,
         actual_g:null,measured:false,gross_g:null,tare_g:m.tare_g}));
       this.confirmed=false;this.conflict.set(false);this.submitted=null;
-    }catch(error){if(this.requests.owns(owner))this.error.set(apiError(error));}
+    }catch(error){if(this.requests.owns(owner))this.errorValue.set(apiError(error));}
     finally{if(this.requests.owns(owner))this.loading.set(false);}
   }
   newTotal(index:number):number|null{
@@ -81,8 +82,8 @@ export class ConsumptionComponent implements OnInit, OnDestroy {
   async submit():Promise<void>{
     if(this.busy()||this.loading()||this.conflict())return;
     const state=this.snapshot(),invalid=this.validation();
-    if(invalid||!state){this.error.set(invalid);return;}
-    if(!this.confirmed){this.error.set('Confirm the displayed consumption and balance changes first.');return;}
+    if(invalid||!state){this.errorValue.set(invalid);return;}
+    if(!this.confirmed){this.errorValue.set('Confirm the displayed consumption and balance changes first.');return;}
     const body:ConsumptionInput={mode:this.mode,reason:this.reason.trim(),
       materials:this.mode==='actual'?this.rows.map(({spool_id,actual_g})=>({spool_id,actual_g:actual_g!})):[],
       expected_accounting_revision:state.accounting_revision,expected_updated_at:state.updated_at,
@@ -92,7 +93,7 @@ export class ConsumptionComponent implements OnInit, OnDestroy {
     const fingerprint=JSON.stringify(body);
     if(this.submitted?.fingerprint!==fingerprint)this.submitted={fingerprint,requestId:crypto.randomUUID()};
     body.request_id=this.submitted!.requestId;
-    this.busy.set(true);this.error.set('');
+    this.busy.set(true);this.errorValue.set('');
     try{
       await this.api.reconcileConsumption(this.job().id,body);
       await this.data.load();this.notice.show('Consumption reconciliation saved. The estimate and previous entries remain in history.');
@@ -100,7 +101,9 @@ export class ConsumptionComponent implements OnInit, OnDestroy {
     }catch(error){
       const status=(error as {status?:number}).status;
       this.conflict.set(status===409);
-      this.error.set(apiError(error)+(status===409?' Reload the latest balances and review your values before confirming again.':''));
+      this.errorValue.set(status===409
+        ? this.i18n.message('{error} Reload the latest balances and review your values before confirming again.', {error:this.i18n.message(apiError(error))})
+        : apiError(error));
     }finally{this.busy.set(false);}
   }
 }

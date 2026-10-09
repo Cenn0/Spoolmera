@@ -6,6 +6,7 @@
     "start": "ng serve --host 127.0.0.1 --proxy-config proxy.conf.json",
     "build": "ng build --configuration production",
     "typecheck": "tsc --project tsconfig.app.json --noEmit",
+    "i18n:check": "node scripts/check-i18n.mjs",
     "test": "ng test --no-watch --no-progress"
   },
   "dependencies": {

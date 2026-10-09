@@ -7,12 +7,13 @@ import { InventoryService, apiError } from './inventory.service';
 import { DialogsComponent } from './dialogs.component';
 import { AuthService } from './auth.service';
 import { LoginComponent } from './login.component';
-import { dateText } from './models';
+import { I18nService, LanguagePickerComponent, TranslatePipe } from './core/i18n';
 
 @Component({selector: 'fm-root', standalone: true,
-  imports: [RouterLink, RouterLinkActive, RouterOutlet, DialogsComponent, LoginComponent],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, DialogsComponent, LoginComponent, LanguagePickerComponent, TranslatePipe],
   templateUrl: './app.component.html'})
 export class AppComponent implements OnInit {
+  readonly i18n = inject(I18nService);
   readonly inventory = inject(InventoryService);
   readonly auth = inject(AuthService);
   readonly dialogs = inject(DialogService);
@@ -20,7 +21,10 @@ export class AppComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   readonly navOpen = signal(false);
-  readonly dateText=dateText;
+  readonly dateText=(value: string | null | undefined)=>this.i18n.dateText(value);
+  roleLabel(role: string | undefined): string {
+    return this.i18n.t(({admin: 'Admin', editor: 'Editor', viewer: 'Viewer'} as Record<string, string>)[role ?? ''] ?? role ?? '');
+  }
   private wasSignedIn=false;
   readonly year = new Date().getFullYear();
   constructor() {

@@ -1,31 +1,31 @@
-<section class="page-head"><div><span class="eyebrow">NEW DELIVERY</span><h1>Register a <em>batch.</em></h1><p>Give identical rolls individual identities and print their labels together.</p></div><a class="btn ghost" routerLink="/spools">Back to spools</a></section>
-@if(error()){<p class="form-error" role="alert">{{error()}}</p>}
-@if(uncertain()){<div class="confirm-box"><a class="btn ghost" routerLink="/spools">Check inventory</a><button class="btn ghost" type="button" (click)="acknowledgeCheck()">I checked the previous batch</button></div>}
+<section class="page-head"><div><span class="eyebrow">{{'NEW DELIVERY'|t}}</span><h1>{{'Register a'|t}} <em>{{'batch.'|t}}</em></h1><p>{{'Give identical rolls individual identities and print their labels together.'|t}}</p></div><a class="btn ghost" routerLink="/spools">{{'Back to spools'|t}}</a></section>
+@if(error()){<p class="form-error" role="alert">{{error()|t}} @if(uncertain()){ {{'The response is uncertain. Retry this confirmed batch to retrieve the same result, or check the inventory before preparing another batch.'|t}} }</p>}
+@if(uncertain()){<div class="confirm-box"><a class="btn ghost" routerLink="/spools">{{'Check inventory'|t}}</a><button class="btn ghost" type="button" (click)="acknowledgeCheck()">{{'I checked the previous batch'|t}}</button></div>}
 @if(result();as created){
-  <section class="panel workflow-panel"><div class="panel-heading"><div><span class="eyebrow">REGISTERED</span><h2>{{created.items.length}} physical spools</h2></div></div><div class="workflow-form">
-    <label>Label size<select [(ngModel)]="labelSize"><option value="60x40">60 × 40 mm</option><option value="50x30">50 × 30 mm</option></select></label>
-    <a class="btn primary" [href]="labelUrl" target="_blank" rel="noopener noreferrer">Open batch label sheet ↗</a>
-    <p class="helper">Use the actual label size and 100% print scale. Each page belongs to one physical spool.</p>
-    @for(item of created.items;track item.id){<div class="detail-movement"><a [href]="'/?spool='+item.uid">Spool #{{item.id}} · {{item.brand}} · {{item.product_name}}</a><strong>{{grams(item.remaining_g)}}</strong><span>{{item.location || 'No location'}}</span></div>}
-    <button class="btn ghost" type="button" (click)="result.set(null);changed()">Prepare another batch</button>
+  <section class="panel workflow-panel"><div class="panel-heading"><div><span class="eyebrow">{{'REGISTERED'|t}}</span><h2>{{'{count} physical spools'|t:{count:i18n.number(created.items.length)} }}</h2></div></div><div class="workflow-form">
+    <label>{{'Label size'|t}}<select [(ngModel)]="labelSize"><option value="60x40">{{'60 × 40 mm'|t}}</option><option value="50x30">{{'50 × 30 mm'|t}}</option></select></label>
+    <a class="btn primary" [href]="labelUrl" target="_blank" rel="noopener noreferrer">{{'Open batch label sheet ↗'|t}}</a>
+    <p class="helper">{{'Use the actual label size and 100% print scale. Each page belongs to one physical spool.'|t}}</p>
+    @for(item of created.items;track item.id){<div class="detail-movement"><a [href]="'/?spool='+item.uid">{{'Spool #{id}'|t:{id:''+item.id} }} · {{item.brand}} · {{item.product_name}}</a><strong>{{grams(item.remaining_g)}}</strong><span>{{item.location || ('No location'|t)}}</span></div>}
+    <button class="btn ghost" type="button" (click)="result.set(null);changed()">{{'Prepare another batch'|t}}</button>
   </div></section>
 }@else{
   <section class="panel workflow-panel"><form class="workflow-form" #batchForm="ngForm" (ngSubmit)="prepare()">
     <fieldset [disabled]="busy()||uncertain()"><div class="form-grid">
-      <label class="full">Filament product<select name="product" [(ngModel)]="spool.product_id" (ngModelChange)="changed()" required><option [ngValue]="0">Choose a product</option>@for(product of data.products();track product.id){<option [ngValue]="product.id">{{product.brand}} · {{product.name}} · {{product.material}} · {{product.color_name}}</option>}</select></label>
-      <label>Number of physical spools<input name="count" type="number" min="1" max="100" step="1" required [(ngModel)]="count" (ngModelChange)="changed()"></label>
-      <label>Original filament per spool (g)<input name="initial" type="number" min="1" max="100000" step="1" required [(ngModel)]="spool.initial_g" (ngModelChange)="changed()"></label>
-      <label>Remaining filament per spool (g)<input name="remaining" type="number" min="0" [max]="spool.initial_g" step="1" [(ngModel)]="spool.remaining_g" (ngModelChange)="changed()" placeholder="Defaults to original weight"></label>
-      <label>Empty spool / tare (g)<input name="tare" type="number" min="0" max="100000" step="1" required [(ngModel)]="spool.tare_g" (ngModelChange)="changed()"></label>
-      <label>Purchase price per spool (cents)<input name="price" type="number" min="0" max="100000000" step="1" [(ngModel)]="spool.purchase_price_cents" (ngModelChange)="changed()"></label>
-      <label>Currency<input name="currency" required pattern="[A-Z]{3}" maxlength="3" [(ngModel)]="spool.purchase_currency" (ngModelChange)="changed()"></label>
-      <label>Purchase date<input name="date" type="date" [(ngModel)]="spool.purchased_on" (ngModelChange)="changed()"></label>
-      <label>Batch reference<input name="batch" maxlength="120" [(ngModel)]="spool.batch" (ngModelChange)="changed()"></label>
-      <label class="full">Storage location<input name="location" maxlength="120" [(ngModel)]="spool.location" (ngModelChange)="changed()"></label>
-      <label class="full">Notes<textarea name="notes" maxlength="1000" rows="2" [(ngModel)]="spool.notes" (ngModelChange)="changed()"></textarea></label>
-      <label class="checkbox-row full"><input name="opened" type="checkbox" [(ngModel)]="spool.opened" (ngModelChange)="changed()"> These spools are already opened</label>
+      <label class="full">{{'Filament product'|t}}<select name="product" [(ngModel)]="spool.product_id" (ngModelChange)="changed()" required><option [ngValue]="0">{{'Choose a product'|t}}</option>@for(product of data.products();track product.id){<option [ngValue]="product.id">{{product.brand}} · {{product.name}} · {{product.material}} · {{product.color_name}}</option>}</select></label>
+      <label>{{'Number of physical spools'|t}}<input name="count" type="number" min="1" max="100" step="1" required [(ngModel)]="count" (ngModelChange)="changed()"></label>
+      <label>{{'Original filament per spool (g)'|t}}<input name="initial" type="number" min="1" max="100000" step="1" required [(ngModel)]="spool.initial_g" (ngModelChange)="changed()"></label>
+      <label>{{'Remaining filament per spool (g)'|t}}<input name="remaining" type="number" min="0" [max]="spool.initial_g" step="1" [(ngModel)]="spool.remaining_g" (ngModelChange)="changed()" [placeholder]="'Defaults to original weight'|t"></label>
+      <label>{{'Empty spool / tare (g)'|t}}<input name="tare" type="number" min="0" max="100000" step="1" required [(ngModel)]="spool.tare_g" (ngModelChange)="changed()"></label>
+      <label>{{'Purchase price per spool (cents)'|t}}<input name="price" type="number" min="0" max="100000000" step="1" [(ngModel)]="spool.purchase_price_cents" (ngModelChange)="changed()"></label>
+      <label>{{'Currency'|t}}<input name="currency" required pattern="[A-Z]{3}" maxlength="3" [(ngModel)]="spool.purchase_currency" (ngModelChange)="changed()"></label>
+      <label>{{'Purchase date'|t}}<input name="date" type="date" [(ngModel)]="spool.purchased_on" (ngModelChange)="changed()"></label>
+      <label>{{'Batch reference'|t}}<input name="batch" maxlength="120" [(ngModel)]="spool.batch" (ngModelChange)="changed()"></label>
+      <label class="full">{{'Storage location'|t}}<input name="location" maxlength="120" [(ngModel)]="spool.location" (ngModelChange)="changed()"></label>
+      <label class="full">{{'Notes'|t}}<textarea name="notes" maxlength="1000" rows="2" [(ngModel)]="spool.notes" (ngModelChange)="changed()"></textarea></label>
+      <label class="checkbox-row full"><input name="opened" type="checkbox" [(ngModel)]="spool.opened" (ngModelChange)="changed()"> {{'These spools are already opened'|t}}</label>
     </div></fieldset>
-    <button class="btn primary" type="submit" [disabled]="busy()||batchForm.invalid||uncertain()">Preview batch</button>
+    <button class="btn primary" type="submit" [disabled]="busy()||batchForm.invalid||uncertain()">{{'Preview batch'|t}}</button>
   </form></section>
-  @if(preview();as planned){<section class="confirm-box"><h2>Confirm {{planned.count}} separate spools</h2><p>{{planned.product}}</p><p>{{grams(planned.spool.remaining_g ?? planned.spool.initial_g)}} per roll · {{grams(planned.count*(planned.spool.remaining_g ?? planned.spool.initial_g))}} in total · {{planned.spool.location || 'No storage location'}}</p><p>Price per roll: {{money(planned.spool.purchase_price_cents,planned.spool.purchase_currency)}} · {{planned.spool.purchased_on || 'No purchase date'}}</p><label class="checkbox-row"><input type="checkbox" [(ngModel)]="confirmed" [disabled]="busy()"> These values apply to every roll in this batch.</label><button class="btn primary" type="button" [disabled]="busy()||!confirmed" (click)="create()">{{busy()?'Registering…':uncertain()?'Retry confirmed batch':'Register '+planned.count+' spools'}}</button></section>}
+  @if(preview();as planned){<section class="confirm-box"><h2>{{'Confirm {count} separate spools'|t:{count:i18n.number(planned.count)} }}</h2><p>{{planned.product}}</p><p>{{'{perRoll} per roll · {total} in total'|t:{perRoll:grams(planned.spool.remaining_g ?? planned.spool.initial_g),total:grams(planned.count*(planned.spool.remaining_g ?? planned.spool.initial_g))} }} · {{planned.spool.location || ('No storage location'|t)}}</p><p>{{'Price per roll: {price}'|t:{price:money(planned.spool.purchase_price_cents,planned.spool.purchase_currency)} }} · {{planned.spool.purchased_on ? i18n.dateOnly(planned.spool.purchased_on) : ('No purchase date'|t)}}</p><label class="checkbox-row"><input type="checkbox" [(ngModel)]="confirmed" [disabled]="busy()"> {{'These values apply to every roll in this batch.'|t}}</label><button class="btn primary" type="button" [disabled]="busy()||!confirmed" (click)="create()">{{(busy()?'Registering…':uncertain()?'Retry confirmed batch':'Register {count} spools')|t:{count:i18n.number(planned.count)} }}</button></section>}
 }

@@ -1,15 +1,17 @@
+import { I18nService, TranslatePipe } from '../../core/i18n';
 import { Component, DestroyRef, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { InventoryService, MovementFilters, apiError } from '../../inventory.service';
-import { Movement, dateText, grams } from '../../models';
+import { Movement } from '../../models';
 import { RequestOwner } from '../../core/request-owner';
 
-@Component({standalone:true,imports:[FormsModule,RouterLink],templateUrl:'./history.component.html'})
+@Component({standalone:true,imports:[TranslatePipe,FormsModule,RouterLink],templateUrl:'./history.component.html'})
 export class HistoryComponent implements OnInit, OnDestroy {
+  readonly i18n=inject(I18nService);
   readonly data=inject(InventoryService);readonly route=inject(ActivatedRoute);private readonly destroy=inject(DestroyRef);
-  readonly dateText=dateText;readonly grams=grams;readonly items=signal<Movement[]>([]);
+  readonly dateText=(value:string|null|undefined)=>this.i18n.dateText(value);readonly grams=(value:number)=>this.i18n.grams(value);readonly items=signal<Movement[]>([]);
   readonly loading=signal(false);readonly error=signal('');readonly nextCursor=signal<number|null>(null);
   readonly kind=signal('');private readonly requests=new RequestOwner();
   spoolId:number|null=null;jobId:number|null=null;actorId:number|null=null;source='';fromDate='';toDate='';

@@ -1,6 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import type { Spool } from './models';
 import type { ProductInput } from './models';
+import type { MessageValue } from './core/i18n/types';
 
 export type DialogKind = 'product' | 'spool' | 'details' | 'movement' | 'csv' | 'weigh' | 'drying';
 export interface DialogRequest {
@@ -19,9 +20,9 @@ export class DialogService {
 }
 @Injectable({providedIn: 'root'})
 export class NoticeService {
-  readonly message = signal('');
+  readonly message = signal<MessageValue>('');
   readonly isError = signal(false);
-  show(message: string, isError = false): void {
+  show(message: MessageValue, isError = false): void {
     this.isError.set(isError);
     this.message.set(message);
   }

@@ -1,3 +1,4 @@
+import { I18nService, LocalizedMessage, TranslatePipe } from './core/i18n';
 import { Component, OnDestroy, ElementRef, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -5,7 +6,7 @@ import { RequestOwner } from './core/request-owner';
 import { DialogRequest, DialogService, NoticeService } from './dialog.service';
 import { AuthService } from './auth.service';
 import { InventoryService, apiError } from './inventory.service';
-import { CsvPreview, Movement, ProductInput, SpoolInput, dateText, grams, money, stockPercent } from './models';
+import { CsvPreview, Movement, ProductInput, SpoolInput, stockPercent } from './models';
 
 function blankProduct(): ProductInput {
   return {brand:'',name:'',material:'PLA',color_name:'',color_hex:'#64748b',diameter_mm:1.75,notes:'',density_g_cm3:null,nozzle_min_c:null,nozzle_max_c:null,
@@ -19,25 +20,26 @@ function blankSpool(): SpoolInput {
 @Component({
   selector:'fm-dialogs',
   standalone:true,
-  imports:[FormsModule,RouterLink],
+  imports:[TranslatePipe,FormsModule,RouterLink],
   templateUrl:'./dialogs.component.html',
 })
 export class DialogsComponent implements OnDestroy {
+  readonly i18n=inject(I18nService);
   readonly dialogs=inject(DialogService);
   readonly auth=inject(AuthService);
   readonly data=inject(InventoryService);
   readonly notices=inject(NoticeService);
-  readonly grams=grams;
-  readonly money=money;
+  readonly grams=(value:number)=>this.i18n.grams(value);
+  readonly money=(cents:number|null|undefined,currency:string)=>this.i18n.money(cents,currency);
   readonly detailsLoading=signal(false);
   readonly weighingConflict=signal(false);
   private readonly requests=new RequestOwner();
   private activeRevision=0;
-  readonly dateText=dateText;
+  readonly dateText=(value:string|null|undefined)=>this.i18n.dateText(value);
   readonly percent=stockPercent;
   readonly modal=viewChild<ElementRef<HTMLDialogElement>>('dialog');
   readonly busy=signal(false);
-  readonly error=signal('');
+  readonly error=signal<string|LocalizedMessage>('');
   readonly history=signal<Movement[]>([]);
   readonly tags=signal<{namespace:string;external_id:string;created_at:string}[]>([]);
   tagNamespace='nfc';tagValue='';
@@ -51,7 +53,7 @@ export class DialogsComponent implements OnDestroy {
   detail={location:'',notes:'',opened:false,batch:'',purchase_price_cents:null as number|null,purchase_currency:'EUR',purchased_on:null as string|null};
   movement={kind:'consume' as 'consume'|'adjust',grams:0,note:''};
   csvFile:File|null=null;
-  weighing={gross_g:0,tare_g:0,note:'Physical scale measurement',stock_revision:0,remaining_g:0};
+  weighing={gross_g:0,tare_g:0,note:this.i18n.t('Physical scale measurement'),stock_revision:0,remaining_g:0};
   drying={temperature_c:50,duration_minutes:240,note:'',dried_at:this.localNow()};
 
   constructor() {
@@ -98,7 +100,7 @@ export class DialogsComponent implements OnDestroy {
       if (active.kind==='weigh') {
         const s=this.selected;
         if(s) this.weighing={gross_g:s.remaining_g+s.tare_g,tare_g:s.tare_g,
-          note:'Physical scale measurement',stock_revision:s.stock_revision,remaining_g:s.remaining_g};
+          note:this.i18n.t('Physical scale measurement'),stock_revision:s.stock_revision,remaining_g:s.remaining_g};
       }
       if (active.kind==='drying') {
         this.drying={temperature_c:50,duration_minutes:240,note:'',dried_at:this.localNow()};
@@ -279,7 +281,7 @@ export class DialogsComponent implements OnDestroy {
       const preview=await this.data.previewCsv(file);
       if(this.requests.owns(owner)&&this.csvFile===file) this.csvPreview.set(preview);
     } catch(error) {
-      if(this.requests.owns(owner)&&this.csvFile===file)this.error.set('CSV validation failed: '+apiError(error));
+      if(this.requests.owns(owner)&&this.csvFile===file)this.error.set(this.i18n.message('CSV validation failed: {error}',{error:this.i18n.message(apiError(error))}));
     } finally {
       if(this.requests.owns(owner)&&this.csvFile===file)this.readingCsv.set(false);
     }
@@ -294,9 +296,9 @@ export class DialogsComponent implements OnDestroy {
       const result=await this.data.importCsv(file);
       if(!this.requests.owns(owner))return;
       this.dialogs.close();
-      this.notices.show('Imported '+result.products_created+' products and '+result.spools_created+' spools. Skipped '+result.products_skipped+' existing products and '+result.spools_skipped+' existing spools.');
+      this.notices.show(this.i18n.message('Imported {products} products and {spools} spools. Skipped {skippedProducts} existing products and {skippedSpools} existing spools.',{products:result.products_created,spools:result.spools_created,skippedProducts:result.products_skipped,skippedSpools:result.spools_skipped}));
     } catch(error) {
-      if(this.requests.owns(owner))this.error.set('Import failed: '+apiError(error));
+      if(this.requests.owns(owner))this.error.set(this.i18n.message('Import failed: {error}',{error:this.i18n.message(apiError(error))}));
     } finally {
       if(this.requests.owns(owner))this.busy.set(false);
     }

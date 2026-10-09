@@ -1,3 +1,4 @@
+import { I18nService, LocalizedMessage, TranslatePipe } from '../../core/i18n';
 import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -21,11 +22,12 @@ interface CatalogVariant {name:string;color_hex:string;sizes:CatalogSize[];}
 interface CatalogSize {diameter:number;filament_weight:number;empty_spool_weight?:number;
   gtin?:string|number;article_number?:string;}
 
-@Component({standalone:true,imports:[FormsModule],templateUrl:'./catalog.component.html'})
+@Component({standalone:true,imports:[TranslatePipe,FormsModule],templateUrl:'./catalog.component.html'})
 export class CatalogComponent implements OnInit, OnDestroy {
+  readonly i18n=inject(I18nService);
   readonly http=inject(HttpClient);readonly dialogs=inject(DialogService);
   readonly auth=inject(AuthService);readonly loading=signal(false);
-  readonly error=signal('');readonly info=signal('');
+  readonly error=signal('');readonly info=signal<string|LocalizedMessage>('');
   readonly brands=signal<Entry[]>([]);readonly brand=signal<CatalogBrand|null>(null);
   readonly material=signal<CatalogMaterial|null>(null);
   readonly filament=signal<CatalogFilament|null>(null);
@@ -52,7 +54,7 @@ export class CatalogComponent implements OnInit, OnDestroy {
     this.loading.set(true);this.error.set('');
     try{
       const result=await this.get<{version:string;brands:Entry[]}>('brands');
-      this.brands.set(result.brands);this.info.set('Catalog '+(result.version||'unknown'));
+      this.brands.set(result.brands);this.info.set(this.i18n.message('Catalog {version}',{version:result.version||this.i18n.message('unknown')}));
     }catch(err){this.error.set(apiError(err));}
     finally{this.loading.set(false);}
   }

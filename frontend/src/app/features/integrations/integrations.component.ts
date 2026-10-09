@@ -1,19 +1,21 @@
 import { Component, OnInit, OnDestroy, HostListener, computed, inject, signal } from '@angular/core';
 import { RequestOwner } from '../../core/request-owner';
+import { I18nService, TranslatePipe } from '../../core/i18n';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../auth.service';
 import { CloudReceipt, Printer, WorkspaceService, AutomationToken, ScaleMeasurement } from '../../workspace.service';
 import { RouterLink } from '@angular/router';
-import { DialogService, NoticeService } from '../../dialog.service';
+import { NoticeService } from '../../dialog.service';
 import { InventoryService, apiError } from '../../inventory.service';
-import { Capabilities, dateText, grams, stockPercent } from '../../models';
+import { Capabilities } from '../../models';
 
 @Component({
   standalone: true,
-  imports:[FormsModule,RouterLink],
+  imports:[FormsModule,RouterLink,TranslatePipe],
   templateUrl:'./integrations.component.html'
 })
 export class IntegrationsComponent implements OnInit, OnDestroy {
+  readonly i18n=inject(I18nService);
   private readonly data = inject(InventoryService);
   private readonly notices = inject(NoticeService);
   private readonly workspace = inject(WorkspaceService);
@@ -22,7 +24,7 @@ export class IntegrationsComponent implements OnInit, OnDestroy {
   readonly cloudEvents = signal<CloudReceipt[]>([]);
   readonly scales=signal<ScaleMeasurement[]>([]);
   scaleNote='';
-  readonly dateText=dateText;readonly loading=signal(false);readonly error=signal('');
+  readonly dateText=(value:string|null|undefined)=>this.i18n.dateText(value);readonly loading=signal(false);readonly error=signal('');
   private readonly requests=new RequestOwner();
   ngOnDestroy():void{this.requests.invalidate();this.issuedSecret.set('');}
   @HostListener('window:focus') onFocus():void{if(!this.scaleBusy()&&!this.tokenBusy())void this.refresh();}
@@ -30,8 +32,8 @@ export class IntegrationsComponent implements OnInit, OnDestroy {
   async reviewScale(item:ScaleMeasurement,action:'approve'|'discard'):Promise<void>{
     if(this.scaleBusy()||!this.auth.canEdit()||this.scaleNote.trim().length<10)return;
     if(action==='approve'&&(item.stale||item.blocking_job_ids.length)){this.notices.show('This reading is outdated or belongs to a job needing reconciliation. Refresh and review the job first.',true);return;}
-    if(action==='approve' && !window.confirm(
-      'Apply scale measurement for '+item.brand+' '+item.product_name+'? This may change physical stock.'))return;
+    if(action==='approve' && !window.confirm(this.i18n.t(
+      'Apply scale measurement for {spool}? This may change physical stock.',{spool:item.brand+' '+item.product_name})))return;
     this.scaleBusy.set(true);
     try{
       await this.workspace.reviewScale(item.id,action,this.scaleNote.trim());
@@ -58,7 +60,7 @@ export class IntegrationsComponent implements OnInit, OnDestroy {
     finally{this.tokenBusy.set(false);}
   }
   async revokeToken(id:number):Promise<void>{
-    if(this.tokenBusy()||!window.confirm('Revoke this machine token immediately?'))return;
+    if(this.tokenBusy()||!window.confirm(this.i18n.t('Revoke this machine token immediately?')))return;
     this.tokenBusy.set(true);this.tokenError.set('');
     try{
       await this.workspace.revokeAutomationToken(id);

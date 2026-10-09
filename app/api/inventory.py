@@ -9,7 +9,7 @@ from app.auth import audit
 from app.core.policies import require_editor, require_admin
 from app.database import session, utc_now
 from app.models import ProductInput, SpoolInput, SpoolUpdate, SpoolBatchInput, MovementInput, WeighInput, DryingInput
-from app.labels import label_html, labels_html, qr_svg, spool_public_url
+from app.labels import label_html, labels_html, label_language, qr_svg, spool_public_url
 from app.inventory_csv import export_inventory, import_inventory
 from app.integrations import get_inventory_snapshot, get_integration_capabilities
 from app.services.accounting_service import record_manual_movement
@@ -151,8 +151,9 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
         return inventory_query_service.unarchive(db_path, spool_id, request.state.user['id'])
 
     @router.get('/labels', response_class=HTMLResponse, include_in_schema=False)
-    def print_labels(uids: str = Query(min_length=36, max_length=3700),
-                     size: Literal['60x40', '50x30'] = '60x40'):
+    def print_labels(request: Request, uids: str = Query(min_length=36, max_length=3700),
+                     size: Literal['60x40', '50x30'] = '60x40',
+                     lang: Literal['en', 'de'] | None = None):
         try:
             requested = [str(UUID(uid)) for uid in uids.split(',')]
         except ValueError as exc:
@@ -167,8 +168,11 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
         found = {row['uid']: dict(row) for row in rows}
         if len(found) != len(requested):
             raise HTTPException(404, 'One or more spools were not found.')
-        return HTMLResponse(labels_html([found[uid] for uid in requested], size), headers={
+        language = label_language(lang, request.cookies.get('fm_language'), request.headers.get('accept-language', ''))
+        return HTMLResponse(labels_html([found[uid] for uid in requested], size, language), headers={
             'Cache-Control': 'no-store',
+            'Content-Language': language,
+            'Vary': 'Cookie, Accept-Language',
             'Content-Security-Policy': "default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'",
         })
 
@@ -195,7 +199,9 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
         )
 
     @router.get("/labels/{spool_uid}", response_class=HTMLResponse, include_in_schema=False)
-    def print_label(spool_uid: str, size: Literal["60x40","50x30"] = Query(default="60x40")):
+    def print_label(spool_uid: str, request: Request,
+                    size: Literal["60x40","50x30"] = Query(default="60x40"),
+                    lang: Literal["en", "de"] | None = None):
         with session(db_path) as db:
             row = db.execute(
                 """SELECT s.uid, s.id, s.remaining_g, s.initial_g,
@@ -205,9 +211,11 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
             ).fetchone()
             if row is None:
                 raise HTTPException(status_code=404, detail="Spool not found.")
+        language = label_language(lang, request.cookies.get("fm_language"), request.headers.get("accept-language", ""))
         return HTMLResponse(
-            content=label_html(dict(row), size=size),
-            headers={"Cache-Control": "no-store",
+            content=label_html(dict(row), size=size, language=language),
+            headers={"Cache-Control": "no-store", "Content-Language": language,
+                     "Vary": "Cookie, Accept-Language",
                      "Content-Security-Policy": "default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'"},
         )
 

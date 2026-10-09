@@ -184,4 +184,6 @@ Restore revokes all browser sessions and machine tokens contained in the old sna
 
 Exercise the full recovery procedure on a separate test installation before relying on it for your own backups. Only restore to the same or a newer supported application schema; a downgrade requires the earlier application version and its matching pre-upgrade backup.
 
-Label pages support size=60x40 or size=50x30 query parameters in millimeters. Always select the matching stock and 100% print scaling.
+Label pages support `size=60x40` or `size=50x30` query parameters in millimeters. Always select the matching stock and 100% print scaling.
+
+The web interface and printed labels support English and German. Labels use an explicit `lang=en` or `lang=de` query parameter first, then the interface language stored in the `fm_language` browser cookie, then supported browser `Accept-Language` preferences; otherwise they use English. Size-switch links retain the selected language. Language selection changes display text and number formatting only; product names, spool identities, QR targets and access requirements remain unchanged.

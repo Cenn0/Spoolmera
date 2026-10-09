@@ -1,45 +1,45 @@
-<section class="page-head"><div><span class="eyebrow">ACCESS CONTROL</span><h1>User <em>management.</em></h1><p>Create accounts with explicit admin, editor and viewer permissions.</p></div></section>
-@if(error()){<p class="form-error" role="alert">{{error()}}</p>}
+<section class="page-head"><div><span class="eyebrow">{{'ACCESS CONTROL'|t}}</span><h1><em>{{'User management.'|t}}</em></h1><p>{{'Create accounts with explicit admin, editor and viewer permissions.'|t}}</p></div></section>
+@if(error()){<p class="form-error" role="alert">{{error()|t}}</p>}
 <section class="panel workflow-panel">
-  <div class="panel-heading"><div><span class="eyebrow">ADMINISTRATION</span><h2>Add user</h2></div></div>
+  <div class="panel-heading"><div><span class="eyebrow">{{'ADMINISTRATION'|t}}</span><h2>{{'Add user'|t}}</h2></div></div>
   <form class="workflow-form" #userForm="ngForm" (ngSubmit)="create()">
     <div class="form-grid">
-      <label>Username<input name="username" [(ngModel)]="username" required maxlength="60" autocomplete="off"></label>
-      <label>Initial password<input name="password" type="password" [(ngModel)]="password" required minlength="14" maxlength="128" autocomplete="new-password"></label>
-      <label>Role<select name="role" [(ngModel)]="role"><option value="viewer">Viewer · read-only</option><option value="editor">Editor · inventory changes</option><option value="admin">Admin · users and connections</option></select></label>
+      <label>{{'Username'|t}}<input name="username" [(ngModel)]="username" required maxlength="60" autocomplete="off"></label>
+      <label>{{'Initial password'|t}}<input name="password" type="password" [(ngModel)]="password" required minlength="14" maxlength="128" autocomplete="new-password"></label>
+      <label>{{'Role'|t}}<select name="role" [(ngModel)]="role"><option value="viewer">{{'Viewer · read-only'|t}}</option><option value="editor">{{'Editor · inventory changes'|t}}</option><option value="admin">{{'Admin · users and connections'|t}}</option></select></label>
     </div>
-    <button class="btn primary" type="submit" [disabled]="busy()||userForm.invalid">Create user</button>
+    <button class="btn primary" type="submit" [disabled]="busy()||userForm.invalid">{{'Create user'|t}}</button>
   </form>
 </section>
-<section class="panel workflow-panel"><div class="panel-heading"><div><span class="eyebrow">MEMBERS</span><h2>Accounts</h2></div></div>
+<section class="panel workflow-panel"><div class="panel-heading"><div><span class="eyebrow">{{'MEMBERS'|t}}</span><h2>{{'Accounts'|t}}</h2></div></div>
   <div class="workflow-list">
     @for(u of users();track u.id){
       <article class="workflow-row">
-        <div class="workflow-main"><strong>{{u.username}} @if(u.id===auth.user()?.id){<small>(you)</small>}</strong><span>{{u.role}} · {{u.enabled?'Enabled':'Disabled'}}</span></div>
+        <div class="workflow-main"><strong>{{u.username}} @if(u.id===auth.user()?.id){<small>{{'(you)'|t}}</small>}</strong><span>{{(u.role==='admin'?'Admin':u.role==='editor'?'Editor':'Viewer')|t}} · {{(u.enabled?'Enabled':'Disabled')|t}}</span></div>
         <div class="workflow-buttons">
-          <select [value]="u.role" #roleSelect aria-label="User role" (change)="update(u,{role:roleSelect.value})" [disabled]="busy()||!u.enabled">
-            <option value="viewer">Viewer</option><option value="editor">Editor</option><option value="admin">Admin</option>
+          <select [value]="u.role" #roleSelect [attr.aria-label]="'User role'|t" (change)="update(u,{role:roleSelect.value})" [disabled]="busy()||!u.enabled">
+            <option value="viewer">{{'Viewer'|t}}</option><option value="editor">{{'Editor'|t}}</option><option value="admin">{{'Admin'|t}}</option>
           </select>
-          <button class="btn ghost" type="button" [disabled]="busy()" (click)="openReset(u)">Reset password</button>
-          <button class="btn ghost" type="button" [disabled]="busy()" (click)="update(u,{enabled:!u.enabled})">{{u.enabled?'Disable':'Enable'}}</button>
+          <button class="btn ghost" type="button" [disabled]="busy()" (click)="openReset(u)">{{'Reset password'|t}}</button>
+          <button class="btn ghost" type="button" [disabled]="busy()" (click)="update(u,{enabled:!u.enabled})">{{(u.enabled?'Disable':'Enable')|t}}</button>
         </div>
         @if(resetFor()===u.id){
           <div class="inline-reset">
-            <label>New password (minimum 14 characters)<input type="password" name="reset-password" [(ngModel)]="resetSecret" minlength="14" maxlength="128" autocomplete="new-password"></label>
-            <button class="btn primary" type="button" [disabled]="busy()||resetSecret.length<14" (click)="reset(u)">Apply password reset</button>
-            <button class="btn ghost" type="button" (click)="openReset(u)">Cancel</button>
+            <label>{{'New password (minimum 14 characters)'|t}}<input type="password" name="reset-password" [(ngModel)]="resetSecret" minlength="14" maxlength="128" autocomplete="new-password"></label>
+            <button class="btn primary" type="button" [disabled]="busy()||resetSecret.length<14" (click)="reset(u)">{{'Apply password reset'|t}}</button>
+            <button class="btn ghost" type="button" (click)="openReset(u)">{{'Cancel'|t}}</button>
           </div>
         }
       </article>
-    } @empty {<div class="placeholder">No accounts.</div>}
+    } @empty {<div class="placeholder">{{'No accounts.'|t}}</div>}
   </div>
 </section>
 
 <section class="panel workflow-panel">
-  <div class="panel-heading"><div><span class="eyebrow">RECOVERY</span><h2>Database snapshot</h2></div></div>
+  <div class="panel-heading"><div><span class="eyebrow">{{'RECOVERY'|t}}</span><h2>{{'Database snapshot'|t}}</h2></div></div>
   <div class="workflow-form">
-    <p class="helper">Download a consistent point-in-time SQLite backup of the complete inventory, including user accounts, archived spools and movement history. Protect the file: it contains password hashes and application data. Restoring requires stopping the service and running a verified offline recovery procedure.</p>
-    <a class="btn ghost" href="/api/admin/backup.sqlite3" download>Download verified SQLite backup</a>
-    <p class="helper">For large databases or automated backups use scripts/backup.py. CSV/Spoolman snapshots are not complete backups.</p>
+    <p class="helper">{{'Download a consistent point-in-time SQLite backup of the complete inventory, including user accounts, archived spools and movement history. Protect the file: it contains password hashes and application data. Restoring requires stopping the service and running a verified offline recovery procedure.'|t}}</p>
+    <a class="btn ghost" href="/api/admin/backup.sqlite3" download>{{'Download verified SQLite backup'|t}}</a>
+    <p class="helper">{{'For large databases or automated backups use scripts/backup.py. CSV/Spoolman snapshots are not complete backups.'|t}}</p>
   </div>
 </section>

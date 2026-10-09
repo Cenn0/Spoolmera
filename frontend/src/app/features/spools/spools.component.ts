@@ -1,3 +1,4 @@
+import { I18nService, TranslatePipe } from '../../core/i18n';
 import { Component, OnInit, HostListener, computed, inject, signal, effect, untracked, DestroyRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../auth.service';
@@ -7,14 +8,15 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RequestOwner } from '../../core/request-owner';
 import { DialogService, NoticeService } from '../../dialog.service';
 import { InventoryService, apiError } from '../../inventory.service';
-import { Capabilities, Spool, dateText, grams, stockPercent, isLowStock } from '../../models';
+import { Capabilities, Spool, stockPercent, isLowStock } from '../../models';
 
 @Component({
   standalone: true,
-  imports: [FormsModule,RouterLink],
+  imports:[TranslatePipe,FormsModule,RouterLink],
   templateUrl:'./spools.component.html'
 })
 export class SpoolsComponent implements OnInit {
+  readonly i18n=inject(I18nService);
   readonly route=inject(ActivatedRoute);private readonly destroy=inject(DestroyRef);
   private readonly requests=new RequestOwner();
   readonly items=signal<Spool[]>([]);readonly loading=signal(false);readonly error=signal('');
@@ -46,7 +48,7 @@ export class SpoolsComponent implements OnInit {
   readonly data = inject(InventoryService);
   readonly dialogs = inject(DialogService);
   readonly auth = inject(AuthService);
-  readonly grams = grams;
+  readonly grams=(value:number)=>this.i18n.grams(value);
   readonly percent = stockPercent;
   readonly query = signal('');
   readonly material = signal('');
@@ -83,7 +85,7 @@ export class SpoolsComponent implements OnInit {
     try{await reader.scan({signal:this.nfcController.signal});}
     catch(err){
       this.stopNfc();
-      this.notices.show('NFC reader unavailable or permission refused: '+apiError(err),true);
+      this.notices.show(this.i18n.message('NFC reader unavailable or permission refused: {error}',{error:this.i18n.message(apiError(err))}),true);
     }
   }
   stopNfc():void{

@@ -1,17 +1,18 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ConsumptionComponent } from './consumption.component';
 import { InventoryService } from '../../inventory.service';
 import { AuthService } from '../../auth.service';
+import { LANGUAGE_STORAGE_KEY } from '../../core/i18n/types';
 import { WorkspaceService } from '../../workspace.service';
 import { authMock, consumption, inventoryMock, job, workspaceMock } from '../../testing/fixtures';
 
 describe('explicit actual consumption and revisions',()=>{
-  let component:ConsumptionComponent,api:ReturnType<typeof workspaceMock>;
+  let component:ConsumptionComponent,fixture:ComponentFixture<ConsumptionComponent>,api:ReturnType<typeof workspaceMock>;
   beforeEach(async()=>{api=workspaceMock();TestBed.configureTestingModule({providers:[provideRouter([]),{provide:InventoryService,useValue:inventoryMock()},{provide:AuthService,useValue:authMock('editor')},{provide:WorkspaceService,useValue:api}]});
-    const fixture=TestBed.createComponent(ConsumptionComponent);fixture.componentRef.setInput('job',job({status:'needs_review'}));component=fixture.componentInstance;await component.reload();component.reason='Failed print after the first layer';component.confirmed=true;});
+    fixture=TestBed.createComponent(ConsumptionComponent);fixture.componentRef.setInput('job',job({status:'needs_review'}));component=fixture.componentInstance;await component.reload();component.reason='Failed print after the first layer';component.confirmed=true;});
   it('requires each physical roll to have an explicit actual amount, including zero',async()=>{
     await component.submit();expect(api.reconcileConsumption).not.toHaveBeenCalled();expect(component.error()).toContain('including zero');
     component.rows[0].actual_g=0;await component.submit();expect(api.reconcileConsumption.mock.calls[0][1].materials).toEqual([{spool_id:1,actual_g:0}]);
@@ -61,6 +62,39 @@ describe('explicit actual consumption and revisions',()=>{
     const state=consumption();state.materials[0]={...state.materials[0],accounted_g:100,measurement_reconciliation_required:true};
     api.consumption.mockResolvedValue(state);await component.reload();component.rows[0]={spool_id:1,actual_g:100,measured:true,gross_g:700,tare_g:200};component.confirmed=true;
     await component.submit();expect(api.reconcileConsumption).not.toHaveBeenCalled();expect(component.error()).toContain('must match');
+  });
+
+  it('switches an open consumption form between German and English without losing the confirmed measurement',async()=>{
+    fixture.detectChanges();await fixture.whenStable();
+    component.rows[0]={spool_id:1,actual_g:37,measured:true,gross_g:763,tare_g:200};
+    component.reason='Failed print after the first layer';component.confirmed=true;
+    fixture.detectChanges();await fixture.whenStable();
+    const snapshot=component.snapshot(),row=component.rows[0],requests=api.consumption.mock.calls.length;
+    try{
+      component.i18n.setLanguage('de');fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain('Verbrauch prüfen');
+      expect(fixture.nativeElement.textContent).toContain('Tatsächlicher Gesamtverbrauch (g)');
+      expect(fixture.nativeElement.querySelector('.reconciliation-material input[type="number"]').value).toBe('37');
+      expect(fixture.nativeElement.querySelector('textarea[name="reason"]').value).toBe('Failed print after the first layer');
+      expect(component.rows[0]).toBe(row);expect(component.snapshot()).toBe(snapshot);expect(component.confirmed).toBe(true);
+      component.i18n.setLanguage('en');fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain('Review consumption');
+      expect(component.rows[0]).toBe(row);expect(component.confirmed).toBe(true);
+      expect(api.consumption).toHaveBeenCalledTimes(requests);expect(api.reconcileConsumption).not.toHaveBeenCalled();
+    }finally{component.i18n.setLanguage('en');localStorage.removeItem(LANGUAGE_STORAGE_KEY);document.cookie='fm_language=; Path=/; Max-Age=0';}
+  });
+
+  it('retranslates an existing conflict instruction while retaining its retry block and entered values',async()=>{
+    api.reconcileConsumption.mockRejectedValueOnce(new HttpErrorResponse({status:409,error:{detail:'Stock changed'}}));
+    component.rows[0].actual_g=37;await component.submit();
+    expect(component.error()).toContain('Reload the latest balances');
+    try{
+      component.i18n.setLanguage('de');
+      expect(component.error()).toContain('Lade die aktuellen Bestände neu');
+      expect(component.conflict()).toBe(true);expect(component.rows[0].actual_g).toBe(37);
+      await component.submit();expect(api.reconcileConsumption).toHaveBeenCalledTimes(1);
+      component.i18n.setLanguage('en');expect(component.error()).toContain('Reload the latest balances');
+    }finally{component.i18n.setLanguage('en');localStorage.removeItem(LANGUAGE_STORAGE_KEY);document.cookie='fm_language=; Path=/; Max-Age=0';}
   });
 
 });

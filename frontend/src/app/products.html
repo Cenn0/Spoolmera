@@ -1,28 +1,28 @@
 <section class="page-head">
-  <div><span class="eyebrow">FILAMENT CATALOG</span><h1>Your <em>materials.</em></h1><p>Reusable filament products, colors and specifications.</p></div>
-  @if(auth.canEdit()){<button class="btn primary" type="button" (click)="dialogs.open({kind:'product'})">+ Add filament</button>}
+  <div><span class="eyebrow">{{'FILAMENT CATALOG'|t}}</span><h1>{{'Your'|t}} <em>{{'materials.'|t}}</em></h1><p>{{'Reusable filament products, colors and specifications.'|t}}</p></div>
+  @if(auth.canEdit()){<button class="btn primary" type="button" (click)="dialogs.open({kind:'product'})">{{'+ Add filament'|t}}</button>}
 </section>
 <section class="panel data-panel">
-  <div class="toolbar"><label class="search-field"><span aria-hidden="true">⌕</span><input id="product-search" type="search" placeholder="Search brand, product, material…" [value]="query()" (input)="query.set($any($event.target).value)" aria-label="Search products"></label></div>
-  <div class="result-count">{{filtered().length}} products · {{data.overview().total_spools}} active spools</div>
-  <div class="table-wrap"><table class="data-table"><thead><tr><th>Filament</th><th>Material</th><th>Color</th><th>Spools</th><th>Stock</th><th class="align-right">Actions</th></tr></thead>
+  <div class="toolbar"><label class="search-field"><span aria-hidden="true">⌕</span><input id="product-search" type="search" [placeholder]="'Search brand, product, material…'|t" [value]="query()" (input)="query.set($any($event.target).value)" [attr.aria-label]="'Search products'|t"></label></div>
+  <div class="result-count">{{'{products} products · {spools} active spools'|t:{products:i18n.number(filtered().length),spools:i18n.number(data.overview().total_spools)} }}</div>
+  <div class="table-wrap"><table class="data-table"><thead><tr><th>{{'Filament'|t}}</th><th>{{'Material'|t}}</th><th>{{'Color'|t}}</th><th>{{'Spools'|t}}</th><th>{{'Stock'|t}}</th><th class="align-right">{{'Actions'|t}}</th></tr></thead>
     <tbody id="product-table-body">
     @for (product of filtered(); track product.id) {
       <tr>
         <td><span class="item-name"><span class="swatch" [style.background-color]="product.color_hex"></span><span><strong>{{product.brand}} · {{product.name}}</strong><small>{{product.color_name}}</small></span></span></td>
-        <td><span class="material-chip">{{product.material}}</span> <small class="subdued">{{product.diameter_mm}} mm</small></td>
-        <td>{{product.color_name}}</td><td>{{product.spool_count}}</td><td><strong>{{grams(product.total_remaining_g)}}</strong></td>
-        <td><div class="table-actions">@if(auth.canEdit()){<button type="button" (click)="dialogs.open({kind:'spool',productId:product.id})">+ Spool</button><button type="button" (click)="dialogs.open({kind:'product',id:product.id})">Edit</button>}</div></td>
+        <td><span class="material-chip">{{product.material}}</span> <small class="subdued">{{i18n.number(product.diameter_mm)}} mm</small></td>
+        <td>{{product.color_name}}</td><td>{{i18n.number(product.spool_count)}}</td><td><strong>{{grams(product.total_remaining_g)}}</strong></td>
+        <td><div class="table-actions">@if(auth.canEdit()){<button type="button" (click)="dialogs.open({kind:'spool',productId:product.id})">{{'+ Spool'|t}}</button><button type="button" (click)="dialogs.open({kind:'product',id:product.id})">{{'Edit'|t}}</button>}</div></td>
       </tr>
-    } @empty {<tr><td colspan="6"><div class="placeholder">{{data.products().length?'No matching products.':'No filament products yet.'}}</div></td></tr>}
+    } @empty {<tr><td colspan="6"><div class="placeholder">{{(data.products().length?'No matching products.':'No filament products yet.')|t}}</div></td></tr>}
     </tbody></table></div>
   <div class="mobile-cards">
     @for (product of filtered();track product.id) {
       <article class="mobile-spool">
         <div class="mobile-spool-head"><span class="item-name"><span class="swatch" [style.background-color]="product.color_hex"></span><span><strong>{{product.brand}} · {{product.name}}</strong><small>{{product.material}} · {{product.color_name}}</small></span></span></div>
-        <div class="mobile-stock">{{product.spool_count}} rolls · {{grams(product.total_remaining_g)}} available · {{product.diameter_mm}} mm</div>
-        <div class="mobile-actions">@if(auth.canEdit()){<button class="btn primary" type="button" (click)="dialogs.open({kind:'spool',productId:product.id})">+ Spool</button><button class="btn ghost" type="button" (click)="dialogs.open({kind:'product',id:product.id})">Edit</button>}</div>
+        <div class="mobile-stock">{{'{count} rolls · {weight} available'|t:{count:i18n.number(product.spool_count),weight:grams(product.total_remaining_g)} }} · {{i18n.number(product.diameter_mm)}} mm</div>
+        <div class="mobile-actions">@if(auth.canEdit()){<button class="btn primary" type="button" (click)="dialogs.open({kind:'spool',productId:product.id})">{{'+ Spool'|t}}</button><button class="btn ghost" type="button" (click)="dialogs.open({kind:'product',id:product.id})">{{'Edit'|t}}</button>}</div>
       </article>
-    } @empty {<div class="placeholder">No matching filament products.</div>}
+    } @empty {<div class="placeholder">{{'No matching filament products.'|t}}</div>}
   </div>
 </section>

@@ -17,7 +17,7 @@ BASE = "http://127.0.0.1:8765"
 def browser_session(playwright):
     browser = playwright.chromium.launch(headless=True,
         executable_path=os.getenv("FILAMENT_TEST_BROWSER_EXECUTABLE") or None)
-    context = browser.new_context(accept_downloads=True)
+    context = browser.new_context(accept_downloads=True, locale="en-US")
     context.tracing.start(screenshots=True, snapshots=True, sources=True)
     page = context.new_page()
     try:
@@ -53,6 +53,100 @@ def report_failed_fixture(page, job_id: int) -> None:
         "Content-Type": "application/json", "X-Filament-Timestamp": stamp,
         "X-Filament-Signature": signature})
     assert result.status == 200 and result.json()["disposition"] == "needs_review"
+
+
+def german_workflows(browser, errors: list[str]) -> None:
+    """Exercise preference detection, live forms, German copy and label pages."""
+    context = browser.new_context(locale="de-DE", viewport={"width": 1280, "height": 800})
+    context.tracing.start(screenshots=True, snapshots=True, sources=True)
+    page = context.new_page()
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    folder = Path(os.getenv("FILAMENT_BROWSER_ARTIFACT_DIR") or tempfile.mkdtemp(prefix="filament-language-"))
+    folder.mkdir(parents=True, exist_ok=True)
+    try:
+        page.goto(BASE + "/", wait_until="networkidle")
+        expect(page.locator("html")).to_have_attribute("lang", "de")
+        expect(page.locator("h1")).to_have_text("Willkommen zurück.")
+        language = page.locator("fm-language-picker select")
+        expect(language).to_have_value("de")
+        page.locator('fm-login input[name="username"]').fill("browser-admin")
+        page.locator('fm-login input[name="password"]').fill("deliberately-wrong-password")
+        language.select_option("en")
+        expect(page.locator("h1")).to_have_text("Welcome back.")
+        expect(page.locator('fm-login input[name="username"]')).to_have_value("browser-admin")
+        language.select_option("de")
+        page.get_by_role("button", name="Anmelden", exact=True).click()
+        expect(page.locator(".form-error")).to_have_text("Ungültige Zugangsdaten.")
+        page.locator('fm-login input[name="password"]').fill("  browser-new-password-2026  ")
+        page.get_by_role("button", name="Anmelden", exact=True).click()
+        expect(page.get_by_role("button", name="Abmelden", exact=True)).to_be_visible()
+        expect(page.locator("h1")).to_contain_text("Jede Spule")
+        expect(page.locator(".metrics")).to_contain_text("2,84 kg")
+        expect(page.locator('.side-nav a[href="/jobs"]')).to_contain_text("Druckaufträge")
+        expect(page.locator('.side-nav a[href="/users"]')).to_contain_text("Benutzer")
+
+        # Changing language must neither submit nor reset an unfinished job form.
+        page.locator('.side-nav a[href="/jobs"]').click()
+        page.locator('input[name="fileName"]').fill("draft-language-check.gcode")
+        page.locator('input[name="note"]').fill("Unveränderte Notiz: Ä, ö und ß")
+        before = page.request.get(BASE + "/api/jobs").json()
+        language.select_option("en")
+        expect(page.locator("h1")).to_contain_text("Tracked")
+        expect(page.locator('input[name="fileName"]')).to_have_value("draft-language-check.gcode")
+        expect(page.locator('input[name="note"]')).to_have_value("Unveränderte Notiz: Ä, ö und ß")
+        language.select_option("de")
+        expect(page.locator('input[name="fileName"]')).to_have_value("draft-language-check.gcode")
+        assert page.request.get(BASE + "/api/jobs").json() == before
+        page.reload(wait_until="networkidle")
+        expect(page.locator("html")).to_have_attribute("lang", "de")
+        expect(language).to_have_value("de")
+
+        # Follow each actual menu link, including the lower desktop destinations.
+        for path in ("/filaments", "/catalog", "/restock", "/history", "/printers",
+                     "/integrations", "/account", "/diagnostics", "/users", "/spools"):
+            page.locator(f'.side-nav a[href="{path}"]').click()
+            expect(page).to_have_url(BASE + path)
+            expect(page.locator("html")).to_have_attribute("lang", "de")
+            expect(page.locator("main h1")).to_be_visible()
+        expect(page.locator("#spool-table-body tr")).to_have_count(3)
+        expect(page.locator("#spool-table-body")).to_contain_text("Example Filament")
+        expect(page.locator("#spool-table-body")).to_contain_text("Matte Basic")
+        expect(page.locator("#spool-table-body")).to_contain_text("Graphite")
+        assert page.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1"), "German desktop layout overflows horizontally"
+
+        with page.expect_popup() as popup_info:
+            page.locator('#spool-table-body tr').first.locator('a[href^="/labels/"]').first.click()
+        label = popup_info.value
+        label.wait_for_load_state("networkidle")
+        expect(label.locator("html")).to_have_attribute("lang", "de")
+        expect(label.locator(".print-toolbar")).to_contain_text("Spulenetikett")
+        expect(label.locator(".label-weight")).to_contain_text("Restmenge:")
+        expect(label.locator(".label-product")).to_contain_text("Example Filament")
+        expect(label.locator('a[href*="size=50x30"]')).to_have_attribute("href", re.compile(r"lang=de"))
+        assert label.locator('img').get_attribute('src').endswith('/qr.svg')
+        label.close()
+        page.screenshot(path=str(folder / "de-desktop.png"), full_page=True)
+
+        page.set_viewport_size({"width": 390, "height": 844})
+        expect(page.locator(".mobile-spool")).to_have_count(3)
+        expect(language).to_be_visible()
+        expect(page.locator(".side-nav")).to_be_visible()
+        assert page.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1"), "German mobile layout overflows horizontally"
+        page.screenshot(path=str(folder / "de-mobile.png"), full_page=True)
+        language.select_option("en")
+        expect(page.locator("html")).to_have_attribute("lang", "en")
+        page.reload(wait_until="networkidle")
+        expect(page.locator("html")).to_have_attribute("lang", "en")
+        expect(page.get_by_role("button", name="Sign out", exact=True)).to_be_visible()
+        print("German browser smoke passed: browser preference, saved EN/DE choice, login errors, draft preservation, every navigation destination, localized numbers, original user data, labels and mobile layout.")
+    except Exception:
+        page.screenshot(path=str(folder / "failure-de.png"), full_page=True)
+        context.tracing.stop(path=str(folder / "trace-de.zip"))
+        raise
+    else:
+        context.tracing.stop()
+    finally:
+        context.close()
 
 
 def run() -> None:
@@ -302,6 +396,7 @@ def run() -> None:
         assert page.request.post(BASE + "/api/auth/logout", headers={"X-CSRF-Token": csrf}).status == 200
         page.locator('.side-nav a[href="/jobs"]').click()
         expect(page.locator("h1")).to_contain_text("Welcome back")
+        german_workflows(browser, errors)
         assert not errors, errors
 
 if __name__ == "__main__":

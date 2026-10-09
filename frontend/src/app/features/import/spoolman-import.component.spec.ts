@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SpoolmanImportComponent } from './spoolman-import.component';
 import { InventoryService } from '../../inventory.service';
 import { AuthService } from '../../auth.service';
+import { LANGUAGE_STORAGE_KEY } from '../../core/i18n/types';
 import { authMock, inventoryMock } from '../../testing/fixtures';
 
 const preview={dry_run:true,source:'spoolman',spools_created:1,spools_skipped:0,products_created:1,products_skipped:0,archived_skipped:0};
@@ -39,5 +40,19 @@ describe('Spoolman preview ownership',()=>{
     const selected=file('a.json','{}');choose(component,selected);const reading=component.previewImport();await Promise.resolve();
     http.expectOne('/api/import/spoolman?source=spoolman&dry_run=true').flush(preview);await reading;component.confirmed=true;
     choose(component,selected);expect(component.confirmed).toBe(false);expect(component.preview()).toBeNull();
+  });
+  it('preserves reviewed bytes and explicit confirmation across a language change',async()=>{
+    const selected=file('snapshot.json','{"spools":[1]}');choose(component,selected);
+    const reading=component.previewImport();await Promise.resolve();
+    http.expectOne('/api/import/spoolman?source=spoolman&dry_run=true').flush(preview);await reading;
+    component.confirmed=true;const reviewed=component.preview();
+    try{
+      component.i18n.setLanguage('de');
+      expect(component.preview()).toBe(reviewed);expect(component.confirmed).toBe(true);expect(component.selected).toBe(selected);
+      const committing=component.commit();
+      const request=http.expectOne('/api/import/spoolman?source=spoolman&dry_run=false');
+      expect(request.request.body).toBe('{"spools":[1]}');request.flush({...preview,dry_run:false});await committing;
+      expect(selected.text).toHaveBeenCalledTimes(1);
+    }finally{component.i18n.setLanguage('en');localStorage.removeItem(LANGUAGE_STORAGE_KEY);document.cookie='fm_language=; Path=/; Max-Age=0';}
   });
 });

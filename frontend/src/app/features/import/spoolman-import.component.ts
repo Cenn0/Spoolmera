@@ -7,10 +7,12 @@ import { NoticeService } from '../../dialog.service';
 import { apiError, InventoryService } from '../../inventory.service';
 import { ApiSpoolmanPreview } from '../../core/api/generated-contracts';
 import { RequestOwner } from '../../core/request-owner';
+import { I18nService, TranslatePipe } from '../../core/i18n';
 
 type Preview=ApiSpoolmanPreview;
-@Component({standalone:true,imports:[FormsModule],templateUrl:'./spoolman-import.component.html'})
+@Component({standalone:true,imports:[FormsModule,TranslatePipe],templateUrl:'./spoolman-import.component.html'})
 export class SpoolmanImportComponent implements OnDestroy {
+  readonly i18n=inject(I18nService);
   readonly auth=inject(AuthService);readonly http=inject(HttpClient);
   readonly notice=inject(NoticeService);readonly data=inject(InventoryService);
   readonly busy=signal(false);readonly error=signal('');
@@ -53,7 +55,7 @@ export class SpoolmanImportComponent implements OnDestroy {
     try{
       const result=await this.perform(validated.source,validated.bytes,false);
       this.invalidate();await this.data.load();
-      this.notice.show('Imported '+result.products_created+' products and '+result.spools_created+' spools. Skipped '+result.products_skipped+' existing products, '+result.spools_skipped+' existing spools and '+result.archived_skipped+' archived spools.');
+      this.notice.show(this.i18n.message('Imported {products} products and {spools} spools. Skipped {existingProducts} existing products, {existingSpools} existing spools and {archived} archived spools.',{products:result.products_created,spools:result.spools_created,existingProducts:result.products_skipped,existingSpools:result.spools_skipped,archived:result.archived_skipped}));
     }catch(e){this.error.set(apiError(e));}
     finally{this.busy.set(false);}
   }
