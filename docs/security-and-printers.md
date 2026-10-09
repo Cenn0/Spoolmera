@@ -47,3 +47,12 @@ Original device documentation:
 Printer commands are stored with a unique correlation ID and a lifecycle (`sending`, `acknowledged`, `unknown`, `confirmed`, `cleared`). A printer may act even when its HTTP response is lost: uncertain starts are never automatically resent. An administrator must verify the printer physically and record an explanation before clearing an unconfirmed command. Actual consumption is a separate transaction and requires a verified run identity or manual review.
 
 Signed cloud relay aliases must be bound to one configured printer using `FILAMENT_CLOUD_PRINTER_<ALIAS>`. Signing authenticates the source but does not prove a successful print or physical material usage. Slicer workers receive only their own shared worker token, not the API bootstrap secret or controller credentials.
+
+## v0.9 new trust boundaries
+
+- Incoming scale events use opt-in, per-device HMAC-SHA256, timestamp limits, per-source durable replay detection and **mandatory human approval**. The relay does not implicitly weigh a physical spool or trust its claimed identity.
+- Machine credentials are randomly generated, hashed at rest, scoped to read-only inventory or ledger events, shown only once and revocable. They never expose printer commands or bypass browser session authorization.
+- External community catalog lookup is opt-in and restricted to one fixed HTTPS host with redirects disabled. All imported material properties remain subject to human confirmation.
+- NFC and OpenPrintTag serial identifiers are references only, not authentication tokens. Web NFC is not supported by all browsers, nor is raw OpenPrintTag NDEF decoding provided.
+- The optional local notification worker has no SQLite mount or printer credentials. Notifications can be duplicated after a failed cursor write and must never drive uncontrolled physical operations.
+- Database backup download is administrator-only and contains user hashes and service data; protect it as a security-sensitive artifact.

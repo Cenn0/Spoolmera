@@ -19,6 +19,15 @@ export interface Product {
   color_hex: string;
   diameter_mm: number;
   notes: string;
+  density_g_cm3: number | null;
+  nozzle_min_c: number | null;
+  nozzle_max_c: number | null;
+  bed_min_c: number | null;
+  bed_max_c: number | null;
+  gtin: string;
+  manufacturer_sku: string;
+  slicer_preset: string;
+  low_stock_threshold_g: number;
   spool_count: number;
   total_remaining_g: number;
   created_at: string;
@@ -32,6 +41,15 @@ export interface ProductInput {
   color_hex: string;
   diameter_mm: number;
   notes: string;
+  density_g_cm3: number | null;
+  nozzle_min_c: number | null;
+  nozzle_max_c: number | null;
+  bed_min_c: number | null;
+  bed_max_c: number | null;
+  gtin: string;
+  manufacturer_sku: string;
+  slicer_preset: string;
+  low_stock_threshold_g: number;
 }
 export interface Spool {
   id: number;
@@ -51,6 +69,12 @@ export interface Spool {
   notes: string;
   created_at: string;
   archived_at: string | null;
+  tare_g: number;
+  purchase_price_cents: number | null;
+  purchase_currency: string;
+  purchased_on: string | null;
+  batch: string;
+  low_stock_threshold_g: number;
 }
 export interface SpoolInput {
   product_id: number;
@@ -59,6 +83,11 @@ export interface SpoolInput {
   opened: boolean;
   location: string;
   notes: string;
+  tare_g: number;
+  purchase_price_cents: number | null;
+  purchase_currency: string;
+  purchased_on: string | null;
+  batch: string;
 }
 export interface Movement {
   id: number;

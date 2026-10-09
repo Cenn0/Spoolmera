@@ -19,6 +19,15 @@ from app.printers import register_printer_routes
 from app.jobs import register_job_routes, poll_worker
 from app.cloud import register_cloud_routes
 from app.slicing import register_slicing_routes
+from app.api.catalog import register_catalog_routes
+from app.api.planning import register_planning_routes
+from app.api.inspection import register_inspection_routes
+from app.api.spoolman_import import register_spoolman_import
+from app.api.automation import register_automation_routes
+from app.api.identifiers import register_identifier_routes
+from app.api.backup import register_backup_routes
+from app.api.analytics import register_analytics_routes
+from app.api.scale import register_scale_routes
 from app.models import MovementInput, ProductInput, SpoolInput, SpoolUpdate
 from app.labels import label_html, qr_svg, spool_public_url
 from app.inventory_csv import export_inventory, import_inventory
@@ -63,7 +72,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
 
     app = FastAPI(
         title="Filament Manager API",
-        version="0.6.0",
+        version="0.9.0",
         description="Local management of filament products, physical spools and inventory movements.",
         lifespan=lifespan,
     )
@@ -72,6 +81,15 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     register_job_routes(app, db_path)
     register_cloud_routes(app, db_path)
     register_slicing_routes(app, db_path)
+    register_catalog_routes(app)
+    register_planning_routes(app, db_path)
+    register_inspection_routes(app)
+    register_spoolman_import(app, db_path)
+    register_automation_routes(app, db_path)
+    register_identifier_routes(app, db_path)
+    register_backup_routes(app, db_path)
+    register_analytics_routes(app, db_path)
+    register_scale_routes(app, db_path)
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
     @app.get("/", include_in_schema=False)

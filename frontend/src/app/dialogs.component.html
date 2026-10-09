@@ -12,6 +12,15 @@
         <label>Color name <input name="color_name" [(ngModel)]="product.color_name" required maxlength="80" placeholder="Graphite"></label>
         <label>Color <input name="color_hex" type="color" [(ngModel)]="product.color_hex" required></label>
         <label>Diameter (mm) <input name="diameter_mm" type="number" [(ngModel)]="product.diameter_mm" required min="1" max="3.5" step="0.01"></label>
+        <label>Density (g/cm³) <input name="density" type="number" [(ngModel)]="product.density_g_cm3" min="0.01" max="10" step="0.01" placeholder="Optional"></label>
+        <label>Low stock warning (g) <input name="threshold" type="number" [(ngModel)]="product.low_stock_threshold_g" min="0" max="100000" step="1"></label>
+        <label>Nozzle minimum (°C) <input name="nozzlemin" type="number" [(ngModel)]="product.nozzle_min_c" min="0" max="400"></label>
+        <label>Nozzle maximum (°C) <input name="nozzlemax" type="number" [(ngModel)]="product.nozzle_max_c" min="0" max="400"></label>
+        <label>Bed minimum (°C) <input name="bedmin" type="number" [(ngModel)]="product.bed_min_c" min="0" max="200"></label>
+        <label>Bed maximum (°C) <input name="bedmax" type="number" [(ngModel)]="product.bed_max_c" min="0" max="200"></label>
+        <label>GTIN / EAN <input name="gtin" [(ngModel)]="product.gtin" maxlength="32"></label>
+        <label>Manufacturer SKU <input name="sku" [(ngModel)]="product.manufacturer_sku" maxlength="100"></label>
+        <label class="full">Slicer preset <input name="preset" [(ngModel)]="product.slicer_preset" maxlength="160"></label>
         <label class="full">Notes <textarea name="notes" [(ngModel)]="product.notes" maxlength="1000" rows="2" placeholder="Optional product details"></textarea></label>
       </div>
       <footer class="modal-footer"><button type="button" class="btn ghost" (click)="close()">Cancel</button><button class="btn primary" type="submit" [disabled]="busy() || productForm.invalid">{{busy()?'Saving…':active.id?'Save changes':'Add filament'}}</button></footer>
@@ -28,6 +37,11 @@
         </label>
         <label>Original weight (g) <input name="initial_g" type="number" [(ngModel)]="spool.initial_g" min="1" max="100000" step="1" required></label>
         <label>Remaining weight (g) <input name="remaining_g" type="number" [(ngModel)]="spool.remaining_g" min="0" max="100000" step="1" placeholder="Default: full weight"></label>
+        <label>Empty spool / tare (g) <input name="tare" type="number" [(ngModel)]="spool.tare_g" min="0" max="100000" step="1"></label>
+        <label>Purchase price (cents) <input name="price" type="number" [(ngModel)]="spool.purchase_price_cents" min="0" max="100000000" step="1"></label>
+        <label>Purchase currency <input name="currency" [(ngModel)]="spool.purchase_currency" maxlength="3" pattern="[A-Z]{3}"></label>
+        <label>Purchased on <input name="purchased" type="date" [(ngModel)]="spool.purchased_on"></label>
+        <label>Batch <input name="batch" [(ngModel)]="spool.batch" maxlength="120"></label>
         <label class="full">Storage location <input name="location" [(ngModel)]="spool.location" maxlength="120" placeholder="e.g. Shelf A · Slot 3"></label>
         <label class="checkbox-row full"><input name="opened" type="checkbox" [(ngModel)]="spool.opened"> Spool already opened</label>
         <label class="full">Notes <textarea name="notes" [(ngModel)]="spool.notes" maxlength="1000" rows="2" placeholder="Optional batch or storage details"></textarea></label>
@@ -40,12 +54,35 @@
       <div class="modal-body">
         <div class="detail-summary"><span class="swatch xlarge" [style.background-color]="item.color_hex"></span><div><h3>{{item.brand}} · {{item.product_name}}</h3><p>{{item.material}} · {{item.color_name}} · {{item.diameter_mm}} mm</p></div><span class="status" [class]="'status '+item.status">{{item.status}}</span></div>
         <div class="detail-stats"><div><span>Remaining</span><strong>{{grams(item.remaining_g)}}</strong><div class="progress"><span [style.width.%]="percent(item)"></span></div></div><div><span>Original</span><strong>{{grams(item.initial_g)}}</strong></div></div>
-        <div class="detail-actions">@if(auth.canEdit()){<button class="btn primary" type="button" [disabled]="item.remaining_g===0" (click)="dialogs.open({kind:'movement',id:item.id,mode:'consume'})">Record use</button><button class="btn ghost" type="button" (click)="dialogs.open({kind:'movement',id:item.id,mode:'adjust'})">Adjust stock</button>}<a class="btn ghost" [href]="'/labels/'+item.uid" target="_blank" rel="noopener noreferrer">Print QR label ↗</a></div>
+        <div class="detail-actions">@if(auth.canEdit()){<button class="btn primary" type="button" [disabled]="item.remaining_g===0" (click)="dialogs.open({kind:'movement',id:item.id,mode:'consume'})">Record use</button><button class="btn ghost" type="button" (click)="dialogs.open({kind:'movement',id:item.id,mode:'adjust'})">Adjust stock</button><button class="btn ghost" type="button" (click)="dialogs.open({kind:'weigh',id:item.id})">Weigh</button><button class="btn ghost" type="button" (click)="dialogs.open({kind:'drying',id:item.id})">Record drying</button>}<a class="btn ghost" [href]="'/labels/'+item.uid" target="_blank" rel="noopener noreferrer">Print QR label ↗</a></div>
         @if(auth.canEdit()){<form #detailForm="ngForm" (ngSubmit)="saveDetails()">
           <h3 class="modal-section-title">Spool information</h3>
           <div class="form-grid"><label class="full">Storage location <input name="location" [(ngModel)]="detail.location" maxlength="120"></label><label class="full">Notes <textarea name="notes" [(ngModel)]="detail.notes" maxlength="1000" rows="2"></textarea></label><label class="checkbox-row full"><input name="opened" type="checkbox" [(ngModel)]="detail.opened" [disabled]="item.remaining_g<item.initial_g"> Opened</label></div>
           <div class="inline-form-actions"><button type="submit" class="btn ghost" [disabled]="busy() || detailForm.invalid">Save spool details</button></div>
         </form>}
+        <div class="details-footer">
+          <h3 class="modal-section-title">Physical tag identities</h3>
+          <p class="helper">Optional NFC/OpenPrintTag identifiers are references, never authentication or proof of physically loaded filament.</p>
+          @for(tag of tags();track tag.namespace+tag.external_id){
+            <div class="detail-movement"><span>{{tag.namespace}}</span><strong>{{tag.external_id}}</strong>
+              @if(auth.canEdit()){<button type="button" class="btn ghost" [disabled]="busy()" (click)="unlinkTag(tag.namespace,tag.external_id)">Unlink</button>}
+            </div>
+          }@empty{<p class="helper">No physical tag IDs assigned.</p>}
+          @if(auth.canEdit()){
+            <div class="form-grid">
+              <label>Tag kind<select name="tagNamespace" [(ngModel)]="tagNamespace">
+                <option value="nfc">NFC</option><option value="openprinttag">OpenPrintTag</option><option value="custom">Custom reader</option>
+              </select></label>
+              <label>Tag ID<input name="tagValue" [(ngModel)]="tagValue" maxlength="128" placeholder="Reader-scanned identifier"></label>
+            </div>
+            <button class="btn ghost" type="button" [disabled]="busy()||tagValue.trim().length<8" (click)="addTag()">Link tag</button>
+          }
+          <h3 class="modal-section-title">Material care</h3>
+          <p class="helper">Tare: {{grams(item.tare_g)}} · Batch: {{item.batch || '—'}}</p>
+          @for (entry of dryingHistory();track entry.id) {
+            <div class="detail-movement"><span>{{dateText(entry.dried_at)}}</span><strong>{{entry.temperature_c}} °C</strong><b>{{entry.duration_minutes}} min</b><small>{{entry.note || 'Recorded drying'}}</small></div>
+          } @empty {<p class="helper">No drying events recorded.</p>}
+        </div>
         <div class="details-footer">
           <h3 class="modal-section-title">Movement history</h3>
           @for (entry of history();track entry.id) {
@@ -63,6 +100,33 @@
         </div>
       </div>
     } @else {<div class="modal-body"><p class="helper">The spool is no longer available.</p></div>}
+  }
+  @if (active.kind==='weigh') {
+    @if (selected; as item) {
+      <form class="modal-body" #weighForm="ngForm" (ngSubmit)="saveWeighing()">
+        <p class="helper">Use a physical scale; subtract the empty-spool weight from gross. Any balance difference is recorded permanently in the movement ledger.</p>
+        <div class="form-grid">
+          <label>Gross weight (g) <input name="gross" type="number" [(ngModel)]="weighing.gross_g" required min="0" max="200000" step="1"></label>
+          <label>Empty spool / tare (g) <input name="tare" type="number" [(ngModel)]="weighing.tare_g" required min="0" max="100000" step="1"></label>
+          <label class="full">Reason <input name="reason" [(ngModel)]="weighing.note" required minlength="3" maxlength="1000"></label>
+        </div>
+        <p class="helper">Calculated net weight: {{weighing.gross_g-weighing.tare_g}} g · Current: {{item.remaining_g}} g</p>
+        <footer class="modal-footer"><button class="btn ghost" type="button" (click)="close()">Cancel</button><button class="btn primary" type="submit" [disabled]="busy()||weighForm.invalid">Record weighing</button></footer>
+      </form>
+    }
+  }
+  @if (active.kind==='drying') {
+    @if (selected; as item) {
+      <form class="modal-body" #dryForm="ngForm" (ngSubmit)="saveDrying()">
+        <p class="helper">Record completed drying. Always use the manufacturer's temperature and duration limits.</p>
+        <div class="form-grid">
+          <label>Temperature (°C) <input name="temperature" type="number" [(ngModel)]="drying.temperature_c" required min="1" max="150" step="1"></label>
+          <label>Duration (min) <input name="duration" type="number" [(ngModel)]="drying.duration_minutes" required min="1" max="10080" step="1"></label>
+          <label class="full">Notes <textarea name="note" [(ngModel)]="drying.note" maxlength="1000" rows="2"></textarea></label>
+        </div>
+        <footer class="modal-footer"><button class="btn ghost" type="button" (click)="close()">Cancel</button><button class="btn primary" type="submit" [disabled]="busy()||dryForm.invalid">Save drying record</button></footer>
+      </form>
+    }
   }
   @if (active.kind==='movement') {
     @if (selected; as item) {

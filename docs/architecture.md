@@ -1,4 +1,4 @@
-# Filament Manager architecture (v0.6)
+# Filament Manager architecture (v0.9)
 
 This project is **free and open source (Apache-2.0)**, a deliberately small, AI-developed and human-engineered self-hosted application, not a commercial SaaS product. Aim for understandable contributions and safe default behavior rather than elaborate infrastructure.
 
@@ -52,3 +52,11 @@ Implement a controller-specific adapter conforming to `PrinterAdapter` with capa
 CI runs Python/Angular compilation, backend regression tests, browser workflows, Docker lifecycle persistence, isolated slicer image build and dependency audits. TypeScript DTOs are regenerated from Pydantic contracts with `python scripts/generate_api_types.py`, and `--check` verifies drift. Hardware tests, malicious-file analysis, penetration testing and disaster recovery exercise remain operator responsibilities.
 
 **Not goals at this stage:** microservices, Kubernetes, paid cloud services, unverified proprietary cloud APIs or tenant isolation. OIDC/SSO is not implemented. SQLite and one API worker remain the supported baseline.
+
+## Feature expansion architecture (v0.9)
+
+Current SQLite schema: v9. Migrations extend rather than discard original products, spools and movements. Material care, drying, soft reservations, feeder slot assignments, source-ID-mapped imports, scoped read-only machine tokens, tag mappings and pending scale reports are persisted.
+
+A signed scale event creates a **pending measurement**, not a stock transaction. Human approval updates both the event and the ledger in one SQLite transaction. Print reservations are separate from actual consumption. NFC IDs are references, never credentials; browser NFC only works in supported environments. An opt-in ntfy bridge polls read-only inventory events and does not receive SQLite access or printer secrets.
+
+See [roadmap implementation](roadmap-implementation.md).

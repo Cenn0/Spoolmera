@@ -6,10 +6,12 @@ import { InventoryService, apiError } from './inventory.service';
 import { CsvPreview, Movement, ProductInput, SpoolInput, dateText, grams, stockPercent } from './models';
 
 function blankProduct(): ProductInput {
-  return {brand:'',name:'',material:'PLA',color_name:'',color_hex:'#64748b',diameter_mm:1.75,notes:''};
+  return {brand:'',name:'',material:'PLA',color_name:'',color_hex:'#64748b',diameter_mm:1.75,notes:'',density_g_cm3:null,nozzle_min_c:null,nozzle_max_c:null,
+    bed_min_c:null,bed_max_c:null,gtin:'',manufacturer_sku:'',slicer_preset:'',low_stock_threshold_g:200};
 }
 function blankSpool(): SpoolInput {
-  return {product_id:0,initial_g:1000,remaining_g:null,opened:false,location:'',notes:''};
+  return {product_id:0,initial_g:1000,remaining_g:null,opened:false,location:'',notes:'',tare_g:0,purchase_price_cents:null,
+    purchase_currency:'EUR',purchased_on:null,batch:''};
 }
 
 @Component({
@@ -30,6 +32,9 @@ export class DialogsComponent {
   readonly busy=signal(false);
   readonly error=signal('');
   readonly history=signal<Movement[]>([]);
+  readonly tags=signal<{namespace:string;external_id:string;created_at:string}[]>([]);
+  tagNamespace='nfc';tagValue='';
+  readonly dryingHistory=signal<{id:number;temperature_c:number;duration_minutes:number;dried_at:string;note:string}[]>([]);
   readonly archiveCheck=signal(false);
   readonly importCheck=signal(false);
   readonly csvPreview=signal<CsvPreview|null>(null);
@@ -39,6 +44,8 @@ export class DialogsComponent {
   detail={location:'',notes:'',opened:false};
   movement={kind:'consume' as 'consume'|'adjust',grams:0,note:''};
   csvFile:File|null=null;
+  weighing={gross_g:0,tare_g:0,note:'Physical scale measurement'};
+  drying={temperature_c:50,duration_minutes:240,note:''};
 
   constructor() {
     effect(() => {
@@ -47,15 +54,21 @@ export class DialogsComponent {
       this.error.set('');
       this.busy.set(false);
       this.history.set([]);
+      this.dryingHistory.set([]);
+      this.tags.set([]);this.tagValue='';this.tagNamespace='nfc';
       this.archiveCheck.set(false);
       this.importCheck.set(false);
       this.csvPreview.set(null);
       this.csvFile=null;
       if (active.kind==='product') {
         const p=this.data.products().find(x=>x.id===active.id);
-        this.product=p ? {
+        this.product=active.catalog ? {...blankProduct(),...active.catalog} : p ? {
           brand:p.brand,name:p.name,material:p.material,color_name:p.color_name,
-          color_hex:p.color_hex,diameter_mm:p.diameter_mm,notes:p.notes
+          color_hex:p.color_hex,diameter_mm:p.diameter_mm,notes:p.notes,
+          density_g_cm3:p.density_g_cm3,nozzle_min_c:p.nozzle_min_c,
+          nozzle_max_c:p.nozzle_max_c,bed_min_c:p.bed_min_c,bed_max_c:p.bed_max_c,
+          gtin:p.gtin,manufacturer_sku:p.manufacturer_sku,slicer_preset:p.slicer_preset,
+          low_stock_threshold_g:p.low_stock_threshold_g
         } : blankProduct();
       }
       if (active.kind==='spool') {
@@ -67,7 +80,17 @@ export class DialogsComponent {
         if (s) {
           this.detail={location:s.location || '',notes:s.notes || '',opened:s.opened};
           void this.loadHistory(s.id);
+          void this.loadDrying(s.id);
+          void this.loadTags(s.id);
         }
+      }
+      if (active.kind==='weigh') {
+        const s=this.data.spools().find(x=>x.id===active.id);
+        if(s) this.weighing={gross_g:s.remaining_g+s.tare_g,tare_g:s.tare_g,
+          note:'Physical scale measurement'};
+      }
+      if (active.kind==='drying') {
+        this.drying={temperature_c:50,duration_minutes:240,note:''};
       }
       if (active.kind==='movement') {
         this.movement={kind:active.mode || 'consume',grams:0,note:''};
@@ -92,6 +115,8 @@ export class DialogsComponent {
       case 'details': return 'Spool details';
       case 'movement': return active.mode==='adjust' ? 'Adjust stock' : 'Record consumption';
       case 'csv': return 'Import inventory';
+      case 'weigh': return 'Weigh spool';
+      case 'drying': return 'Record drying';
     }
   }
 
@@ -103,6 +128,37 @@ export class DialogsComponent {
   private async loadHistory(id:number):Promise<void> {
     try { this.history.set(await this.data.movementsFor(id)); }
     catch(error){ this.error.set(apiError(error)); }
+  }
+  private async loadTags(id:number):Promise<void> {
+    try{this.tags.set(await this.data.identifiers(id));}
+    catch(error){this.error.set(apiError(error));}
+  }
+  async addTag():Promise<void> {
+    const s=this.selected;if(!s||this.busy())return;
+    if(!/^[A-Za-z0-9:_-]{8,128}$/.test(this.tagValue.trim())){
+      this.error.set('Tag ID must contain 8–128 letters, digits, underscores, dashes or colons.');return;
+    }
+    this.busy.set(true);this.error.set('');
+    try{
+      await this.data.registerIdentifier(s.id,this.tagNamespace,this.tagValue.trim());
+      this.tagValue='';await this.loadTags(s.id);
+      this.notices.show('Tag linked to this physical spool.');
+    }catch(error){this.error.set(apiError(error));}
+    finally{this.busy.set(false);}
+  }
+  async unlinkTag(namespace:string,value:string):Promise<void>{
+    const s=this.selected;if(!s||this.busy())return;
+    this.busy.set(true);this.error.set('');
+    try{
+      await this.data.deleteIdentifier(s.id,namespace,value);
+      await this.loadTags(s.id);
+      this.notices.show('Tag mapping removed.');
+    }catch(error){this.error.set(apiError(error));}
+    finally{this.busy.set(false);}
+  }
+  private async loadDrying(id:number):Promise<void> {
+    try {this.dryingHistory.set(await this.data.dryingRecords(id));}
+    catch(error){this.error.set(apiError(error));}
   }
   private async run(operation:()=>Promise<void>,success:string, next?:DialogRequest):Promise<void> {
     if(this.busy())return;
@@ -154,6 +210,24 @@ export class DialogsComponent {
       this.error.set('The movement would exceed the allowed stock range.');return;
     }
     await this.run(()=>this.data.move(current.id,kind,grams,note),kind==='consume'?'Consumption recorded.':'Stock adjustment recorded.');
+  }
+  async saveWeighing():Promise<void>{
+    const s=this.selected;if(!s)return;
+    if(!Number.isInteger(this.weighing.gross_g) || !Number.isInteger(this.weighing.tare_g)
+       || this.weighing.gross_g<this.weighing.tare_g ||
+       this.weighing.gross_g-this.weighing.tare_g>s.initial_g){
+      this.error.set('Gross and empty-spool weights must result in 0 to original filament grams.');return;
+    }
+    await this.run(()=>this.data.weigh(s.id,this.weighing.gross_g,
+      this.weighing.tare_g,this.weighing.note),'Scale measurement recorded.');
+  }
+  async saveDrying():Promise<void>{
+    const s=this.selected;if(!s)return;
+    if(!Number.isInteger(this.drying.temperature_c)||!Number.isInteger(this.drying.duration_minutes)){
+      this.error.set('Enter whole-number temperature and duration.');return;
+    }
+    await this.run(()=>this.data.dry(s.id,this.drying.temperature_c,
+      this.drying.duration_minutes,this.drying.note),'Drying recorded.');
   }
   async archive():Promise<void>{
     const current=this.selected;

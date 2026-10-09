@@ -355,6 +355,7 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
             if payload.action == "discard":
                 db.execute("UPDATE print_jobs SET status='cancelled',accounting_status='discarded',updated_at=? WHERE id=?",
                            (utc_now(), job_id))
+                db.execute("DELETE FROM job_reservations WHERE job_id=?", (job_id,))
                 audit(db, request.state.user["id"], "job_discard", "print_job", job_id)
                 return {"id": job_id, "status": "cancelled"}
             if not apply_consumption(db, job, request.state.user["id"]):
@@ -466,6 +467,7 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
                 raise HTTPException(status_code=409, detail="Only pending or tracked jobs can be cancelled.")
             db.execute("UPDATE print_jobs SET status='cancelled',accounting_status='discarded',updated_at=? WHERE id=?",
                        (utc_now(), job_id))
+            db.execute("DELETE FROM job_reservations WHERE job_id=?", (job_id,))
             audit(db, request.state.user["id"], "job_cancel_tracking", "print_job", job_id)
         return {"id": job_id, "status": "cancelled"}
 
