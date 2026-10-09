@@ -109,7 +109,7 @@
             @if(auth.canEdit()&&!spool.archived_at){
               <label class="storage-destination">{{'Move to location'|t}}
                 <select [value]="spool.location||''" (change)="chooseLocation($event,spool)" [attr.aria-label]="'Move spool {id} to location'|t:{id:''+spool.id}">
-                  @for(target of storageBoard();track target.location){<option [value]="target.location">{{target.location||('Unassigned'|t)}}</option>}
+                  @for(target of storageBoard();track target.location){<option [value]="target.location" [selected]="target.location===(spool.location||'')">{{target.location||('Unassigned'|t)}}</option>}
                 </select>
               </label>
             }

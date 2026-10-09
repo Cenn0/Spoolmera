@@ -33,6 +33,7 @@ describe('storage board: accessibility, staged moves and concurrent edits',()=>{
     const root=fixture.nativeElement as HTMLElement;
     expect(root.querySelector('.storage-lane[data-location="Shelf A"]')).not.toBeNull();
     expect(root.querySelector('.storage-spool select')).not.toBeNull();
+    expect((root.querySelector('.storage-spool select') as HTMLSelectElement).value).toBe('Shelf A');
     expect(root.querySelector('.storage-spool')?.getAttribute('data-spool-uid')).toBe(original.uid);
     expect(data.updateSpool).not.toHaveBeenCalled();
   });

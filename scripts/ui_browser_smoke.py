@@ -159,8 +159,15 @@ def run_ui_workflows(browser, errors):
         uid = source.get_attribute('data-spool-uid')
         assert uid
         before_move = page.request.get(BASE + '/api/spools/by-uid/' + uid).json()
-        target = page.locator('.storage-lane[data-location="Lab / Bin C"]')
-        source.locator('.drag-handle').drag_to(target)
+        # Drag to the visible empty zone, not the centre of a tall horizontal
+        # scroll lane; scrolling the entire section during a native drag can
+        # otherwise cancel the gesture before the browser dispatches drop.
+        target = page.locator('.storage-lane[data-location="Lab / Bin C"] .storage-empty')
+        source.locator('.drag-handle').hover()
+        page.mouse.down()
+        target.hover()
+        target.hover()
+        page.mouse.up()
         expect(page.locator('.storage-confirm')).to_be_visible()
         expect(page.get_by_role('button', name='Save location', exact=True)).to_be_disabled()
         assert page.request.get(BASE + '/api/spools/by-uid/' + uid).json()['location'] == before_move['location']
