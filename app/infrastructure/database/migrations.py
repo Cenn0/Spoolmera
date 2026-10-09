@@ -35,7 +35,8 @@ def migrate_v2_v4(connection: sqlite3.Connection) -> None:
     )
     connection.execute(
         """INSERT OR IGNORE INTO job_materials(job_id,tool,spool_id,estimated_g,movement_id)
-           SELECT id,0,spool_id,estimated_g,movement_id FROM print_jobs"""
+           SELECT j.id,0,j.spool_id,j.estimated_g,j.movement_id FROM print_jobs j
+           WHERE NOT EXISTS (SELECT 1 FROM job_materials m WHERE m.job_id=j.id)"""
     )
 
 

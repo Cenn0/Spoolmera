@@ -59,7 +59,7 @@ class MultiJobInput(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     printer_id: int = Field(gt=0)
     file_name: str = Field(min_length=3, max_length=180)
-    materials: list[MaterialMapping] = Field(min_length=2, max_length=8)
+    materials: list[MaterialMapping] = Field(min_length=1, max_length=8)
     note: str = Field(default="", max_length=300)
 
 
@@ -90,35 +90,12 @@ def estimate_gcode(content: bytes) -> int | None:
 
 
 def insert_job(db_path: Path, payload: JobInput, actor_id: int) -> int:
-    if not valid_filename(payload.file_name):
-        raise HTTPException(status_code=422, detail="Expected a safe relative .gcode/.gco/.gc filename.")
-    with session(db_path, write=True) as db:
-        printer = db.execute("SELECT enabled FROM printers WHERE id=?", (payload.printer_id,)).fetchone()
-        spool = db.execute(
-            "SELECT remaining_g,archived_at FROM spools WHERE id=?", (payload.spool_id,)
-        ).fetchone()
-        if not printer or not printer["enabled"]:
-            raise HTTPException(status_code=404, detail="Enabled printer not found.")
-        if not spool or spool["archived_at"] is not None:
-            raise HTTPException(status_code=404, detail="Active spool not found.")
-        if spool["remaining_g"] < payload.estimated_g:
-            raise HTTPException(status_code=409, detail="Estimated consumption exceeds current stock.")
-        try:
-            stamp = utc_now()
-            job_id = db.execute(
-                """INSERT INTO print_jobs(printer_id,spool_id,file_name,estimated_g,note,created_by,created_at,updated_at)
-                   VALUES(?,?,?,?,?,?,?,?)""",
-                (payload.printer_id, payload.spool_id, payload.file_name,
-                 payload.estimated_g, payload.note, actor_id, stamp, stamp),
-            ).lastrowid
-        except sqlite3.IntegrityError as exc:
-            raise HTTPException(status_code=409, detail="An active mapping already exists for this printer and file.") from exc
-        db.execute(
-            "INSERT INTO job_materials(job_id,tool,spool_id,estimated_g) VALUES(?,?,?,?)",
-            (job_id, 0, payload.spool_id, payload.estimated_g),
-        )
-        audit(db, actor_id, "job_register", "print_job", job_id)
-    return job_id
+    """Keep the original single-material API as an explicit T0 translation."""
+    return insert_multi_job(db_path, MultiJobInput(
+        printer_id=payload.printer_id, file_name=payload.file_name, note=payload.note,
+        materials=[MaterialMapping(tool=0, spool_id=payload.spool_id,
+                                   estimated_g=payload.estimated_g)],
+    ), actor_id)
 
 
 def insert_multi_job(db_path: Path, payload: MultiJobInput, actor_id: int) -> int:

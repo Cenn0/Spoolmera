@@ -162,7 +162,8 @@ def initialize_database(path: str | Path) -> None:
         # Migration v2 preserves existing numeric IDs while assigning stable UUIDs.
         connection.execute("BEGIN IMMEDIATE")
         try:
-            migrate_v2_v4(connection)
+            if version < 4:
+                migrate_v2_v4(connection)
             if version < 5:
                 migrate_v5(connection)
             if version < 6:
