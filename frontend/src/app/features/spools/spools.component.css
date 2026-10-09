@@ -3,9 +3,9 @@
 .mobile-inventory-actions,.mobile-filter-toggle {display:none}
 .inventory-filter-controls {display:contents}
 @media(max-width:760px) {
-  .page-head {align-items:stretch;gap:12px;margin-bottom:18px}
-  .page-head .eyebrow {font-size:9px;margin-bottom:8px}
-  .page-head h1 {font-size:30px;margin:0 0 8px}
+  .page-head {align-items:stretch;gap:10px;margin-bottom:12px}
+  .page-head .eyebrow {font-size:9px;margin-bottom:6px}
+  .page-head h1 {font-size:28px;margin:0 0 6px}
   .page-head p {font-size:12px;margin:0;line-height:1.5}
   .heading-actions {display:flex;gap:9px}
   .heading-actions>.btn,.heading-actions>.mobile-inventory-actions {flex:1;min-width:0}
@@ -19,7 +19,7 @@
   .inventory-stats>:is(div,button) {padding:9px 8px;min-height:68px;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:6px}
   .inventory-stats span {font-size:8px;line-height:1.4;overflow-wrap:normal;hyphens:auto}
   .inventory-stats strong {font-size:16px;line-height:1.25;overflow-wrap:anywhere}
-  .spool-scanner {margin-bottom:14px}
+  .spool-scanner {margin-bottom:10px}
   .spool-scanner summary {padding:10px 14px;min-height:44px}
   .toolbar {padding:14px 14px 8px;gap:10px}
   .inventory-filter-controls {display:none}
@@ -29,8 +29,8 @@
   .mobile-filter-toggle {display:inline-flex;min-height:40px;padding:8px 12px}
   .active-filter-count {background:var(--accent-soft);color:var(--accent-ink);border-radius:5px;padding:3px 5px}
   .spool-view-bar {padding:4px 14px 10px;justify-content:space-between;gap:8px}
-  .spool-card-identity {grid-template-columns:66px minmax(0,1fr);min-height:86px}
-  .spool-card-top {margin-bottom:12px}
+  .spool-card-identity {grid-template-columns:66px minmax(0,1fr);min-height:80px}
+  .spool-card-top {margin-bottom:8px}
   .spool-card-stock {margin-top:14px}
   .spool-card-meta {padding:10px 0 12px}
 }
@@ -46,7 +46,7 @@
 .label-tray-item.drop-before {box-shadow:0 -3px 0 var(--teal)}
 .label-tray-item.drop-after {box-shadow:0 3px 0 var(--teal)}
 @media(max-width:760px){
-  .inventory-stats {grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  .inventory-stats {grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:10px}
   .inventory-stats>:is(div,button) {flex-direction:row;align-items:center;min-height:43px;gap:5px;padding:8px 10px}
   .inventory-stats span {font-size:8px;max-width:75px;letter-spacing:.05em}
   .inventory-stats strong {font-size:16px;flex:none;white-space:nowrap;overflow-wrap:normal}
