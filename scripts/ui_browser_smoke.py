@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 from playwright.sync_api import expect
 from catalog_browser_smoke import check_product_gallery
+from ui_followup_smoke import run_followup_workflows
 
 BASE = 'http://127.0.0.1:8765'
 
@@ -147,6 +148,8 @@ def run_ui_workflows(browser, errors):
         page.get_by_role('button', name='Show all products', exact=True).click()
         expect(page.locator('.spool-card')).to_have_count(8)
         assert 'product=' not in page.url
+        run_followup_workflows(page)
+
         # Saved preferences override the OS; System reacts to it without a reload.
         theme.select_option('dark'); page.reload(wait_until='networkidle')
         expect(theme).to_have_value('dark')

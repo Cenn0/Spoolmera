@@ -139,13 +139,14 @@ export class InventoryService {
   async unarchive(id: number): Promise<void> {
     await firstValueFrom(this.http.post('/api/spools/' + id + '/unarchive', {})); await this.afterChange();
   }
-  spoolPage(archived: 'active' | 'archived' | 'all', cursor?: number, query = '', material = '', status = '', productId?: number): Promise<ApiSpoolPage> {
+  spoolPage(archived: 'active' | 'archived' | 'all', cursor?: number, query = '', material = '', status = '', productId?: number, lowStock = false): Promise<ApiSpoolPage> {
     let params = new HttpParams().set('archived', archived).set('limit', 100);
     if (cursor) params = params.set('before_id', cursor);
     if (query.trim()) params = params.set('q', query.trim());
     if (material) params = params.set('material',material);
     if (status) params = params.set('status',status);
     if (productId) params = params.set('product_id', productId);
+    if (lowStock) params = params.set('low_stock', true);
     return firstValueFrom(this.http.get<ApiSpoolPage>('/api/spools/page', {params}));
   }
   movementsFor(id: number): Promise<Movement[]> {

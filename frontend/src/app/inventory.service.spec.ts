@@ -40,4 +40,11 @@ describe('inventory freshness and authoritative filters',()=>{
     expect(Object.fromEntries(request.request.params.keys().map(key=>[key,request.request.params.get(key)]))).toEqual({archived:'archived',limit:'100',before_id:'40',q:'Green',material:'PLA',status:'opened'});
     request.flush({items:[],next_cursor:null});await done;
   });
+  it('passes low-stock and product filters to the API without filtering only the loaded rows',async()=>{
+    const done=service.spoolPage('active',20,'','PLA','opened',7,true);
+    const request=http.expectOne(req=>req.url==='/api/spools/page');
+    expect(request.request.params.get('low_stock')).toBe('true');expect(request.request.params.get('product_id')).toBe('7');
+    expect(request.request.params.get('before_id')).toBe('20');request.flush({items:[],next_cursor:null});await done;
+  });
+
 });

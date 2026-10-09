@@ -1,6 +1,16 @@
 import type { TranslationCatalog } from './types';
 
 export const UI_DE = {
+  "Low stock only": "Nur wenig Restmaterial",
+  "Show all active spools": "Alle aktiven Spulen anzeigen",
+  "Show all opened spools": "Alle geöffneten Spulen anzeigen",
+  "Show all low-stock spools": "Alle Spulen mit wenig Restmaterial anzeigen",
+  "Filtered inventory": "Gefilterter Bestand",
+  "Select loaded labels": "Geladene Spulen auswählen",
+  "Deselect loaded labels": "Geladene Spulen abwählen",
+  "Up to 100 labels. Selection outside the current filters is kept.": "Bis zu 100 Etiketten. Die Auswahl außerhalb der aktuellen Filter bleibt erhalten.",
+  "Label for spool #{id}: position {position} of {count}.": "Etikett für Spule #{id}: Position {position} von {count}.",
+  "Unable to load more spools. Refresh and retry.": "Weitere Spulen konnten nicht geladen werden. Aktualisiere die Ansicht und versuche es erneut.",
   "Inventory actions": "Bestandsaktionen",
   "Filters": "Filter",
   "1 active roll": "1 aktive Spule",

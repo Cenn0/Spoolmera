@@ -208,3 +208,52 @@ def test_label_sheet_honors_user_selected_order(inventory):
     assert response.status_code == 200
     offsets = [response.text.index(f'/api/spools/{uid}/qr.svg') for uid in order]
     assert offsets == sorted(offsets)
+
+
+def test_low_stock_filter_runs_before_pagination_and_combines_with_existing_filters(inventory):
+    client, path, product = inventory
+    # Oldest roll would not be on the first unfiltered page.
+    low = client.post('/api/spools', json={'product_id': product, 'initial_g': 1000,
+        'remaining_g': 200, 'location': 'Dry box 100%'}).json()
+    client.post('/api/spools/batch', json={'count': 5, 'spool': {'product_id': product, 'initial_g': 1000}})
+    empty = client.post('/api/spools', json={'product_id': product, 'initial_g': 1000, 'remaining_g': 0}).json()
+    with session(path) as db:
+        before = [tuple(row) for row in db.execute('SELECT id,remaining_g,stock_revision FROM spools ORDER BY id')]
+        movements = db.execute('SELECT COUNT(*) FROM movements').fetchone()[0]
+    params = {'low_stock': 'true', 'limit': 1, 'material': 'PLA', 'status': 'opened',
+              'product_id': product, 'q': '100%'}
+    result = client.get('/api/spools/page', params=params)
+    assert result.status_code == 200
+    assert [item['id'] for item in result.json()['items']] == [low['id']]
+    assert result.json()['next_cursor'] is None
+    assert client.get('/api/spools/page?low_stock=true&status=empty').json()['items'] == []
+    assert len(client.get('/api/spools/page?low_stock=false').json()['items']) == 7
+    assert client.get('/api/spools/page?low_stock=unsupported').status_code == 422
+    with session(path) as db:
+        assert [tuple(row) for row in db.execute('SELECT id,remaining_g,stock_revision FROM spools ORDER BY id')] == before
+        assert db.execute('SELECT COUNT(*) FROM movements').fetchone()[0] == movements
+    assert client.post(f"/api/spools/{low['id']}/archive").status_code == 200
+    assert client.get('/api/spools/page?low_stock=true').json()['items'] == []
+    assert [item['id'] for item in client.get('/api/spools/page?low_stock=true&archived=archived').json()['items']] == [low['id']]
+
+
+def test_low_stock_inclusive_product_threshold_and_cursor(inventory):
+    client, path, product = inventory
+    ids = []
+    for remaining in [1, 200, 201, 50, 0, 199]:
+        ids.append(client.post('/api/spools', json={'product_id': product, 'initial_g': 1000,
+                                                 'remaining_g': remaining}).json()['id'])
+    found, cursor = [], None
+    while True:
+        params = {'low_stock': 'true', 'limit': 2}
+        if cursor is not None:
+            params['before_id'] = cursor
+        result = client.get('/api/spools/page', params=params).json()
+        found.extend(item['id'] for item in result['items'])
+        cursor = result['next_cursor']
+        if cursor is None:
+            break
+    assert found == [ids[5], ids[3], ids[1], ids[0]]
+    with session(path, write=True) as db:
+        db.execute('UPDATE products SET low_stock_threshold_g=0 WHERE id=?', (product,))
+    assert client.get('/api/spools/page?low_stock=true').json()['items'] == []

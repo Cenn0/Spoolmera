@@ -18,7 +18,7 @@ SPOOL_SELECT = '''SELECT s.*,p.brand,p.name AS product_name,p.material,
 
 
 def spool_page(db_path: Path, *, archived='active', before_id=None, limit=50,
-               q=None, material=None, status=None, product_id=None) -> dict:
+               q=None, material=None, status=None, product_id=None, low_stock=False) -> dict:
     clauses, values = [], []
     if archived != 'all':
         clauses.append('s.archived_at IS ' + ('NULL' if archived == 'active' else 'NOT NULL'))
@@ -35,6 +35,9 @@ def spool_page(db_path: Path, *, archived='active', before_id=None, limit=50,
                       'sealed': 's.opened=0 AND s.remaining_g>0'}
     if status:
         clauses.append('(' + status_clauses[status] + ')')
+    if low_stock:
+        # Match the inventory warning definition; empty rolls have their own state.
+        clauses.append('s.remaining_g>0 AND s.remaining_g<=p.low_stock_threshold_g')
     if q:
         # LIKE is parameterized; escaped wildcards make search literal.
         term = '%' + q.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%'

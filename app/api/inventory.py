@@ -75,9 +75,10 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
                    q: str | None = Query(default=None, min_length=1, max_length=120),
                    material: str | None = Query(default=None, min_length=1, max_length=32),
                    status: Literal['sealed', 'opened', 'empty'] | None = None,
-                   product_id: int | None = Query(default=None, gt=0)):
+                   product_id: int | None = Query(default=None, gt=0),
+                   low_stock: bool = False):
         return inventory_query_service.spool_page(db_path, archived=archived,
-            before_id=before_id, limit=limit, q=q, material=material, status=status, product_id=product_id)
+            before_id=before_id, limit=limit, q=q, material=material, status=status, product_id=product_id, low_stock=low_stock)
 
     @router.get('/api/spools/by-uid/{spool_uid}', response_model=SpoolResponse)
     def spool_by_uid(spool_uid: UUID):

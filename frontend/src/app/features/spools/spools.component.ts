@@ -1,5 +1,6 @@
 import { SpoolVisualComponent } from '../../core/ui/spool-visual.component';
 import { addLabel, reorderLabels, MAX_LABELS } from '../../core/ui/label-selection';
+import type { LocalizedMessage } from '../../core/i18n/types';
 import { I18nService, TranslatePipe } from '../../core/i18n';
 import { Component, OnInit, HostListener, computed, inject, signal, effect, untracked, DestroyRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -29,23 +30,66 @@ export class SpoolsComponent implements OnInit {
   readonly displayMode=signal<'cards'|'table'>('cards');
   readonly dragged=signal<Spool|null>(null);
   readonly overTray=signal(false);
+  readonly dropTarget=signal<string|null>(null);
+  readonly labelFeedback=signal<LocalizedMessage|null>(null);
+  readonly lowOnly=signal(false);
+  readonly loadedSelected=computed(()=>this.items().filter(item=>this.selectedLabels().includes(item.uid)).length);
+  readonly canSelectLoaded=computed(()=>this.items().some(item=>!this.selectedLabels().includes(item.uid))
+    &&new Set([...this.selectedLabels(),...this.items().map(item=>item.uid)]).size<=MAX_LABELS);
+  private routeReady=false;
+  private displayedFilters='';
+  private refreshAfterDrag=false;
   readonly filtersOpen=signal(false);
-  readonly activeFilterCount=computed(()=>Number(this.archived()!=='active')+Number(!!this.material())+Number(!!this.status()));
+  readonly activeFilterCount=computed(()=>Number(this.archived()!=='active')+Number(!!this.material())+Number(!!this.status())+Number(this.lowOnly()));
   setDisplay(value:'cards'|'table'):void {
     this.displayMode.set(value);
     try { localStorage.setItem('filament-manager-spool-view',value); } catch { /* Preference only. */ }
   }
+  selectLoaded():void {
+    this.labelFeedback.set(null);
+    if(this.loading())return;
+    if(new Set([...this.selectedLabels(),...this.items().map(item=>item.uid)]).size>MAX_LABELS){
+      this.notices.show('Select at most 100 labels per sheet.',true);return;
+    }
+    this.selectedSpools.update(selected=>this.items().reduce((all,item)=>addLabel(all,item),selected));
+  }
+  deselectLoaded():void {
+    this.labelFeedback.set(null);
+    const visible=new Set(this.items().map(item=>item.uid));
+    this.selectedSpools.update(selected=>selected.filter(item=>!visible.has(item.uid)));
+  }
+  clearSelection():void {this.selectedSpools.set([]);this.labelFeedback.set(null);}
+  markDropTarget(event:DragEvent,uid:string):void {
+    this.dragOverTray(event);if(this.dragged())this.dropTarget.set(uid);
+  }
+  dropSide(uid:string):'before'|'after'|null {
+    const dragged=this.dragged();
+    if(!dragged||dragged.uid===uid||this.dropTarget()!==uid)return null;
+    const from=this.selectedLabels().indexOf(dragged.uid),to=this.selectedLabels().indexOf(uid);
+    return from>=0&&from<to?'after':'before';
+  }
+  private announcePosition(uid:string):void {
+    const index=this.selectedSpools().findIndex(item=>item.uid===uid);
+    if(index>=0)this.labelFeedback.set(this.i18n.message('Label for spool #{id}: position {position} of {count}.',
+      {id:this.selectedSpools()[index].id,position:index+1,count:this.selectedSpools().length}));
+  }
   addToTray(spool:Spool):void {
+    this.labelFeedback.set(null);
     if(this.selectedSpools().length>=MAX_LABELS && !this.selectedLabels().includes(spool.uid)) {
       this.notices.show('Select at most 100 labels per sheet.',true);return;
     }
     this.selectedSpools.update(items=>addLabel(items,spool));
   }
   dragStart(event:DragEvent,spool:Spool):void {
-    this.dragged.set(spool);
+    // Also suspend responses requested before the pointer started dragging.
+    if(this.loading()){this.requests.invalidate();this.refreshAfterDrag=true;this.loading.set(false);}
+    this.dragged.set(spool);this.labelFeedback.set(null);
     if(event.dataTransfer) { event.dataTransfer.effectAllowed='copyMove';event.dataTransfer.setData('application/x-filament-spool',spool.uid); }
   }
-  dragEnd():void { this.dragged.set(null);this.overTray.set(false); }
+  dragEnd():void {
+    this.dragged.set(null);this.overTray.set(false);this.dropTarget.set(null);
+    if(this.refreshAfterDrag){this.refreshAfterDrag=false;void this.refresh();}
+  }
   dragOverTray(event:DragEvent):void {
     if(!this.dragged())return;
     event.preventDefault();this.overTray.set(true);
@@ -61,37 +105,90 @@ export class SpoolsComponent implements OnInit {
     if(spool){
       this.addToTray(spool);
       this.selectedSpools.update(items=>reorderLabels(items,spool.uid,targetUid));
+      this.announcePosition(spool.uid);
     }
     this.dragEnd();
   }
   moveSelected(uid:string,direction:-1|1):void {
     const items=this.selectedSpools(),index=items.findIndex(item=>item.uid===uid),target=items[index+direction];
-    if(index>=0&&target)this.selectedSpools.set(reorderLabels(items,uid,target.uid));
+    if(index>=0&&target){this.selectedSpools.set(reorderLabels(items,uid,target.uid));this.announcePosition(uid);}
   }
 
   private searchTimer:ReturnType<typeof setTimeout>|undefined;
-  constructor(){try{if(localStorage.getItem('filament-manager-spool-view')==='table')this.displayMode.set('table');}catch{/* Preference only. */}effect(()=>{this.data.changed();untracked(()=>void this.refresh());});}
-  ngOnInit():void{this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroy)).subscribe(params=>{
-    this.query.set(params.get('q')||'');
-    const product=Number(params.get('product'));this.productId.set(Number.isSafeInteger(product)&&product>0?product:undefined);
-    const mode=params.get('archived');this.archived.set(mode==='all'||mode==='archived'?mode:'active');
-    void this.refresh();
-  });}
-  @HostListener('window:focus') onFocus():void{void this.refresh();}
-  changeSearch(value:string):void{this.query.set(value);clearTimeout(this.searchTimer);this.requests.invalidate();this.loading.set(false);
-    this.searchTimer=setTimeout(()=>void this.refresh(),250);}
-  async refresh(more=false):Promise<void>{
+  constructor(){
+    try{if(localStorage.getItem('filament-manager-spool-view')==='table')this.displayMode.set('table');}catch{/* Preference only. */}
+    effect(()=>{this.data.changed();untracked(()=>{if(this.routeReady)void this.refresh();});});
+  }
+  ngOnInit():void {
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroy)).subscribe(params=>{
+      clearTimeout(this.searchTimer);
+      this.query.set((params.get('q')||'').slice(0,120));
+      const rawProduct=params.get('product')||'';
+      const product=Number(rawProduct);
+      this.productId.set(/^\d+$/.test(rawProduct)&&Number.isSafeInteger(product)&&product>0?product:undefined);
+      const mode=params.get('archived');this.archived.set(mode==='all'||mode==='archived'?mode:'active');
+      this.material.set((params.get('material')||'').slice(0,32));
+      const status=params.get('status');this.status.set(status==='sealed'||status==='opened'||status==='empty'?status:'');
+      this.lowOnly.set(params.get('low')==='1');
+      this.routeReady=true;
+      // A filter navigation invalidates any in-flight drag and old response.
+      this.refreshAfterDrag=false;this.dragged.set(null);this.overTray.set(false);this.dropTarget.set(null);
+      void this.refresh();
+    });
+  }
+  @HostListener('window:focus') onFocus():void{if(this.routeReady)void this.refresh();}
+  changeSearch(value:string):void {
+    this.query.set(value.slice(0,120));clearTimeout(this.searchTimer);this.requests.invalidate();
+    this.searchTimer=setTimeout(()=>this.syncFilters(true),250);
+  }
+  syncFilters(replaceUrl=false):void {
+    clearTimeout(this.searchTimer);this.requests.invalidate();
+    void this.router.navigate([], {relativeTo:this.route,queryParamsHandling:'merge',replaceUrl,
+      queryParams:{q:this.query().trim()||null,material:this.material()||null,status:this.status()||null,
+        archived:this.archived()==='active'?null:this.archived(),product:this.productId()??null,low:this.lowOnly()?'1':null}})
+      .then(navigated=>{if(!navigated&&!this.destroy.destroyed)void this.refresh();})
+      .catch(error=>{if(!this.destroy.destroyed){this.loading.set(false);this.error.set(apiError(error));}});
+  }
+  clearFilters():void {
+    this.query.set('');this.material.set('');this.status.set('');this.archived.set('active');this.lowOnly.set(false);
+    this.productId.set(undefined);this.syncFilters();
+  }
+  quickFilter(kind:'all'|'opened'|'low'):void {
+    this.query.set('');this.material.set('');this.archived.set('active');this.productId.set(undefined);
+    this.status.set(kind==='opened'?'opened':'');this.lowOnly.set(kind==='low');this.syncFilters();
+  }
+  private filters(){return {archived:this.archived(),query:this.query().trim(),material:this.material(),
+    status:this.status(),product:this.productId(),low:this.lowOnly()};}
+  async refresh(more=false):Promise<void> {
+    if(this.destroy.destroyed)return;
+    if(this.dragged()){this.refreshAfterDrag=true;return;}
     if(more&&(this.loading()||!this.nextCursor()))return;
+    const filters=this.filters(),key=JSON.stringify(filters),same=key===this.displayedFilters;
+    const target=more?1:(same?Math.max(1,this.items().length):1);
     const owner=this.requests.begin();this.loading.set(true);this.error.set('');
-    if(!more){this.items.set([]);this.nextCursor.set(null);}
-    try{const result=await this.data.spoolPage(this.archived(),more?this.nextCursor()!:undefined,this.query(),this.material(),this.status(),this.productId());
-      if(!this.requests.owns(owner))return;
-      this.items.update(old=>more?[...old,...result.items.filter(item=>!old.some(s=>s.id===item.id))]:result.items);this.nextCursor.set(result.next_cursor);
-      this.selectedSpools.update(selected=>selected.map(item=>result.items.find(fresh=>fresh.uid===item.uid)??item));
+    // Keep cards and focus mounted on ordinary refreshes. A new filter must not
+    // display rows from the previous filter while its response is outstanding.
+    if(!same){this.items.set([]);this.nextCursor.set(null);this.displayedFilters=key;}
+    let cursor=more?this.nextCursor():null;
+    const fresh:Spool[]=[];
+    try{
+      do {
+        const result=await this.data.spoolPage(filters.archived,cursor??undefined,filters.query,
+          filters.material,filters.status,filters.product,filters.low);
+        if(!this.requests.owns(owner))return;
+        fresh.push(...result.items.filter(item=>!fresh.some(old=>old.id===item.id)));
+        const previous=cursor;cursor=result.next_cursor;
+        // Enforce progress even if an unexpected backend response repeats its cursor.
+        if(cursor!==null&&previous!==null&&cursor>=previous)throw new Error('Unable to load more spools. Refresh and retry.');
+      }while(!more&&fresh.length<target&&cursor!==null);
+      this.items.update(old=>more?[...old,...fresh.filter(item=>!old.some(s=>s.id===item.id))]:fresh);
+      this.nextCursor.set(cursor);
+      this.selectedSpools.update(selected=>selected.map(item=>fresh.find(row=>row.uid===item.uid)??item));
     }catch(error){if(this.requests.owns(owner))this.error.set(apiError(error));}
     finally{if(this.requests.owns(owner))this.loading.set(false);}
   }
   toggleLabel(uid:string):void{
+    this.labelFeedback.set(null);
     if(this.selectedLabels().includes(uid))this.selectedSpools.update(items=>items.filter(item=>item.uid!==uid));
     else{const spool=this.items().find(item=>item.uid===uid);if(spool)this.addToTray(spool);}
   }
@@ -105,11 +202,7 @@ export class SpoolsComponent implements OnInit {
   readonly material = signal('');
   readonly status = signal('');
   readonly productId=signal<number|undefined>(undefined);
-  clearProductFilter():void {
-    // Keep the URL and the visible filter aligned so reload/back does not restore a cleared product.
-    void this.router.navigate([], {relativeTo:this.route, queryParamsHandling:'merge',
-      queryParams:{product:null,q:this.query()||null,archived:this.archived()}});
-  }
+  clearProductFilter():void {this.productId.set(undefined);this.syncFilters();}
   readonly notices=inject(NoticeService);
   tagNamespace='nfc';tagSearch='';
   readonly scanning=signal(false);
