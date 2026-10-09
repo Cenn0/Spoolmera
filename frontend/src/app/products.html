@@ -29,6 +29,15 @@
         <div class="filament-card-body">
           <span class="spool-brand">{{product.brand}}</span><h2>{{product.name}}</h2><p class="spool-color"><span class="swatch small" [style.background-color]="product.color_hex"></span>{{product.color_name}}</p>
           <div class="filament-stock"><strong>{{grams(product.total_remaining_g)}}</strong><span>{{(product.spool_count===1?'1 active roll':'{count} active rolls')|t:{count:i18n.number(product.spool_count)} }}</span></div>
+          @if(product.target_stock_g>0){
+            <div class="product-target" [class.is-low]="belowWarning(product)">
+              <div class="product-target-head"><span>{{'Target stock'|t}}</span><strong>{{grams(product.target_stock_g)}}</strong></div>
+              <div class="progress" [class.low]="belowWarning(product)" role="progressbar"
+                [attr.aria-label]="'Stock compared with target'|t" [attr.aria-valuenow]="targetPercent(product)"
+                aria-valuemin="0" aria-valuemax="100"><span [style.width.%]="targetPercent(product)"></span></div>
+              @if(belowWarning(product)){<small class="product-target-warning">{{'Below warning level'|t}}</small>}
+            </div>
+          }@else if(belowWarning(product)){<p class="product-target-warning">{{'Below warning level'|t}}</p>}
           @if(product.total_remaining_g===0){<p class="product-no-stock">{{'No remaining filament'|t}}</p>}
           <dl class="filament-specs"><div><dt>{{'Diameter'|t}}</dt><dd>{{i18n.number(product.diameter_mm)}} mm</dd></div><div><dt>{{'Nozzle'|t}}</dt><dd>@if(product.nozzle_min_c!=null&&product.nozzle_max_c!=null){{{i18n.number(product.nozzle_min_c)}}–{{i18n.number(product.nozzle_max_c)}} °C}@else{—}</dd></div></dl>
           <div class="spool-card-actions">

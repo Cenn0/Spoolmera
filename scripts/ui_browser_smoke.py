@@ -149,6 +149,26 @@ def run_ui_workflows(browser, errors):
         expect(page.locator('.spool-card')).to_have_count(8)
         assert 'product=' not in page.url
         run_followup_workflows(page)
+        page.goto(BASE + '/spools', wait_until='networkidle')
+        # Stage and commit a location change via a genuine browser drag. A drop is
+        # never itself a server mutation; explicit physical verification is required.
+        page.get_by_role('button', name='Locations', exact=True).click()
+        page.get_by_label('New location', exact=True).fill('Lab / Bin C')
+        page.get_by_role('button', name='Add location', exact=True).click()
+        source = page.locator('.storage-spool').first
+        uid = source.get_attribute('data-spool-uid')
+        assert uid
+        before_move = page.request.get(BASE + '/api/spools/by-uid/' + uid).json()
+        target = page.locator('.storage-lane[data-location="Lab / Bin C"]')
+        source.locator('.drag-handle').drag_to(target)
+        expect(page.locator('.storage-confirm')).to_be_visible()
+        expect(page.get_by_role('button', name='Save location', exact=True)).to_be_disabled()
+        assert page.request.get(BASE + '/api/spools/by-uid/' + uid).json()['location'] == before_move['location']
+        page.locator('.storage-confirm input[type=checkbox]').check()
+        page.get_by_role('button', name='Save location', exact=True).click()
+        expect(page.locator('.storage-confirm')).to_have_count(0)
+        assert page.request.get(BASE + '/api/spools/by-uid/' + uid).json()['location'] == 'Lab / Bin C'
+        page.get_by_role('button', name='Cards', exact=True).click()
 
         # Saved preferences override the OS; System reacts to it without a reload.
         theme.select_option('dark'); page.reload(wait_until='networkidle')
@@ -171,6 +191,9 @@ def run_ui_workflows(browser, errors):
         page.set_viewport_size({'width': 1440, 'height': 1000})
         page.evaluate('window.scrollTo({top:0,behavior:"instant"})')
         assert page.locator('.sidebar').bounding_box()['y'] == 0
+        page.get_by_role('button', name='Lagerorte', exact=True).click()
+        page.screenshot(path=str(folder / 'ui-de-dark-locations.png'), full_page=True, animations='disabled')
+        page.get_by_role('button', name='Karten', exact=True).click()
         page.screenshot(path=str(folder / 'ui-de-dark-spools.png'), full_page=True, animations='disabled')
         theme.select_option('light')
         expect(page.locator('html')).to_have_attribute('data-theme', 'light')

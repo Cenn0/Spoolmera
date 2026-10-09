@@ -62,6 +62,7 @@ class SpoolUpdate(InputModel):
     purchase_currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
     purchased_on: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     batch: str | None = Field(default=None, max_length=120)
+    expected_location: str | None = Field(default=None, max_length=120)
 
 
 class MovementInput(InputModel):

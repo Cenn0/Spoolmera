@@ -5,7 +5,7 @@ import { AuthService } from '../../auth.service';
 import { DialogService } from '../../dialog.service';
 import { InventoryService } from '../../inventory.service';
 import { SpoolVisualComponent } from '../../core/ui/spool-visual.component';
-import { ProductOrder, productOrder, selectProducts, summarizeProducts } from './product-view';
+import { ProductOrder, productOrder, selectProducts, summarizeProducts, targetStockPercent, belowWarning } from './product-view';
 
 const SORT_PREFERENCE = 'filament-manager-product-sort';
 
@@ -21,6 +21,8 @@ export class ProductsComponent {
   readonly dialogs = inject(DialogService);
   readonly auth = inject(AuthService);
   readonly grams = (value: number): string => this.i18n.grams(value);
+  readonly targetPercent = targetStockPercent;
+  readonly belowWarning = belowWarning;
   readonly query = signal('');
   readonly material = signal('');
   readonly stockOnly = signal(false);

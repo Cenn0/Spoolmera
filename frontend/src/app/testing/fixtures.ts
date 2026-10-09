@@ -26,7 +26,7 @@ export function authMock(role:'admin'|'editor'|'viewer'='admin'){
 export function inventoryMock(){
   const spools=signal([spool()]);return {spools,products:signal([product()]),movements:signal<ApiMovement[]>([]),overview:signal<ApiOverview>({...EMPTY_OVERVIEW,total_spools:1}),
     available:computed(()=>spools().filter(s=>s.remaining_g>0)),changed:signal(0),lastUpdated:signal<string|null>(null),ready:signal(true),loading:signal(false),error:signal(''),
-    load:vi.fn().mockResolvedValue(true),movementsFor:vi.fn().mockResolvedValue([]),dryingRecords:vi.fn().mockResolvedValue([]),identifiers:vi.fn().mockResolvedValue([]),updateSpool:vi.fn().mockResolvedValue(undefined),
+    load:vi.fn().mockResolvedValue(true),spoolByUid:vi.fn().mockResolvedValue(spool()),movementsFor:vi.fn().mockResolvedValue([]),dryingRecords:vi.fn().mockResolvedValue([]),identifiers:vi.fn().mockResolvedValue([]),updateSpool:vi.fn().mockResolvedValue(undefined),
     createBatch:vi.fn(),spoolPage:vi.fn().mockResolvedValue({items:spools(),next_cursor:null}),movementPage:vi.fn().mockResolvedValue({items:[],next_cursor:null}),restock:vi.fn().mockResolvedValue({items:[]}),weigh:vi.fn().mockResolvedValue(undefined)};
 }
 export function workspaceMock(){return {printers:vi.fn().mockResolvedValue([printer()]),jobs:vi.fn().mockResolvedValue([job()]),printerCapabilities:vi.fn().mockResolvedValue({write_enabled:true,max_upload_bytes:1000000}),slicerProfiles:vi.fn().mockResolvedValue({enabled:false,profiles:[]}),

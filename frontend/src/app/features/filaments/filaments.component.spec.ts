@@ -98,6 +98,16 @@ describe('filament gallery controls and state', () => {
     auth.user.set({...auth.user()!, role: 'viewer'}); fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.product-empty button')).toBeNull();
   });
+  it('shows target progress and warning indicators without modifying stock', () => {
+    fixture.detectChanges();
+    const first = fixture.nativeElement.querySelector('.filament-card[data-product-id="1"]') as HTMLElement;
+    const gauge = first.querySelector('[role="progressbar"]') as HTMLElement;
+    expect(gauge.getAttribute('aria-valuenow')).toBe('100');
+    expect(first.textContent).toContain('Target stock');
+    const low = fixture.nativeElement.querySelector('.filament-card[data-product-id="2"]') as HTMLElement;
+    expect(low.textContent).toContain('Below warning level');
+    expect(data.updateSpool).not.toHaveBeenCalled();
+  });
   it('recomputes the filtered stock when inventory data refreshes', () => {
     component.material.set('PETG'); fixture.detectChanges(); expect(component.summary().remaining_g).toBe(310);
     data.products.update(items => items.map(item => item.id === 3 ? {...item, total_remaining_g: 275} : item)); fixture.detectChanges();

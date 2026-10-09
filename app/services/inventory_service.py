@@ -145,6 +145,10 @@ def insert_spool(db, payload: SpoolInput, actor_id: int) -> int:
 
 def update_spool(db_path: Path, spool_id: int, payload: SpoolUpdate, actor_id: int):
     changes = payload.model_dump(exclude_unset=True)
+    # Compare the previously displayed location inside the same write transaction.
+    # Existing PATCH clients without this optional precondition are unchanged.
+    expected_location_set = 'expected_location' in changes
+    expected_location = changes.pop('expected_location', None)
     nullable = {'purchase_price_cents', 'purchased_on'}
     if not changes or any(value is None and field not in nullable for field, value in changes.items()):
         raise HTTPException(status_code=422, detail="At least one valid field is required.")
@@ -152,6 +156,16 @@ def update_spool(db_path: Path, spool_id: int, payload: SpoolUpdate, actor_id: i
         changes["opened"] = int(changes["opened"])
     assignments = ", ".join(f"{name}=?" for name in changes)
     with session(db_path, write=True) as db:
+        if expected_location_set:
+            current = db.execute(
+                'SELECT location FROM spools WHERE id=? AND archived_at IS NULL',
+                (spool_id,),
+            ).fetchone()
+            if current is None:
+                raise HTTPException(status_code=404, detail='Spool not found.')
+            if current['location'] != (expected_location or ''):
+                raise HTTPException(status_code=409,
+                    detail='Spool location changed. Reload the inventory and try again.')
         if changes.get("opened") == 0:
             spool = db.execute(
                 "SELECT initial_g, remaining_g FROM spools WHERE id=? AND archived_at IS NULL",

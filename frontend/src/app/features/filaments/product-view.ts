@@ -41,3 +41,11 @@ export function summarizeProducts(products: readonly Product[]): {products: numb
     remaining_g: total.remaining_g + product.total_remaining_g,
   }), {products: 0, spools: 0, remaining_g: 0});
 }
+
+/** Display stock against an optional product target, without changing inventory values. */
+export function targetStockPercent(product: Pick<Product,'target_stock_g'|'total_remaining_g'>): number {
+  return product.target_stock_g > 0 ? Math.max(0, Math.min(100, 100 * product.total_remaining_g / product.target_stock_g)) : 0;
+}
+export function belowWarning(product: Pick<Product,'low_stock_threshold_g'|'total_remaining_g'>): boolean {
+  return product.low_stock_threshold_g > 0 && product.total_remaining_g <= product.low_stock_threshold_g;
+}

@@ -59,7 +59,12 @@
   }
   <div class="spool-view-bar"><button type="button" class="btn ghost mobile-filter-toggle" aria-controls="inventory-filters" [attr.aria-expanded]="filtersOpen()" (click)="filtersOpen.set(!filtersOpen())">{{'Filters'|t}} @if(activeFilterCount()){<span class="active-filter-count">{{i18n.number(activeFilterCount())}}</span>}</button><div class="view-switch" role="group" [attr.aria-label]="'Display mode'|t">
 <button type="button" [class.active]="displayMode()==='cards'" [attr.aria-pressed]="displayMode()==='cards'" (click)="setDisplay('cards')">{{'Cards'|t}}</button>
-<button type="button" [class.active]="displayMode()==='table'" [attr.aria-pressed]="displayMode()==='table'" (click)="setDisplay('table')">{{'Table'|t}}</button></div>
+<button type="button" [class.active]="displayMode()==='table'" [attr.aria-pressed]="displayMode()==='table'" (click)="setDisplay('table')">{{'Table'|t}}</button>
+<button type="button" [class.active]="displayMode()==='locations'" [attr.aria-pressed]="displayMode()==='locations'" (click)="setDisplay('locations')">{{'Locations'|t}}</button></div>
+<label class="spool-sort">{{'Sort loaded spools'|t}}<select [value]="spoolOrder()" (change)="setSpoolOrder($any($event.target).value)" [attr.aria-label]="'Sort loaded spools'|t">
+<option value="newest">{{'Newest first'|t}}</option><option value="name">{{'Name (A–Z)'|t}}</option>
+<option value="remaining-low">{{'Remaining: low to high'|t}}</option><option value="remaining-high">{{'Remaining: high to low'|t}}</option>
+<option value="location">{{'Location (A–Z)'|t}}</option></select></label>
 <span class="helper">{{'Drag a spool by its handle to prepare labels, or use the selection button.'|t}}</span></div>
 <div class="result-count">{{'{count} spools loaded'|t:{count:i18n.number(items().length)} }} @if(loading()){<span role="status"> {{'· Loading…'|t}}</span>}
     <button class="btn ghost" type="button" [disabled]="loading()" (click)="refresh()">{{'Refresh spools'|t}}</button></div>
@@ -81,6 +86,52 @@
       }
     </tbody>
   </table></div>
+}@else if(displayMode()==='locations'){
+  <div class="storage-intro">
+    <div><h2>{{'Storage locations'|t}}</h2><p class="helper">{{'Drag a spool between locations or choose a destination in its menu. A drop only prepares a change.'|t}}</p></div>
+    @if(auth.canEdit()){
+      <div class="create-location"><label>{{'New location'|t}}<input type="text" maxlength="120" [value]="locationDraft()" (input)="locationDraft.set($any($event.target).value)" (keydown.enter)="$event.preventDefault();createLocationLane()" [placeholder]="'e.g. Shelf C'|t"></label>
+      <button type="button" class="btn ghost" [disabled]="!locationDraft().trim()" (click)="createLocationLane()">{{'Add location'|t}}</button></div>
+    }
+  </div>
+  <div class="storage-board" tabindex="0" role="region" [attr.aria-label]="'Storage locations'|t">
+  @for(lane of storageBoard();track lane.location){
+    <section class="storage-lane" [class.drop-active]="hoverLocation()===lane.location && !!dragged()" [attr.data-location]="lane.location" (dragover)="overLocation($event,lane.location)" (dragleave)="hoverLocation.set(null)" (drop)="dropLocation($event,lane.location)">
+      <div class="storage-lane-heading"><h3>{{lane.location||('Unassigned'|t)}}</h3><span>{{'{count} spools on this page'|t:{count:i18n.number(lane.spools.length)} }}</span><strong>{{grams(lane.totalG)}}</strong></div>
+      <div class="storage-lane-contents">
+        @for(spool of lane.spools;track spool.uid){
+          <article class="storage-spool" [attr.data-spool-uid]="spool.uid">
+            <div class="storage-spool-main">
+              @if(auth.canEdit()&&!spool.archived_at){<button type="button" class="drag-handle" draggable="true" (dragstart)="dragStart($event,spool)" (dragend)="dragEnd()" [attr.aria-label]="'Drag spool {id}'|t:{id:''+spool.id}" [attr.title]="'Drag spool to a location'|t">⠿</button>}
+              <fm-spool-visual [color]="spool.color_hex" [percentage]="percent(spool)" />
+              <div><strong>{{spool.brand}} · {{spool.product_name}}</strong><small>{{spool.color_name}} · {{spool.material}}</small><span>{{'Spool #{id}'|t:{id:''+spool.id} }} · {{grams(spool.remaining_g)}}</span></div>
+            </div>
+            @if(auth.canEdit()&&!spool.archived_at){
+              <label class="storage-destination">{{'Move to location'|t}}
+                <select [value]="spool.location||''" (change)="chooseLocation($event,spool)" [attr.aria-label]="'Move spool {id} to location'|t:{id:''+spool.id}">
+                  @for(target of storageBoard();track target.location){<option [value]="target.location">{{target.location||('Unassigned'|t)}}</option>}
+                </select>
+              </label>
+            }
+          </article>
+        }@empty{<div class="storage-empty">{{'Drop a spool here'|t}}</div>}
+      </div>
+    </section>
+  }
+  </div>
+  <p class="storage-page-hint helper">{{'The board shows currently loaded spools. Load more to include older spools.'|t}}</p>
+  @if(pendingLocation();as pending){
+    <section class="storage-confirm" aria-live="polite">
+      <h3>{{'Confirm location change'|t}}</h3>
+      <p><strong>{{pending.name}}</strong> · {{'Spool #{id}'|t:{id:''+pending.id} }}</p>
+      <p>{{pending.original||('Unassigned'|t)}} <span aria-hidden="true">→</span> <strong>{{pending.target||('Unassigned'|t)}}</strong></p>
+      <p class="helper">{{'Only the saved location record changes. Move or verify the physical spool before confirming.'|t}}</p>
+      <label class="checkbox-row"><input type="checkbox" [checked]="locationConfirmed()" [disabled]="locationBusy()" (change)="locationConfirmed.set($any($event.target).checked)"> {{'I verified the physical spool location.'|t}}</label>
+      <div class="storage-confirm-actions"><button type="button" class="btn ghost" [disabled]="locationBusy()" (click)="cancelLocation()">{{'Cancel'|t}}</button>
+        <button type="button" class="btn primary" [disabled]="locationBusy()||!locationConfirmed()" (click)="saveLocation()">{{'Save location'|t}}</button></div>
+    </section>
+  }
+  @if(locationError()){<p class="form-error" role="alert">{{locationError()|t}}</p>}
 }@else{<div class="spool-grid" id="spool-card-grid">
 @for(spool of filtered();track spool.id){
   <article class="spool-card" [class.selected]="selectedLabels().includes(spool.uid)" [class.is-dragging]="dragged()?.uid===spool.uid">

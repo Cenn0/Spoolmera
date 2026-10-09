@@ -1,3 +1,4 @@
+import { orderSpools, spoolSort, storageLanes, type SpoolSort } from './spool-board';
 import { SpoolVisualComponent } from '../../core/ui/spool-visual.component';
 import { addLabel, reorderLabels, MAX_LABELS } from '../../core/ui/label-selection';
 import type { LocalizedMessage } from '../../core/i18n/types';
@@ -27,7 +28,76 @@ export class SpoolsComponent implements OnInit {
   readonly selectedSpools=signal<Spool[]>([]);
   readonly selectedLabels=computed(()=>this.selectedSpools().map(item=>item.uid));readonly low=isLowStock;
   labelSize='60x40';
-  readonly displayMode=signal<'cards'|'table'>('cards');
+  readonly displayMode=signal<'cards'|'table'|'locations'>('cards');
+  readonly spoolOrder=signal<SpoolSort>('newest');
+  readonly filtered=computed(()=>orderSpools(this.items(),this.spoolOrder(),this.i18n.locale()));
+  readonly extraLocations=signal<string[]>([]);
+  readonly locationDraft=signal('');
+  readonly locationError=signal('');
+  readonly pendingLocation=signal<{uid:string;id:number;name:string;original:string;target:string}|null>(null);
+  readonly locationConfirmed=signal(false);
+  readonly locationBusy=signal(false);
+  readonly hoverLocation=signal<string|null>(null);
+  readonly knownLocations=computed(()=>[...new Set([
+    ...this.data.spools().filter(s=>!s.archived_at).map(s=>s.location||''),
+    ...this.extraLocations()
+  ])]);
+  readonly storageBoard=computed(()=>storageLanes(this.filtered(),this.knownLocations(),this.i18n.locale()));
+  setSpoolOrder(value:string):void {
+    const order=spoolSort(value);this.spoolOrder.set(order);
+    try{localStorage.setItem('filament-manager-spool-sort',order);}catch{/* Presentation preference. */}
+  }
+  createLocationLane():void {
+    const name=this.locationDraft().trim();
+    if(!name||name.length>120){this.locationError.set('Enter a location name of at most 120 characters.');return;}
+    if(!this.knownLocations().includes(name))this.extraLocations.update(items=>[...items,name]);
+    this.locationDraft.set('');this.locationError.set('');
+  }
+  stageLocation(spool:Spool,target:string):void {
+    if(!this.auth.canEdit()||this.locationBusy()||spool.archived_at||!this.items().some(item=>item.uid===spool.uid))return;
+    const location=target.trim();
+    if(location.length>120){this.locationError.set('Enter a location name of at most 120 characters.');return;}
+    if(location===(spool.location||''))return;
+    this.pendingLocation.set({uid:spool.uid,id:spool.id,name:spool.brand+' · '+spool.product_name,
+      original:spool.location||'',target:location});
+    this.locationConfirmed.set(false);this.locationError.set('');
+  }
+  chooseLocation(event:Event,spool:Spool):void {
+    const select=event.target as HTMLSelectElement;
+    const target=select.value;select.value=spool.location||''; // No unsaved visual mutation.
+    this.stageLocation(spool,target);
+  }
+  overLocation(event:DragEvent,location:string):void {
+    if(!this.dragged()||!this.auth.canEdit()||this.dragged()?.archived_at||this.locationBusy())return;
+    event.preventDefault();this.hoverLocation.set(location);
+    if(event.dataTransfer)event.dataTransfer.dropEffect='move';
+  }
+  dropLocation(event:DragEvent,location:string):void {
+    event.preventDefault();event.stopPropagation();
+    const spool=this.dragged();
+    if(spool)this.stageLocation(spool,location);
+    this.dragEnd();
+  }
+  cancelLocation():void{if(!this.locationBusy()){this.pendingLocation.set(null);this.locationConfirmed.set(false);this.locationError.set('');}}
+  async saveLocation():Promise<void>{
+    const pending=this.pendingLocation();
+    if(!pending||this.locationBusy()||!this.locationConfirmed()||!this.auth.canEdit())return;
+    this.locationBusy.set(true);this.locationError.set('');
+    try{
+      const fresh=await this.data.spoolByUid(pending.uid);
+      if(fresh.id!==pending.id||fresh.archived_at||(fresh.location||'')!==pending.original)
+        throw new Error('Spool location changed. Reload the inventory and try again.');
+      await this.data.updateSpool(pending.id,{location:pending.target,expected_location:pending.original});
+      this.pendingLocation.set(null);this.locationConfirmed.set(false);
+      this.notices.show(this.i18n.message('Location saved for {spool}.',{spool:pending.name}));
+      await this.refresh();
+    }catch(error){
+      this.pendingLocation.set(null);this.locationConfirmed.set(false);
+      this.locationError.set(apiError(error));
+      // A lost response must not automatically retry a potentially successful PATCH.
+      await this.refresh();
+    }finally{this.locationBusy.set(false);}
+  }
   readonly dragged=signal<Spool|null>(null);
   readonly overTray=signal(false);
   readonly dropTarget=signal<string|null>(null);
@@ -41,7 +111,7 @@ export class SpoolsComponent implements OnInit {
   private refreshAfterDrag=false;
   readonly filtersOpen=signal(false);
   readonly activeFilterCount=computed(()=>Number(this.archived()!=='active')+Number(!!this.material())+Number(!!this.status())+Number(this.lowOnly()));
-  setDisplay(value:'cards'|'table'):void {
+  setDisplay(value:'cards'|'table'|'locations'):void {
     this.displayMode.set(value);
     try { localStorage.setItem('filament-manager-spool-view',value); } catch { /* Preference only. */ }
   }
@@ -87,7 +157,7 @@ export class SpoolsComponent implements OnInit {
     if(event.dataTransfer) { event.dataTransfer.effectAllowed='copyMove';event.dataTransfer.setData('application/x-filament-spool',spool.uid); }
   }
   dragEnd():void {
-    this.dragged.set(null);this.overTray.set(false);this.dropTarget.set(null);
+    this.dragged.set(null);this.overTray.set(false);this.dropTarget.set(null);this.hoverLocation.set(null);
     if(this.refreshAfterDrag){this.refreshAfterDrag=false;void this.refresh();}
   }
   dragOverTray(event:DragEvent):void {
@@ -116,7 +186,7 @@ export class SpoolsComponent implements OnInit {
 
   private searchTimer:ReturnType<typeof setTimeout>|undefined;
   constructor(){
-    try{if(localStorage.getItem('filament-manager-spool-view')==='table')this.displayMode.set('table');}catch{/* Preference only. */}
+    try{const view=localStorage.getItem('filament-manager-spool-view');if(view==='table'||view==='locations')this.displayMode.set(view);this.spoolOrder.set(spoolSort(localStorage.getItem('filament-manager-spool-sort')));}catch{/* Preference only. */}
     effect(()=>{this.data.changed();untracked(()=>{if(this.routeReady)void this.refresh();});});
   }
   ngOnInit():void {
@@ -253,5 +323,4 @@ export class SpoolsComponent implements OnInit {
     finally{this.scanning.set(false);}
   }
   readonly materials = computed(() => Array.from(new Set(this.data.products().map(item=>item.material))).sort());
-  readonly filtered = this.items;
 }

@@ -280,6 +280,7 @@ export interface ApiSpoolUpdate {
   purchase_currency?: string | null;
   purchased_on?: string | null;
   batch?: string | null;
+  expected_location?: string | null;
 }
 
 export interface ApiSpoolBatchInput {

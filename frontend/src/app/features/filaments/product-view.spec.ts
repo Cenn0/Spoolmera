@@ -57,3 +57,17 @@ describe('filament gallery view', () => {
     expect(productOrder(value)).toBe(value);
   });
 });
+
+import { targetStockPercent, belowWarning } from './product-view';
+describe('product stock health indicators',()=>{
+  it('caps visual progress without altering the measured stock',()=>{
+    const over={target_stock_g:1000,total_remaining_g:1750,low_stock_threshold_g:200};
+    expect(targetStockPercent(over)).toBe(100);
+    expect(over.total_remaining_g).toBe(1750);
+    expect(belowWarning(over)).toBe(false);
+  });
+  it('handles missing targets and depleted product thresholds',()=>{
+    expect(targetStockPercent({target_stock_g:0,total_remaining_g:300})).toBe(0);
+    expect(belowWarning({low_stock_threshold_g:200,total_remaining_g:0})).toBe(true);
+  });
+});

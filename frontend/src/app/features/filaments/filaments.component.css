@@ -16,3 +16,9 @@
   .product-order select { width: 100%; }
   .product-toolbar .checkbox-row { min-height: 44px; }
 }
+
+.product-target {display:grid;gap:7px;margin:6px 0 9px}
+.product-target-head {display:flex;gap:8px;justify-content:space-between;font-size:11px;color:var(--muted)}
+.product-target-head strong {color:var(--ink);font-weight:750}
+.product-target .progress {height:6px;margin:0}
+.product-target-warning {font-size:11px;color:var(--warm);font-weight:750}
