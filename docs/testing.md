@@ -78,6 +78,7 @@ python -m pip install --require-hashes -r requirements-dev.txt
 cd frontend
 npm ci --no-audit --no-fund
 npm run typecheck
+npm test
 npm run build
 cd ..
 python -m pytest -q

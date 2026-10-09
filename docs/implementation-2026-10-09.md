@@ -69,7 +69,7 @@ The [current PR checks](https://github.com/Cenn0/FilamentManager/pull/8/checks) 
 
 Docker and a real browser are not available in the local execution host. Its browser-download endpoint returned HTML rather than an executable archive, so local compilation/component tests are not represented as browser validation. Remote gate results must be read at the tested PR commit. Browser failures retain a trace, screenshot and server log for diagnosis.
 
-The first full CI run exposed two integration issues: the expanded desktop navigation needed its own vertical scroll area, and the recovery harness needed to resolve Docker's dynamic host port after every container restart. Both are corrected without bypassing normal browser clicks or weakening recovery assertions. Recovery failure output now includes bounded, redacted container diagnostics; the extra harness tests verify rebinding while retaining the test session and preserving useful failure evidence.
+The first full CI run exposed two integration issues: the expanded desktop navigation needed its own vertical scroll area, and the recovery harness needed to resolve Docker's dynamic host port after every container restart. Both are corrected without bypassing normal browser clicks or weakening recovery assertions. Recovery failure output now includes bounded, redacted container diagnostics; the extra harness tests verify rebinding while retaining the test session and preserving useful failure evidence. The browser role check also waits for a positively verified viewer session before reloading a protected deep link, so an unfinished sign-in cannot be mistaken for role denial.
 
 ## Supported and unverified behavior
 

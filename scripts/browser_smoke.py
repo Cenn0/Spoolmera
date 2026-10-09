@@ -270,6 +270,13 @@ def run() -> None:
         page.locator('fm-login input[name="username"]').fill("browser-viewer")
         page.locator('fm-login input[name="password"]').fill("browser-viewer-password-2026")
         page.get_by_role("button", name="Sign in").click()
+        # Absence of editor controls is already true on the login screen. Wait
+        # for a confirmed session before those checks or a full-page navigation.
+        expect(page.get_by_role("button", name="Sign out", exact=True)).to_be_visible()
+        viewer_session = page.request.get(BASE + "/api/auth/me")
+        assert viewer_session.status == 200
+        viewer_identity = viewer_session.json()
+        assert (viewer_identity["username"], viewer_identity["role"]) == ("browser-viewer", "viewer")
         expect(page.locator('.side-nav a[href="/users"]')).to_have_count(0)
         expect(page.locator(".add-spool")).to_have_count(0)
         page.goto(BASE + "/spools/batch", wait_until="networkidle")
