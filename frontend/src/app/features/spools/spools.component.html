@@ -2,8 +2,14 @@
   <div><span class="eyebrow">{{'PHYSICAL INVENTORY'|t}}</span><h1>{{'Your'|t}} <em>{{'spools.'|t}}</em></h1><p>{{'Track each roll individually, from sealed to empty.'|t}}</p></div>
   <div class="heading-actions">@if(auth.canEdit()){<button class="btn ghost" type="button" (click)="dialogs.open({kind:'csv'})">{{'Import CSV'|t}}</button><a class="btn ghost" href="/api/export/inventory.csv" download>{{'Export CSV'|t}}</a><a class="btn ghost" routerLink="/spools/batch">{{'Register a batch'|t}}</a><button class="btn primary" type="button" (click)="dialogs.open({kind:data.products().length?'spool':'product'})">{{'+ Add spool'|t}}</button>}</div>
 </section>
-<section class="panel workflow-panel">
-  <div class="panel-heading"><div><span class="eyebrow">{{'FAST IDENTIFICATION'|t}}</span><h2>{{'Look up a scanned tag'|t}}</h2></div></div>
+<div class="inventory-stats" [attr.aria-label]="'All active inventory'|t">
+  <div><span>{{'ACTIVE SPOOLS'|t}}</span><strong>{{i18n.number(data.overview().total_spools)}}</strong></div>
+  <div><span>{{'TOTAL MATERIAL'|t}}</span><strong>{{grams(data.overview().remaining_g)}}</strong></div>
+  <div><span>{{'OPENED'|t}}</span><strong>{{i18n.number(data.overview().opened_spools)}}</strong></div>
+  <div [class.stat-warning]="data.overview().low_spools>0"><span>{{'LOW STOCK'|t}}</span><strong>{{i18n.number(data.overview().low_spools)}}</strong></div>
+</div>
+<details class="panel spool-scanner">
+  <summary><span aria-hidden="true">⌕</span><strong>{{'Look up a scanned tag'|t}}</strong><span class="helper">{{'Expand scanner'|t}}</span></summary>
   <div class="workflow-form">
     <p class="helper">{{'Use a USB/Bluetooth NFC reader or scanner that types a tag ID. Printed QR labels continue to work directly with your phone camera.'|t}}</p>
     <div class="form-grid">
@@ -22,18 +28,23 @@
       }
     }
   </div>
-</section>
+</details>
 @if(error()){<p class="form-error" role="alert">{{error()|t}}</p>}
-<section class="panel data-panel">
+@if(productId()){<div class="filter-context">{{'Filtered to one filament product'|t}}<button class="btn ghost" type="button" (click)="clearProductFilter()">{{'Show all products'|t}}</button></div>}
+<div class="inventory-layout"><section class="panel inventory-results">
   <div class="toolbar">
     <select [attr.aria-label]="'Inventory archive filter'|t" [value]="archived()" (change)="archived.set($any($event.target).value);refresh()"><option value="active">{{'Active spools'|t}}</option><option value="archived">{{'Archived spools'|t}}</option><option value="all">{{'All spools'|t}}</option></select>
     <label class="search-field"><span aria-hidden="true">⌕</span><input id="spool-search" type="search" [placeholder]="'Search brand, color, location…'|t" [value]="query()" (input)="changeSearch($any($event.target).value)" [attr.aria-label]="'Search spools'|t"></label>
     <select id="spool-material-filter" [attr.aria-label]="'Filter by material'|t" [value]="material()" (change)="material.set($any($event.target).value);refresh()"><option value="">{{'All materials'|t}}</option>@for (name of materials();track name) {<option [value]="name">{{name}}</option>}</select>
     <select id="spool-status-filter" [attr.aria-label]="'Filter by status'|t" [value]="status()" (change)="status.set($any($event.target).value);refresh()"><option value="">{{'All states'|t}}</option><option value="sealed">{{'Sealed'|t}}</option><option value="opened">{{'Opened'|t}}</option><option value="empty">{{'Empty'|t}}</option></select>
   </div>
-  <div class="result-count">{{'{count} spools loaded'|t:{count:i18n.number(items().length)} }} @if(loading()){<span role="status"> {{'· Loading…'|t}}</span>}
+  <div class="spool-view-bar"><div class="view-switch" role="group" [attr.aria-label]="'Display mode'|t">
+<button type="button" [class.active]="displayMode()==='cards'" [attr.aria-pressed]="displayMode()==='cards'" (click)="setDisplay('cards')">{{'Cards'|t}}</button>
+<button type="button" [class.active]="displayMode()==='table'" [attr.aria-pressed]="displayMode()==='table'" (click)="setDisplay('table')">{{'Table'|t}}</button></div>
+<span class="helper">{{'Drag a spool by its handle to prepare labels, or use the selection button.'|t}}</span></div>
+<div class="result-count">{{'{count} spools loaded'|t:{count:i18n.number(items().length)} }} @if(loading()){<span role="status"> {{'· Loading…'|t}}</span>}
     <button class="btn ghost" type="button" [disabled]="loading()" (click)="refresh()">{{'Refresh spools'|t}}</button></div>
-  <div class="table-wrap"><table class="data-table">
+@if(displayMode()==='table'){  <div class="table-wrap inventory-table" tabindex="0" role="region" [attr.aria-label]="'Spool table'|t"><table class="data-table">
     <thead><tr><th [attr.aria-label]="'Select labels'|t">{{'Label'|t}}</th><th>{{'Filament'|t}}</th><th>{{'Material'|t}}</th><th>{{'Remaining'|t}}</th><th>{{'Status'|t}}</th><th>{{'Location'|t}}</th><th class="align-right">{{'Actions'|t}}</th></tr></thead>
     <tbody id="spool-table-body">
       @for (spool of filtered();track spool.id) {
@@ -51,20 +62,47 @@
       }
     </tbody>
   </table></div>
-  <div class="mobile-cards">
-    @for (spool of filtered();track spool.id) {
-      <article class="mobile-spool">
-        <div class="mobile-spool-head"><span class="item-name"><span class="swatch" [style.background-color]="spool.color_hex"></span><span><strong>{{spool.brand}} · {{spool.product_name}}</strong><small>{{'Spool #{id}'|t:{id:''+spool.id} }} · {{spool.material}} · {{spool.color_name}}</small></span></span><span class="status" [class]="'status '+spool.status">{{(spool.archived_at?'archived':spool.status)|t}}</span></div>
-        <div class="mobile-stock"><strong>{{grams(spool.remaining_g)}}</strong><span>{{'of {weight}'|t:{weight:grams(spool.initial_g)} }}</span><div class="progress"><span [style.width.%]="percent(spool)"></span></div></div>
-        <small class="subdued">{{spool.location || ('No location set'|t)}}</small>
-        <label class="checkbox-row"><input type="checkbox" [checked]="selectedLabels().includes(spool.uid)" (change)="toggleLabel(spool.uid)"> {{'Include in label sheet'|t}}</label>
-        <div class="mobile-actions">@if(auth.canEdit() && !spool.archived_at){<button class="btn primary" type="button" [disabled]="spool.remaining_g===0" (click)="dialogs.open({kind:'movement',id:spool.id,spool:spool})">{{'Record use'|t}}</button>}<a class="btn ghost" [href]="'/labels/'+spool.uid" rel="noopener noreferrer" target="_blank">{{'QR label'|t}}</a><button class="btn ghost" type="button" (click)="dialogs.open({kind:'details',id:spool.id,spool:spool})">{{'Details'|t}}</button></div>
-      </article>
-    } @empty {<div class="placeholder">{{'No matching spools.'|t}}</div>}
-  </div>
-</section>
-
-<div class="pagination-actions">
-  @if(nextCursor()){<button class="btn ghost" type="button" [disabled]="loading()" (click)="refresh(true)">{{'Load more spools'|t}}</button>}
-  @if(selectedLabels().length){<label>{{'Label size'|t}}<select [(ngModel)]="labelSize"><option value="60x40">{{'60 × 40 mm'|t}}</option><option value="50x30">{{'50 × 30 mm'|t}}</option></select></label><a class="btn primary" [href]="labelUrl" target="_blank" rel="noopener noreferrer">{{'Print {count} selected labels ↗'|t:{count:i18n.number(selectedLabels().length)} }}</a>}
-</div>
+}@else{<div class="spool-grid" id="spool-card-grid">
+@for(spool of filtered();track spool.id){
+  <article class="spool-card" [class.selected]="selectedLabels().includes(spool.uid)" [class.is-dragging]="dragged()?.uid===spool.uid">
+    <div class="spool-card-top"><span class="material-chip">{{spool.material}}</span>
+      <span class="status" [class]="'status '+(spool.archived_at?'archived':spool.status)">{{(spool.archived_at?'archived':spool.status)|t}}</span>
+      <button type="button" class="drag-handle" draggable="true" (dragstart)="dragStart($event,spool)" (dragend)="dragEnd()" (click)="toggleLabel(spool.uid)"
+        [attr.aria-label]="'Select label for spool {id}'|t:{id:''+spool.id}" [attr.aria-pressed]="selectedLabels().includes(spool.uid)" [attr.title]="'Drag to label tray or click to select'|t">⠿</button>
+    </div>
+    <div class="spool-card-identity">
+      <fm-spool-visual [color]="spool.color_hex" [percentage]="percent(spool)" />
+      <div><span class="spool-brand">{{spool.brand}}</span><h2>{{spool.product_name}}</h2><span class="spool-color"><span class="swatch small" [style.background-color]="spool.color_hex"></span>{{spool.color_name}}</span><small>{{'Spool #{id}'|t:{id:''+spool.id} }}</small></div>
+    </div>
+    <div class="spool-card-stock"><strong>{{grams(spool.remaining_g)}}</strong><span>{{'of {weight}'|t:{weight:grams(spool.initial_g)} }}</span><b>{{i18n.number(percent(spool),{maximumFractionDigits:0})}} %</b></div>
+    <div class="progress" [class.low]="low(spool)"><span [style.width.%]="percent(spool)"></span></div>
+    <div class="spool-card-meta"><span>{{spool.location||('No location set'|t)}}</span>@if(low(spool)){<span class="low-stock-note">{{'Low stock'|t}}</span>}</div>
+    <div class="spool-card-actions">
+      @if(auth.canEdit()&&!spool.archived_at){<button class="btn primary" type="button" [disabled]="spool.remaining_g===0" (click)="dialogs.open({kind:'movement',id:spool.id,mode:'consume',spool:spool})">{{'Record use'|t}}</button>}
+      <button class="btn ghost" type="button" (click)="dialogs.open({kind:'details',id:spool.id,spool:spool})">{{'Details'|t}}</button>
+      <a class="btn icon-btn ghost" [href]="'/labels/'+spool.uid+'?lang='+i18n.language()" target="_blank" rel="noopener noreferrer" [attr.aria-label]="'QR label'|t">▦</a>
+    </div>
+  </article>
+}@empty{<div class="placeholder">{{(loading()?'Loading spools…':'No spools match these filters.')|t}}</div>}
+</div>}
+@if(nextCursor()){<div class="pagination-actions"><button class="btn ghost" type="button" [disabled]="loading()" (click)="refresh(true)">{{'Load more spools'|t}}</button></div>}
+</section><aside class="label-tray" [class.drag-over]="overTray()" [class.accepting-drag]="!!dragged()" (dragover)="dragOverTray($event)" (dragleave)="overTray.set(false)" (drop)="dropOnTray($event)" [attr.aria-label]="'Label tray'|t">
+  <div class="label-tray-heading"><div><span class="eyebrow">{{'PRINT PREPARATION'|t}}</span><h2>{{'Label tray'|t}}</h2></div><span class="selection-count" role="status" aria-live="polite">{{'{count} selected'|t:{count:i18n.number(selectedLabels().length)} }}</span></div>
+  <p class="helper">{{'Drop spools here. Drag selected labels to reorder them; arrow buttons do the same.'|t}}</p>
+  <ol class="label-tray-items">
+  @for(spool of selectedSpools();track spool.uid){
+    <li class="label-tray-item" (dragover)="dragOverTray($event)" (drop)="reorderSelected($event,spool.uid)">
+      <button type="button" class="drag-handle" draggable="true" (dragstart)="dragStart($event,spool)" (dragend)="dragEnd()" (click)="moveSelected(spool.uid,-1)" [attr.aria-label]="'Move label earlier'|t">⠿</button>
+      <span class="swatch small" [style.background-color]="spool.color_hex"></span><span class="label-identity"><strong>{{spool.brand}} · {{spool.color_name}}</strong><small>{{'Spool #{id}'|t:{id:''+spool.id} }}</small></span>
+      <button type="button" class="icon-btn" [disabled]="$first" (click)="moveSelected(spool.uid,-1)" [attr.aria-label]="'Move up'|t">↑</button>
+      <button type="button" class="icon-btn" [disabled]="$last" (click)="moveSelected(spool.uid,1)" [attr.aria-label]="'Move down'|t">↓</button>
+      <button type="button" class="icon-btn" (click)="toggleLabel(spool.uid)" [attr.aria-label]="'Remove from label tray'|t">×</button>
+    </li>
+  }@empty{<li class="label-tray-empty"><span aria-hidden="true">▦</span>{{'No labels selected'|t}}</li>}
+  </ol>
+  @if(selectedLabels().length){
+    <label class="label-size">{{'Label size'|t}}<select [(ngModel)]="labelSize"><option value="60x40">{{'60 × 40 mm'|t}}</option><option value="50x30">{{'50 × 30 mm'|t}}</option></select></label>
+    <a class="btn primary print-selected" [href]="labelUrl" target="_blank" rel="noopener noreferrer">{{'Print {count} selected labels ↗'|t:{count:i18n.number(selectedLabels().length)} }}</a>
+    <button type="button" class="btn ghost clear-selection" (click)="selectedSpools.set([])">{{'Clear selection'|t}}</button>
+  }
+</aside></div>

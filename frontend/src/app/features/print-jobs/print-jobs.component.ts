@@ -1,3 +1,4 @@
+import { FileDropComponent } from '../../core/ui/file-drop.component';
 import { Component, HostListener, OnDestroy, OnInit, DestroyRef, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -12,7 +13,7 @@ import { ConsumptionComponent } from './consumption.component';
 
 type Mapping = {tool: number; spool_id: number; estimated_g: number | null};
 type SlotSuggestion = {tool: number; spool_id: number; name: string; estimated_g: number};
-@Component({standalone: true, imports: [FormsModule, RouterLink, ConsumptionComponent, TranslatePipe], templateUrl: './print-jobs.component.html'})
+@Component({standalone: true, imports: [FormsModule, RouterLink, ConsumptionComponent, TranslatePipe,FileDropComponent], templateUrl: './print-jobs.component.html'})
 export class JobsComponent implements OnInit, OnDestroy {
   readonly i18n=inject(I18nService);
   readonly route=inject(ActivatedRoute);private readonly destroy=inject(DestroyRef);
@@ -77,8 +78,11 @@ export class JobsComponent implements OnInit, OnDestroy {
   }
   choose(event: Event): void {
     const input = event.target as HTMLInputElement;
-    this.upload = input.files?.[0] || null;
-    input.value = ''; // Selecting the same physical file again must fire change.
+    this.selectMetadataFile(input.files?.[0]||null);input.value='';
+  }
+  rejectMetadataFile(message:string):void{this.selectMetadataFile(null);this.errorValue.set(message);}
+  selectMetadataFile(file:File|null):void{
+    this.upload=file;
     this.fileName = this.upload?.name || '';
     this.inspectionOwner.invalidate(); this.inspection.set(null); this.inspectedFile = null;
     this.firstTool = 0; this.estimatedG = null; this.extraMaterials.set([]);
@@ -168,6 +172,7 @@ export class JobsComponent implements OnInit, OnDestroy {
     } catch (error) { this.errorValue.set(apiError(error)); } finally { this.busy.set(false); }
   }
   chooseStl(event: Event): void { this.stlFile = (event.target as HTMLInputElement).files?.[0] || null; }
+  rejectStl(message:string):void{this.stlFile=null;this.errorValue.set(message);}
   async sliceModel(): Promise<void> {
     const file = this.stlFile; if (!file || !this.sliceProfile || this.busy()) return;
     this.busy.set(true); this.errorValue.set('');

@@ -18,13 +18,16 @@ SPOOL_SELECT = '''SELECT s.*,p.brand,p.name AS product_name,p.material,
 
 
 def spool_page(db_path: Path, *, archived='active', before_id=None, limit=50,
-               q=None, material=None, status=None) -> dict:
+               q=None, material=None, status=None, product_id=None) -> dict:
     clauses, values = [], []
     if archived != 'all':
         clauses.append('s.archived_at IS ' + ('NULL' if archived == 'active' else 'NOT NULL'))
     if before_id is not None:
         clauses.append('s.id<?')
         values.append(before_id)
+    if product_id is not None:
+        clauses.append('s.product_id=?')
+        values.append(product_id)
     if material:
         clauses.append('p.material=?')
         values.append(material.upper())

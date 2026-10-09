@@ -1,3 +1,4 @@
+import { FileDropComponent } from './core/ui/file-drop.component';
 import { I18nService, LocalizedMessage, TranslatePipe } from './core/i18n';
 import { Component, OnDestroy, ElementRef, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -20,7 +21,7 @@ function blankSpool(): SpoolInput {
 @Component({
   selector:'fm-dialogs',
   standalone:true,
-  imports:[TranslatePipe,FormsModule,RouterLink],
+  imports:[TranslatePipe,FormsModule,RouterLink,FileDropComponent],
   templateUrl:'./dialogs.component.html',
 })
 export class DialogsComponent implements OnDestroy {
@@ -269,6 +270,11 @@ export class DialogsComponent implements OnDestroy {
     const input=event.target as HTMLInputElement;
     const file=input.files?.[0] || null;
     input.value='';
+    await this.selectCsv(file);
+  }
+  rejectCsv(message:string):void{void this.selectCsv(null);this.error.set(message);}
+  async selectCsv(file:File|null):Promise<void>{
+    if(this.busy())return;
     this.csvFile=file;
     this.csvPreview.set(null);this.readingCsv.set(false);
     this.importCheck.set(false);

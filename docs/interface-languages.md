@@ -39,3 +39,5 @@ Run `npm run i18n:check`, `npm test`, `npm run typecheck` and `npm run build` fr
 The existing English browser workflow remains intact. A second `de-DE` browser context verifies automatic language choice, English/German switching while credentials and job drafts are entered, translated login errors, every navigation destination, saved preference after reload, German number formatting, unchanged user data, localized label pages and the mobile layout. Successful runs retain German desktop/mobile screenshots in the `german-interface-previews` CI artifact; failures retain browser traces and screenshots.
 
 Use the commit-specific CI result before installing a test artifact. The unit or static checks alone are not evidence that the real browser gate passed.
+
+For appearance, inventory cards, drag-and-drop alternatives and mobile navigation, see [Interface UX](interface-ux.md).

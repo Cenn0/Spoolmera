@@ -1,3 +1,4 @@
+import { FileDropComponent } from '../../core/ui/file-drop.component';
 import { Component, OnDestroy, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
@@ -10,7 +11,7 @@ import { RequestOwner } from '../../core/request-owner';
 import { I18nService, TranslatePipe } from '../../core/i18n';
 
 type Preview=ApiSpoolmanPreview;
-@Component({standalone:true,imports:[FormsModule,TranslatePipe],templateUrl:'./spoolman-import.component.html'})
+@Component({standalone:true,imports:[FormsModule,TranslatePipe,FileDropComponent],templateUrl:'./spoolman-import.component.html'})
 export class SpoolmanImportComponent implements OnDestroy {
   readonly i18n=inject(I18nService);
   readonly auth=inject(AuthService);readonly http=inject(HttpClient);
@@ -24,7 +25,10 @@ export class SpoolmanImportComponent implements OnDestroy {
   invalidate():void{this.requests.invalidate();this.preview.set(null);this.validated=null;this.confirmed=false;}
   onFile(event:Event):void{
     const input=event.target as HTMLInputElement;
-    this.selected=input.files?.[0]||null;input.value='';this.invalidate();this.error.set('');
+    this.selectFile(input.files?.[0]||null);input.value='';
+  }
+  selectFile(file:File|null):void{this.selected=file;this.invalidate();this.error.set('');}
+  rejectFile(message:string):void{this.selectFile(null);this.error.set(message);
   }
   private perform(source:string,bytes:string,dryRun:boolean):Promise<Preview>{
     const route='/api/import/spoolman?source='+encodeURIComponent(source)+'&dry_run='+(dryRun?'true':'false');

@@ -54,6 +54,18 @@
 <section class="panel workflow-panel"><div class="panel-heading"><div><span class="eyebrow">{{'PHYSICAL MATERIAL'|t}}</span><h2>{{'Assign a loaded roll'|t}}</h2></div></div><div class="workflow-form">
   <p class="helper">{{'These assignments are your record of physical loading. Check the actual printer before confirming a job; changing this record does not load or unload filament.'|t}}</p>
   @if(auth.canEdit()){
+    <div class="assignment-board">
+      <div><label class="search-field"><span aria-hidden="true">⌕</span><input type="search" [value]="paletteQuery()" (input)="paletteQuery.set($any($event.target).value)" [placeholder]="'Find a spool to assign'|t" [attr.aria-label]="'Find a spool to assign'|t"></label>
+      <div class="spool-palette">
+        @for(spool of palette();track spool.id){<button type="button" class="palette-spool" [class.selected]="slotSpool===spool.id" [attr.aria-pressed]="slotSpool===spool.id" [disabled]="busy()" draggable="true" (dragstart)="startSpoolDrag($event,spool)" (dragend)="finishSpoolDrag()" (click)="slotSpool=spool.id">
+          <fm-spool-visual [color]="spool.color_hex" /><span><strong>{{spool.brand}} · {{spool.color_name}}</strong><small>#{{spool.id}} · {{spool.material}} · {{grams(spool.remaining_g)}}</small></span><span aria-hidden="true">⠿</span></button>}
+        @empty{<p class="helper">{{'No matching spools.'|t}}</p>}
+      </div></div>
+      <div class="printer-drop-targets">
+        @for(p of printers();track p.id){<button type="button" class="printer-drop-target" [class.drop-active]="dropPrinter()===p.id" [class.selected]="printerSelection===p.id" [attr.aria-pressed]="printerSelection===p.id" [disabled]="busy()" (dragover)="overPrinter($event,p.id)" (dragleave)="dropPrinter.set(null)" (drop)="dropSpool($event,p.id)" (click)="printerSelection=p.id">
+          <span aria-hidden="true">▥</span><strong>{{p.name}}</strong><small>{{'Drop a roll here or select this printer'|t}}</small></button>}
+      </div>
+    </div>
     <form #slotForm="ngForm" (ngSubmit)="assignSlot()"><div class="form-grid">
       <label>{{'Printer'|t}}<select name="slotPrinter" [(ngModel)]="printerSelection" required><option [ngValue]="0">{{'Choose printer'|t}}</option>@for(p of printers();track p.id){<option [ngValue]="p.id">{{p.name}}</option>}</select></label>
       <label>{{'Tool number'|t}}<input name="slotTool" type="number" min="0" max="15" step="1" required [(ngModel)]="slotTool"></label>

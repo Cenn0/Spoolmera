@@ -8,8 +8,11 @@ import { Printer, PrinterInput, PrinterCapabilities, WorkspaceService, PrinterSl
 import { RequestOwner } from '../../core/request-owner';
 import { I18nService, LocalizedMessage, TranslatePipe } from '../../core/i18n';
 
+import { Spool } from '../../models';
+import { SpoolVisualComponent } from '../../core/ui/spool-visual.component';
+
 const blankPrinter=():PrinterInput=>({name:'',kind:'moonraker',base_url:'',token_env:'',enabled:true});
-@Component({standalone:true,imports:[FormsModule,RouterLink,TranslatePipe],templateUrl:'./printers.component.html'})
+@Component({standalone:true,imports:[FormsModule,RouterLink,TranslatePipe,SpoolVisualComponent],templateUrl:'./printers.component.html'})
 export class PrintersComponent implements OnInit, OnDestroy {
   readonly i18n=inject(I18nService);
   readonly api=inject(WorkspaceService);readonly auth=inject(AuthService);readonly notice=inject(NoticeService);readonly data=inject(InventoryService);
@@ -17,6 +20,31 @@ export class PrintersComponent implements OnInit, OnDestroy {
   readonly slots=signal<Record<number,PrinterSlot[]>>({});readonly operations=signal<Record<number,PrinterOperation[]>>({});
   readonly capabilities=signal<PrinterCapabilities>({write_enabled:false,max_upload_bytes:0});
   readonly grams=(value:number)=>this.i18n.grams(value);readonly dateText=(value:string|null|undefined)=>this.i18n.dateText(value);private readonly requests=new RequestOwner();
+  readonly draggedSpool=signal<Spool|null>(null);readonly dropPrinter=signal<number|null>(null);
+  readonly paletteQuery=signal('');
+  readonly palette=computed(()=>{
+    const query=this.paletteQuery().trim().toLocaleLowerCase(this.i18n.locale());
+    return this.data.available().filter(s=>[s.brand,s.product_name,s.color_name,s.material,s.location,''+s.id].join(' ').toLocaleLowerCase(this.i18n.locale()).includes(query));
+  });
+  startSpoolDrag(event:DragEvent,spool:Spool):void {
+    if(!this.auth.canEdit()||this.busy()){event.preventDefault();return;}
+    this.draggedSpool.set(spool);
+    if(event.dataTransfer){event.dataTransfer.effectAllowed='copy';event.dataTransfer.setData('application/x-filament-spool',spool.uid);}
+  }
+  finishSpoolDrag():void {this.draggedSpool.set(null);this.dropPrinter.set(null);}
+  overPrinter(event:DragEvent,printerId:number):void {
+    if(!this.draggedSpool()||!this.auth.canEdit()||this.busy())return;
+    event.preventDefault();this.dropPrinter.set(printerId);if(event.dataTransfer)event.dataTransfer.dropEffect='copy';
+  }
+  dropSpool(event:DragEvent,printerId:number):void {
+    event.preventDefault();event.stopPropagation();
+    const spool=this.draggedSpool();
+    if(spool&&this.auth.canEdit()&&!this.busy()&&this.data.available().some(s=>s.uid===spool.uid)&&this.printers().some(p=>p.id===printerId)){
+      this.printerSelection=printerId;this.slotSpool=spool.id;
+      this.notice.show('Assignment prepared. Check the tool number and physical printer, then save.');
+    }
+    this.finishSpoolDrag();
+  }
   printerSelection=0;slotTool=0;slotSpool=0;editingId:number|null=null;
   clearOperation:PrinterOperation|null=null;clearReason='';clearChecked=false;
   model:PrinterInput=blankPrinter();

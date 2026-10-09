@@ -176,3 +176,35 @@ def test_viewer_can_read_archive_but_cannot_change_inventory(inventory):
     assert client.get('/api/inventory/restock').status_code == 200
     assert client.post(f'/api/spools/{sid}/unarchive').status_code == 403
     assert client.post('/api/spools/batch', json={'count': 1, 'spool': {'product_id': product, 'initial_g': 1000}}).status_code == 403
+
+
+def test_exact_product_filter_composes_with_cursor_and_archive(inventory):
+    client, _, first = inventory
+    # Similar names must not turn a product-specific link into broad text search.
+    second = client.post('/api/products', json={'brand': 'Example', 'name': 'PLA 2',
+        'material': 'PLA', 'color_name': 'Blue'}).json()['id']
+    a = client.post('/api/spools/batch', json={'count': 3, 'spool': {'product_id': first,
+        'initial_g': 1000}}).json()['items']
+    client.post('/api/spools/batch', json={'count': 3, 'spool': {'product_id': second,
+        'initial_g': 1000}})
+    params = {'product_id': first, 'limit': 2}
+    page = client.get('/api/spools/page', params=params).json()
+    assert len(page['items']) == 2 and all(s['product_id'] == first for s in page['items'])
+    following = client.get('/api/spools/page', params={**params, 'before_id': page['next_cursor']}).json()
+    assert len(following['items']) == 1 and following['items'][0]['product_id'] == first
+    client.post(f'/api/spools/{a[0]["id"]}/archive')
+    archived = client.get('/api/spools/page', params={'product_id': first, 'archived': 'archived'}).json()
+    assert [s['id'] for s in archived['items']] == [a[0]['id']]
+    assert client.get('/api/spools/page', params={'product_id': -1}).status_code == 422
+    assert client.get('/api/spools/page', params={'product_id': 99999}).json()['items'] == []
+
+
+def test_label_sheet_honors_user_selected_order(inventory):
+    client, _, product = inventory
+    items = client.post('/api/spools/batch', json={'count': 3, 'spool': {
+        'product_id': product, 'initial_g': 1000}}).json()['items']
+    order = [items[2]['uid'], items[0]['uid'], items[1]['uid']]
+    response = client.get('/labels', params={'uids': ','.join(order), 'lang': 'de'})
+    assert response.status_code == 200
+    offsets = [response.text.index(f'/api/spools/{uid}/qr.svg') for uid in order]
+    assert offsets == sorted(offsets)

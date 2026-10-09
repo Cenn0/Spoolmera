@@ -1,3 +1,4 @@
+import { ThemePickerComponent } from './core/ui/theme-picker.component';
 import { Component, DestroyRef, HostListener, OnInit, effect, inject, signal, untracked } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -10,7 +11,7 @@ import { LoginComponent } from './login.component';
 import { I18nService, LanguagePickerComponent, TranslatePipe } from './core/i18n';
 
 @Component({selector: 'fm-root', standalone: true,
-  imports: [RouterLink, RouterLinkActive, RouterOutlet, DialogsComponent, LoginComponent, LanguagePickerComponent, TranslatePipe],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, DialogsComponent, LoginComponent, LanguagePickerComponent, ThemePickerComponent, TranslatePipe],
   templateUrl: './app.component.html'})
 export class AppComponent implements OnInit {
   readonly i18n = inject(I18nService);
@@ -72,5 +73,37 @@ export class AppComponent implements OnInit {
       this.notices.show('Create a filament product before registering a spool.'); this.dialogs.open({kind: 'product'});
     } else this.dialogs.open({kind: 'spool'});
   }
-  closeNav(): void { this.navOpen.set(false); }
+  private navTrigger: HTMLElement | null = null;
+  toggleNav(): void {
+    if (this.navOpen()) { this.closeNav(); return; }
+    this.navTrigger = document.activeElement as HTMLElement | null;
+    this.navOpen.set(true);
+    requestAnimationFrame(() => document.querySelector<HTMLElement>('.drawer-close')?.focus());
+  }
+  closeNav(): void {
+    const open = this.navOpen(); this.navOpen.set(false);
+    if (open) requestAnimationFrame(() => {
+      const target = this.navTrigger?.getClientRects().length ? this.navTrigger : document.querySelector<HTMLElement>('#main-content');
+      target?.focus();
+    });
+  }
+  @HostListener('window:resize')
+  closeDesktopDrawer(): void { if (this.navOpen() && window.innerWidth > 760) this.closeNav(); }
+  @HostListener('document:keydown', ['$event'])
+  navigationKeys(event: KeyboardEvent): void {
+    if (!this.navOpen()) return;
+    if (event.key === 'Escape') { event.preventDefault(); this.closeNav(); }
+    if (event.key === 'Tab') {
+      const elements = Array.from(document.querySelectorAll<HTMLElement>('.sidebar a, .sidebar button'))
+        .filter(element => element.getClientRects().length > 0);
+      const first = elements[0], last = elements.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    }
+  }
+  @HostListener('window:dragover', ['$event'])
+  @HostListener('window:drop', ['$event'])
+  preventFileNavigation(event: DragEvent): void {
+    if (Array.from(event.dataTransfer?.types ?? []).includes('Files')) event.preventDefault();
+  }
 }

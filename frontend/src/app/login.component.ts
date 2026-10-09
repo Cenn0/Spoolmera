@@ -1,3 +1,4 @@
+import { ThemePickerComponent } from './core/ui/theme-picker.component';
 import { Component, inject, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from './auth.service';
@@ -5,11 +6,11 @@ import { apiError } from './inventory.service';
 import { LanguagePickerComponent, TranslatePipe } from './core/i18n';
 
 @Component({
-  selector:'fm-login', standalone:true, imports:[FormsModule,LanguagePickerComponent,TranslatePipe],
+  selector:'fm-login', standalone:true, imports:[FormsModule,LanguagePickerComponent,ThemePickerComponent,TranslatePipe],
   template: `
     <main class="login-screen">
       <section class="login-card">
-        <div class="login-language"><fm-language-picker /></div>
+        <div class="login-language"><fm-theme-picker /><fm-language-picker /></div>
         <div class="login-brand"><span class="brand-mark"><span></span></span>
           <strong>FILAMENT <small>MANAGER</small></strong></div>
         <span class="eyebrow">{{'SELF-HOSTED MATERIAL WORKSPACE' | t}}</span>

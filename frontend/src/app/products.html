@@ -1,28 +1,19 @@
-<section class="page-head">
-  <div><span class="eyebrow">{{'FILAMENT CATALOG'|t}}</span><h1>{{'Your'|t}} <em>{{'materials.'|t}}</em></h1><p>{{'Reusable filament products, colors and specifications.'|t}}</p></div>
-  @if(auth.canEdit()){<button class="btn primary" type="button" (click)="dialogs.open({kind:'product'})">{{'+ Add filament'|t}}</button>}
-</section>
-<section class="panel data-panel">
-  <div class="toolbar"><label class="search-field"><span aria-hidden="true">⌕</span><input id="product-search" type="search" [placeholder]="'Search brand, product, material…'|t" [value]="query()" (input)="query.set($any($event.target).value)" [attr.aria-label]="'Search products'|t"></label></div>
-  <div class="result-count">{{'{products} products · {spools} active spools'|t:{products:i18n.number(filtered().length),spools:i18n.number(data.overview().total_spools)} }}</div>
-  <div class="table-wrap"><table class="data-table"><thead><tr><th>{{'Filament'|t}}</th><th>{{'Material'|t}}</th><th>{{'Color'|t}}</th><th>{{'Spools'|t}}</th><th>{{'Stock'|t}}</th><th class="align-right">{{'Actions'|t}}</th></tr></thead>
-    <tbody id="product-table-body">
-    @for (product of filtered(); track product.id) {
-      <tr>
-        <td><span class="item-name"><span class="swatch" [style.background-color]="product.color_hex"></span><span><strong>{{product.brand}} · {{product.name}}</strong><small>{{product.color_name}}</small></span></span></td>
-        <td><span class="material-chip">{{product.material}}</span> <small class="subdued">{{i18n.number(product.diameter_mm)}} mm</small></td>
-        <td>{{product.color_name}}</td><td>{{i18n.number(product.spool_count)}}</td><td><strong>{{grams(product.total_remaining_g)}}</strong></td>
-        <td><div class="table-actions">@if(auth.canEdit()){<button type="button" (click)="dialogs.open({kind:'spool',productId:product.id})">{{'+ Spool'|t}}</button><button type="button" (click)="dialogs.open({kind:'product',id:product.id})">{{'Edit'|t}}</button>}</div></td>
-      </tr>
-    } @empty {<tr><td colspan="6"><div class="placeholder">{{(data.products().length?'No matching products.':'No filament products yet.')|t}}</div></td></tr>}
-    </tbody></table></div>
-  <div class="mobile-cards">
-    @for (product of filtered();track product.id) {
-      <article class="mobile-spool">
-        <div class="mobile-spool-head"><span class="item-name"><span class="swatch" [style.background-color]="product.color_hex"></span><span><strong>{{product.brand}} · {{product.name}}</strong><small>{{product.material}} · {{product.color_name}}</small></span></span></div>
-        <div class="mobile-stock">{{'{count} rolls · {weight} available'|t:{count:i18n.number(product.spool_count),weight:grams(product.total_remaining_g)} }} · {{i18n.number(product.diameter_mm)}} mm</div>
-        <div class="mobile-actions">@if(auth.canEdit()){<button class="btn primary" type="button" (click)="dialogs.open({kind:'spool',productId:product.id})">{{'+ Spool'|t}}</button><button class="btn ghost" type="button" (click)="dialogs.open({kind:'product',id:product.id})">{{'Edit'|t}}</button>}</div>
-      </article>
-    } @empty {<div class="placeholder">{{'No matching filament products.'|t}}</div>}
+<section class="page-head"><div><span class="eyebrow">{{'FILAMENT CATALOG'|t}}</span><h1>{{'Your'|t}} <em>{{'materials.'|t}}</em></h1><p>{{'Colors, properties and available stock at a glance.'|t}}</p></div>
+@if(auth.canEdit()){<button class="btn primary" type="button" (click)="dialogs.open({kind:'product'})">{{'+ Add filament'|t}}</button>}</section>
+<section class="panel product-gallery">
+<div class="toolbar"><label class="search-field"><span aria-hidden="true">⌕</span><input id="product-search" type="search" [placeholder]="'Search brand, product, material…'|t" [value]="query()" (input)="query.set($any($event.target).value)" [attr.aria-label]="'Search products'|t"></label>
+<select [value]="material()" (change)="material.set($any($event.target).value)" [attr.aria-label]="'Filter by material'|t"><option value="">{{'All materials'|t}}</option>@for(name of materials();track name){<option [value]="name">{{name}}</option>}</select>
+<label class="checkbox-row"><input type="checkbox" [checked]="stockOnly()" (change)="stockOnly.set($any($event.target).checked)">{{'In stock only'|t}}</label></div>
+<div class="result-count">{{'{products} products · {spools} active spools'|t:{products:i18n.number(filtered().length),spools:i18n.number(data.overview().total_spools)} }}</div>
+<div class="filament-grid" id="product-card-grid">
+@for(product of filtered();track product.id){
+<article class="filament-card">
+  <div class="filament-sample"><fm-spool-visual [color]="product.color_hex" /><span class="material-chip">{{product.material}}</span><span class="sample-code">{{product.color_hex}}</span></div>
+  <div class="filament-card-body"><span class="spool-brand">{{product.brand}}</span><h2>{{product.name}}</h2><p class="spool-color"><span class="swatch small" [style.background-color]="product.color_hex"></span>{{product.color_name}}</p>
+  <div class="filament-stock"><strong>{{grams(product.total_remaining_g)}}</strong><span>{{'{count} active rolls'|t:{count:i18n.number(product.spool_count)} }}</span></div>
+  <dl class="filament-specs"><div><dt>{{'Diameter'|t}}</dt><dd>{{i18n.number(product.diameter_mm)}} mm</dd></div><div><dt>{{'Nozzle'|t}}</dt><dd>@if(product.nozzle_min_c!=null&&product.nozzle_max_c!=null){{{i18n.number(product.nozzle_min_c)}}–{{i18n.number(product.nozzle_max_c)}} °C}@else{—}</dd></div></dl>
+  <div class="spool-card-actions"><a class="btn ghost" routerLink="/spools" [queryParams]="{product:product.id}">{{'View spools'|t}}</a>@if(auth.canEdit()){<button class="btn primary" type="button" (click)="dialogs.open({kind:'spool',productId:product.id})">{{'+ Spool'|t}}</button><button class="btn icon-btn ghost" type="button" (click)="dialogs.open({kind:'product',id:product.id})" [attr.aria-label]="'Edit'|t">✎</button>}</div>
   </div>
-</section>
+</article>
+}@empty{<div class="placeholder">{{(data.products().length?'No matching products.':'No filament products yet.')|t}}</div>}
+</div></section>

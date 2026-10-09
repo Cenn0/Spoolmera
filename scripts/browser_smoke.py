@@ -108,6 +108,7 @@ def german_workflows(browser, errors: list[str]) -> None:
             expect(page).to_have_url(BASE + path)
             expect(page.locator("html")).to_have_attribute("lang", "de")
             expect(page.locator("main h1")).to_be_visible()
+        page.get_by_role("button", name="Tabelle", exact=True).click()
         expect(page.locator("#spool-table-body tr")).to_have_count(3)
         expect(page.locator("#spool-table-body")).to_contain_text("Example Filament")
         expect(page.locator("#spool-table-body")).to_contain_text("Matte Basic")
@@ -125,14 +126,17 @@ def german_workflows(browser, errors: list[str]) -> None:
         expect(label.locator('a[href*="size=50x30"]')).to_have_attribute("href", re.compile(r"lang=de"))
         assert label.locator('img').get_attribute('src').endswith('/qr.svg')
         label.close()
+        page.get_by_role("button", name="Karten", exact=True).click()
+        page.evaluate("window.scrollTo(0,0)")
         page.screenshot(path=str(folder / "de-desktop.png"), full_page=True)
 
         page.set_viewport_size({"width": 390, "height": 844})
-        expect(page.locator(".mobile-spool")).to_have_count(3)
+        expect(page.locator(".spool-card")).to_have_count(3)
         expect(language).to_be_visible()
-        expect(page.locator(".side-nav")).to_be_visible()
+        expect(page.locator(".mobile-navigation")).to_be_visible()
         assert page.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1"), "German mobile layout overflows horizontally"
-        page.screenshot(path=str(folder / "de-mobile.png"), full_page=True)
+        page.evaluate("window.scrollTo(0,0)")
+        page.screenshot(path=str(folder / "de-mobile.png"))
         language.select_option("en")
         expect(page.locator("html")).to_have_attribute("lang", "en")
         page.reload(wait_until="networkidle")
@@ -179,6 +183,7 @@ def run() -> None:
         expect(dialog).not_to_be_visible()
 
         page.locator('.side-nav a[href="/spools"]').click()
+        page.get_by_role("button", name="Table", exact=True).click()
         expect(page.locator("#spool-table-body tr")).to_have_count(1)
         expect(page.locator("#spool-table-body")).to_contain_text("1 kg")
 
@@ -387,8 +392,9 @@ def run() -> None:
                                              storage_state=page.context.storage_state())
         mobile = mobile_context.new_page()
         mobile.goto(BASE + "/spools", wait_until="networkidle")
-        expect(mobile.locator(".mobile-spool")).to_have_count(3)
-        expect(mobile.locator(".side-nav")).to_be_visible()
+        mobile.get_by_role("button", name="Cards", exact=True).click()
+        expect(mobile.locator(".spool-card")).to_have_count(3)
+        expect(mobile.locator(".mobile-navigation")).to_be_visible()
         mobile_context.close()
 
         # Revocation in another session must return the UI to login on the next API call.
@@ -397,6 +403,8 @@ def run() -> None:
         page.locator('.side-nav a[href="/jobs"]').click()
         expect(page.locator("h1")).to_contain_text("Welcome back")
         german_workflows(browser, errors)
+        from ui_browser_smoke import run_ui_workflows
+        run_ui_workflows(browser, errors)
         assert not errors, errors
 
 if __name__ == "__main__":

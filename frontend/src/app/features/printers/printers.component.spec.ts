@@ -25,3 +25,18 @@ describe('usable physical spool slots',()=>{
     await component.unloadSlot(3,1);expect(api.unloadSlot).not.toHaveBeenCalled();expect(api.printerOperations).not.toHaveBeenCalled();
   });
 });
+
+describe('dragged spool assignments require an explicit save',()=>{
+  it('prepares the same editor form without sending any write request',async()=>{
+    const {component,api}=await setup('editor');
+    const event={preventDefault(){},stopPropagation(){}} as DragEvent;
+    component.slotTool=3;component.draggedSpool.set(spool());component.dropSpool(event,1);
+    expect(component.printerSelection).toBe(1);expect(component.slotSpool).toBe(1);expect(component.slotTool).toBe(3);
+    expect(api.assignSlot).not.toHaveBeenCalled();await component.assignSlot();expect(api.assignSlot).toHaveBeenCalledWith(1,3,1);
+  });
+  it('rejects drops in a viewer session even if a drag state was injected',async()=>{
+    const {component,api}=await setup('viewer');
+    component.draggedSpool.set(spool());component.dropSpool({preventDefault(){},stopPropagation(){}} as DragEvent,1);
+    expect(component.slotSpool).toBe(0);expect(api.assignSlot).not.toHaveBeenCalled();
+  });
+});

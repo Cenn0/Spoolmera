@@ -1,3 +1,4 @@
+import { UI_DE } from './ui.de';
 import { COMMON_DE } from './common.de';
 import { ERRORS_DE } from './errors.de';
 import { INVENTORY_DE } from './inventory.de';
@@ -5,7 +6,7 @@ import { SYSTEM_DE } from './system.de';
 import { WORKFLOWS_DE } from './workflows.de';
 import type { TranslationCatalog } from './types';
 
-export const CATALOGS: readonly TranslationCatalog[] = [COMMON_DE, ERRORS_DE, INVENTORY_DE, SYSTEM_DE, WORKFLOWS_DE];
+export const CATALOGS: readonly TranslationCatalog[] = [COMMON_DE, ERRORS_DE, INVENTORY_DE, SYSTEM_DE, WORKFLOWS_DE, UI_DE];
 export const DE: TranslationCatalog = Object.freeze(Object.assign(Object.create(null), ...CATALOGS));
 
 const errorPatterns = Object.entries(ERRORS_DE).filter(([source]) => /\{[A-Za-z]/.test(source))
