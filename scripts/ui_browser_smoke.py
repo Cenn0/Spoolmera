@@ -163,6 +163,15 @@ def run_ui_workflows(browser, errors):
         # scroll lane; scrolling the entire section during a native drag can
         # otherwise cancel the gesture before the browser dispatches drop.
         target = page.locator('.storage-lane[data-location="Lab / Bin C"] .storage-empty')
+        # Real keyboard activation scrolls the board, without staging stock changes.
+        next_location = page.get_by_role('button', name='Next storage locations', exact=True)
+        expect(next_location).to_be_enabled()
+        next_location.focus()
+        page.keyboard.press('Enter')
+        page.wait_for_function("document.querySelector('#storage-board').scrollLeft > 20")
+        assert page.request.get(BASE + '/api/spools/by-uid/' + uid).json()['location'] == before_move['location']
+        page.get_by_role('button', name='Previous storage locations', exact=True).click()
+        page.wait_for_function("document.querySelector('#storage-board').scrollLeft <= 2")
         page.evaluate("""() => {
           window.storageDragEvents=[];
           for(const type of ['dragstart','dragenter','dragover','drop','dragend']){
@@ -235,6 +244,13 @@ def run_ui_workflows(browser, errors):
         page.set_viewport_size({'width': 390, 'height': 844})
         page.goto(BASE + '/spools', wait_until='networkidle')
         expect(page.locator('.mobile-navigation')).to_be_visible()
+        # Actual Chromium-computed styles, not mocked markup.
+        summary_font = page.locator('.inventory-stats span').first.evaluate('(el) => parseFloat(getComputedStyle(el).fontSize)')
+        search_font = page.locator('#spool-search').evaluate('(el) => parseFloat(getComputedStyle(el).fontSize)')
+        handle_size = page.locator('.spool-card .drag-handle').first.bounding_box()
+        assert summary_font >= 11, f'Inventory metric text too small: {summary_font}'
+        assert search_font >= 16, f'Mobile input font too small: {search_font}'
+        assert handle_size['width'] >= 44 and handle_size['height'] >= 44, handle_size
         # The stock identity is visible sooner; secondary actions and filters
         # remain keyboard/click accessible behind explicit mobile controls.
         filter_button=page.locator('.mobile-filter-toggle')
