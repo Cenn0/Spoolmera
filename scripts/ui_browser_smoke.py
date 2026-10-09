@@ -175,10 +175,20 @@ def run_ui_workflows(browser, errors):
             }, true);
           }
         }""")
-        source.locator('.drag-handle').hover()
+        # Move both objects into the viewport BEFORE pressing the mouse. Hover
+        # actions scroll containers and can cancel a drag that is already held.
+        target.scroll_into_view_if_needed()
+        handle = source.locator('.drag-handle')
+        handle.scroll_into_view_if_needed()
+        start, end = handle.bounding_box(), target.bounding_box()
+        assert start and end
+        sx, sy = start['x'] + start['width']/2, start['y'] + start['height']/2
+        tx, ty = end['x'] + end['width']/2, end['y'] + end['height']/2
+        assert 0 <= sx < 1440 and 0 <= tx < 1440 and 0 <= sy < 1000 and 0 <= ty < 1000
+        page.mouse.move(sx, sy)
         page.mouse.down()
-        target.hover()
-        target.hover()
+        page.mouse.move(sx-12, sy-8, steps=5)  # Cross Chromium's drag threshold.
+        page.mouse.move(tx, ty, steps=16)      # Dragover must reach the drop lane.
         page.mouse.up()
         print('Storage drag events:',json.dumps(page.evaluate('window.storageDragEvents ?? []')))
         expect(page.locator('.storage-confirm')).to_be_visible()
