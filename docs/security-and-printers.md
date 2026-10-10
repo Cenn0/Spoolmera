@@ -2,15 +2,15 @@
 
 ## Security controls
 
-First-administrator setup requires `FILAMENT_BOOTSTRAP_TOKEN` (a unique, unpredictable string of at least 24 characters). Accounts use Argon2id (19 MiB memory, 2 iterations, parallelism 1) and a minimum of 14 characters. Previous development-only scrypt hashes can be verified and are upgraded on login. Random session credentials are stored only as SHA-256 hashes; browser cookies use HttpOnly, SameSite=Lax and Secure when configured. Session-bound CSRF headers protect state-changing operations.
+First-administrator setup requires `SPOOLMERA_BOOTSTRAP_TOKEN` (a unique, unpredictable string of at least 24 characters). Accounts use Argon2id (19 MiB memory, 2 iterations, parallelism 1) and a minimum of 14 characters. Previous development-only scrypt hashes can be verified and are upgraded on login. Random session credentials are stored only as SHA-256 hashes; browser cookies use HttpOnly, SameSite=Lax and Secure when configured. Session-bound CSRF headers protect state-changing operations.
 
 Roles: **viewer** can inspect inventory, **editor** can change inventory and manage tracked jobs, and **admin** can additionally manage user accounts and printer configuration. Role changes revoke existing sessions. The last enabled administrator cannot be removed. Login attempts are throttled per client/user pair.
 
-For WAN use keep network access restricted through a VPN or properly configured HTTPS reverse proxy, set `FILAMENT_PUBLIC_BASE_URL` to the actual origin and set `FILAMENT_COOKIE_SECURE=1`. Do not expose direct HTTP to the internet.
+For WAN use keep network access restricted through a VPN or properly configured HTTPS reverse proxy, set `SPOOLMERA_PUBLIC_BASE_URL` to the actual origin and set `SPOOLMERA_COOKIE_SECURE=1`. Do not expose direct HTTP to the internet.
 
 ## Supported printer connections
 
-This release provides read-only adapters by default, with admin-only controller commands, file transfers, and print start when `FILAMENT_PRINTER_CONTROL_ENABLED=1` is set. No printer discovery is implemented. Printer endpoint hosts must be literal RFC1918 or ULA IPs and must be included exactly in `FILAMENT_PRINTER_ALLOWED_IPS`. The connector disables HTTP proxies and redirects, has a finite timeout and bounds the response length. Configure API keys using named `FILAMENT_PRINTER_TOKEN_*` environment variables; the database stores only the variable *name*, never the secret.
+This release provides read-only adapters by default, with admin-only controller commands, file transfers, and print start when `SPOOLMERA_PRINTER_CONTROL_ENABLED=1` is set. No printer discovery is implemented. Printer endpoint hosts must be literal RFC1918 or ULA IPs and must be included exactly in `SPOOLMERA_PRINTER_ALLOWED_IPS`. The connector disables HTTP proxies and redirects, has a finite timeout and bounds the response length. Configure API keys using named `SPOOLMERA_PRINTER_TOKEN_*` environment variables; the database stores only the variable *name*, never the secret.
 
 Use read-only or least-privilege keys for status-only connections, and narrowly scoped write permissions if available for opt-in physical actions. Printer firmware APIs may grant broader control than these HTTP requests use; inspect upstream permissions before pairing.
 
@@ -21,13 +21,13 @@ Bambu Lab X1, P1, A1 and A1 mini models may expose MQTT over TLS in **Developer 
 **Configuration**
 
 1. Ensure the printer and container are reachable on the same trusted LAN (or a deliberately secured local route), and enable Developer Mode on the printer if its firmware requires it. Never expose MQTT port 8883 to the internet.
-2. Set `FILAMENT_PRINTER_ALLOWED_IPS=192.168.1.20` (use your actual **private** printer IP). Allowlist only exact addresses.
-3. Set `FILAMENT_PRINTER_TOKEN_BAMBU1` to the printer's *LAN access code* (prefer Docker secrets via `FILAMENT_PRINTER_TOKEN_BAMBU1_FILE`), not your Bambu account password.
-4. Obtain and verify the *printer's* TLS leaf certificate from a trusted local network, then pin its SHA-256 **DER** fingerprint: `openssl s_client -connect 192.168.1.20:8883 -showcerts </dev/null 2>/dev/null | openssl x509 -outform DER | openssl dgst -sha256`. Compare the certificate source with the printer you intend to connect to. Set `FILAMENT_BAMBU_CERT_SHA256_BAMBU1` to the 64 hexadecimal characters (without the `SHA2-256(stdin)=` prefix). Re-pin only after inspecting a legitimate certificate rotation; a mismatch disables the connection.
-5. In **Printers → Add printer**, choose **Bambu Lab (LAN MQTT)**, use `mqtts://192.168.1.20:8883`, enter the physical device serial, and select `FILAMENT_PRINTER_TOKEN_BAMBU1` as the token-variable name.
+2. Set `SPOOLMERA_PRINTER_ALLOWED_IPS=192.168.1.20` (use your actual **private** printer IP). Allowlist only exact addresses.
+3. Set `SPOOLMERA_PRINTER_TOKEN_BAMBU1` to the printer's *LAN access code* (prefer Docker secrets via `SPOOLMERA_PRINTER_TOKEN_BAMBU1_FILE`), not your Bambu account password.
+4. Obtain and verify the *printer's* TLS leaf certificate from a trusted local network, then pin its SHA-256 **DER** fingerprint: `openssl s_client -connect 192.168.1.20:8883 -showcerts </dev/null 2>/dev/null | openssl x509 -outform DER | openssl dgst -sha256`. Compare the certificate source with the printer you intend to connect to. Set `SPOOLMERA_BAMBU_CERT_SHA256_BAMBU1` to the 64 hexadecimal characters (without the `SHA2-256(stdin)=` prefix). Re-pin only after inspecting a legitimate certificate rotation; a mismatch disables the connection.
+5. In **Printers → Add printer**, choose **Bambu Lab (LAN MQTT)**, use `mqtts://192.168.1.20:8883`, enter the physical device serial, and select `SPOOLMERA_PRINTER_TOKEN_BAMBU1` as the token-variable name.
 6. Use **Test connection** to read the current state, nozzle and bed temperatures, progress and AMS trays. No filament is assigned or deducted automatically.
 
-The backend uses a short-lived MQTT connection, validates the exact pinned TLS certificate **before** sending credentials, subscribes to `device/<serial>/report` and requests a `pushall` snapshot. It neither discovers printers nor silently trusts self-signed certificates. If configured, printer commands pause, resume and stop use `device/<serial>/request`; they require admin authentication and the global opt-in `FILAMENT_PRINTER_CONTROL_ENABLED=1`. A broker PUBACK is **not confirmation of physical execution**; inspect the printer after each command. 
+The backend uses a short-lived MQTT connection, validates the exact pinned TLS certificate **before** sending credentials, subscribes to `device/<serial>/report` and requests a `pushall` snapshot. It neither discovers printers nor silently trusts self-signed certificates. If configured, printer commands pause, resume and stop use `device/<serial>/request`; they require admin authentication and the global opt-in `SPOOLMERA_PRINTER_CONTROL_ENABLED=1`. A broker PUBACK is **not confirmation of physical execution**; inspect the printer after each command. 
 
 **Job filenames:** manually registered Bambu jobs can refer to an existing `.3mf` filename as reported by MQTT telemetry, in addition to G-code filenames. Archive uploads and slicing are not implied. Other controllers continue to accept G-code filenames only.
 
@@ -65,7 +65,7 @@ Original device documentation:
 
 Printer commands are stored with a unique correlation ID and a lifecycle (`sending`, `acknowledged`, `unknown`, `confirmed`, `cleared`). A printer may act even when its HTTP response is lost: uncertain starts are never automatically resent. An administrator must verify the printer physically and record an explanation before clearing an unconfirmed command. Actual consumption is a separate transaction and requires a verified run identity or manual review.
 
-Signed cloud relay aliases must be bound to one configured printer using `FILAMENT_CLOUD_PRINTER_<ALIAS>`. Signing authenticates the source but does not prove a successful print or physical material usage. Slicer workers receive only their own shared worker token, not the API bootstrap secret or controller credentials.
+Signed cloud relay aliases must be bound to one configured printer using `SPOOLMERA_CLOUD_PRINTER_<ALIAS>`. Signing authenticates the source but does not prove a successful print or physical material usage. Slicer workers receive only their own shared worker token, not the API bootstrap secret or controller credentials.
 
 ## v0.9 new trust boundaries
 

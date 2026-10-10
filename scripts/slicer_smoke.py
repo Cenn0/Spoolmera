@@ -11,7 +11,7 @@ from ci_http import DisposableClient
 def run(base: str) -> None:
     client = DisposableClient(base)
     client.wait_ready()
-    client.setup(os.environ["FILAMENT_BOOTSTRAP_TOKEN"])
+    client.setup(os.environ["SPOOLMERA_BOOTSTRAP_TOKEN"])
     assert "ci" in client.call("/api/slicing/profiles")["profiles"]
     mesh = Path(__file__).resolve().parents[1] / "tests/fixtures/slicer/cube.stl"
     result = client.call("/api/slicing/slice?profile=ci", "POST", mesh.read_bytes(), timeout=90)

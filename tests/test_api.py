@@ -156,7 +156,7 @@ def test_angular_frontend_and_label_styles(client):
         assert "Angular frontend not built" in homepage.text
     else:
         assert homepage.status_code == 200
-        assert "<fm-root>" in homepage.text
+        assert "<sm-root>" in homepage.text
         assert client.get("/spools").status_code == 200
         assert client.get("/filaments").status_code == 200
         assert client.get("/not-an-asset.js").status_code == 404

@@ -12,8 +12,8 @@ describe('storage board: accessibility, staged moves and concurrent edits',()=>{
   let data:ReturnType<typeof inventoryMock>,auth:ReturnType<typeof authMock>;
   const original=spool();
   beforeEach(async()=>{
-    localStorage.removeItem('filament-manager-spool-view');
-    localStorage.removeItem('filament-manager-spool-sort');
+    localStorage.removeItem('spoolmera-spool-view');
+    localStorage.removeItem('spoolmera-spool-sort');
     data=inventoryMock();auth=authMock('editor');
     TestBed.configureTestingModule({providers:[provideRouter([]),
       {provide:ActivatedRoute,useValue:{queryParamMap:new BehaviorSubject(convertToParamMap({}))}},
@@ -24,8 +24,8 @@ describe('storage board: accessibility, staged moves and concurrent edits',()=>{
   });
   afterEach(()=>{
     fixture.destroy();
-    localStorage.removeItem('filament-manager-spool-view');
-    localStorage.removeItem('filament-manager-spool-sort');
+    localStorage.removeItem('spoolmera-spool-view');
+    localStorage.removeItem('spoolmera-spool-sort');
   });
   it('presents drop columns and keyboard destination controls to editors',async()=>{
     component.setDisplay('locations');
@@ -112,8 +112,8 @@ describe('storage board: accessibility, staged moves and concurrent edits',()=>{
     component.items.set([original,newer]);component.setSpoolOrder('remaining-low');
     expect(component.filtered().map(s=>s.id)).toEqual([2,1]);
     expect(component.items().map(s=>s.id)).toEqual([1,2]);
-    expect(localStorage.getItem('filament-manager-spool-sort')).toBe('remaining-low');
+    expect(localStorage.getItem('spoolmera-spool-sort')).toBe('remaining-low');
     expect(data.updateSpool).not.toHaveBeenCalled();
-    component.setDisplay('locations');expect(localStorage.getItem('filament-manager-spool-view')).toBe('locations');
+    component.setDisplay('locations');expect(localStorage.getItem('spoolmera-spool-view')).toBe('locations');
   });
 });

@@ -11,7 +11,7 @@ def test_scoped_machine_auth_revoke_and_pagination(tmp_path):
         created=c.post("/api/admin/automation-tokens",json={"label":"Home Assistant","scope":"inventory_read"})
         assert created.status_code==201,created.text
         secret=created.json()["token"]
-        assert secret.startswith("fmm_")
+        assert secret.startswith("spm_")
         assert secret not in str(c.get("/api/admin/automation-tokens").json())
         c.headers["Authorization"]="Bearer "+secret
         assert c.get("/api/automation/v1/spools").status_code==200

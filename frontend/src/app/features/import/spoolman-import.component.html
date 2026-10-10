@@ -10,7 +10,7 @@
     <div class="form-grid">
       <label>{{'Source identifier (unique per Spoolman instance)'|t}}<input [(ngModel)]="source" (ngModelChange)="invalidate()"
         maxlength="40" pattern="[A-Za-z0-9_-]+" placeholder="workshop-spoolman"></label>
-      <fm-file-drop label="Snapshot JSON" accept=".json" [maxBytes]="2*1024*1024" [disabled]="busy()||!auth.canEdit()" (selected)="selectFile($event)" (rejected)="rejectFile($event)" />
+      <sm-file-drop label="Snapshot JSON" accept=".json" [maxBytes]="2*1024*1024" [disabled]="busy()||!auth.canEdit()" (selected)="selectFile($event)" (rejected)="rejectFile($event)" />
       @if(selected){<p class="selected-file">{{selected.name}}</p>}
     </div>
     @if(auth.canEdit()){

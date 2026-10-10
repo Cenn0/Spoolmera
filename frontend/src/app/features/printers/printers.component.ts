@@ -30,7 +30,7 @@ export class PrintersComponent implements OnInit, OnDestroy {
   startSpoolDrag(event:DragEvent,spool:Spool):void {
     if(!this.auth.canEdit()||this.busy()){event.preventDefault();return;}
     this.draggedSpool.set(spool);
-    if(event.dataTransfer){event.dataTransfer.effectAllowed='copy';event.dataTransfer.setData('application/x-filament-spool',spool.uid);}
+    if(event.dataTransfer){event.dataTransfer.effectAllowed='copy';event.dataTransfer.setData('application/x-spoolmera-spool',spool.uid);}
   }
   finishSpoolDrag():void {this.draggedSpool.set(null);this.dropPrinter.set(null);}
   overPrinter(event:DragEvent,printerId:number):void {

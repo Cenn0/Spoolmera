@@ -8,7 +8,7 @@ import { I18nService } from '../../core/i18n';
 import { authMock, inventoryMock, product } from '../../testing/fixtures';
 import { ProductsComponent } from './filaments.component';
 
-const SORT_KEY = 'filament-manager-product-sort';
+const SORT_KEY = 'spoolmera-product-sort';
 
 describe('filament gallery controls and state', () => {
   let fixture: ComponentFixture<ProductsComponent>;

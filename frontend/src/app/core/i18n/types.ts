@@ -7,7 +7,7 @@ export interface LocalizedMessage {
 export type MessageValue = string | LocalizedMessage;
 export type MessageParams = Readonly<Record<string, string | number | boolean | LocalizedMessage | null | undefined>>;
 
-export const LANGUAGE_STORAGE_KEY = 'filament-manager.language';
+export const LANGUAGE_STORAGE_KEY = 'spoolmera.language';
 
 export function supportedLanguage(value: string | null | undefined): Language | null {
   return value === 'en' || value === 'de' ? value : null;

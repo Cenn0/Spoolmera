@@ -1,8 +1,8 @@
 @if(auth.error()){<div class="error-banner" role="alert">{{auth.error() | t}} <button type="button" (click)="retryAuthentication()">{{'Retry connection' | t}}</button></div>}
 @if (!auth.ready()) {
-  <main class="login-screen"><section><fm-theme-picker /><fm-language-picker /><p role="status">{{'Loading secure workspace…' | t}}</p></section></main>
+  <main class="login-screen"><section><sm-theme-picker /><sm-language-picker /><p role="status">{{'Loading secure workspace…' | t}}</p></section></main>
 } @else if (!auth.user()) {
-  <fm-login (authenticated)="afterLogin()" />
+  <sm-login (authenticated)="afterLogin()" />
 } @else {
 <a class="skip-link" href="#main-content">{{'Skip to content'|t}}</a>
 <div class="shell">
@@ -44,8 +44,8 @@
       <div class="breadcrumbs"><span>{{'WORKSPACE' | t}}</span><b>/</b><strong>{{'Material inventory' | t}}</strong></div>
       <div class="top-actions">
         <span class="system-state" [attr.title]="inventory.lastUpdated()?i18n.t('Inventory refreshed: {date}',{date:dateText(inventory.lastUpdated())}):i18n.t('Inventory has not loaded')"><span class="live-dot" [class.offline]="!!inventory.error()"></span>{{ (inventory.error() ? 'Unavailable' : inventory.loading() ? (inventory.ready()?'Refreshing':'Loading') : 'Local instance') | t }}</span>
-        <fm-theme-picker />
-        <fm-language-picker />
+        <sm-theme-picker />
+        <sm-language-picker />
         <span class="user-chip">{{auth.user()?.username}} · {{roleLabel(auth.user()?.role)}}</span>
         <button type="button" class="logout-action" (click)="auth.logout()" [disabled]="auth.signingOut()" [attr.aria-label]="'Sign out' | t">{{'Sign out' | t}}</button>
         @if(auth.canEdit()){<button type="button" class="btn primary add-spool" (click)="openSpool()"><span aria-hidden="true">+</span> {{'Add spool' | t}}</button>}
@@ -63,7 +63,7 @@
     <main id="main-content" class="main-content" tabindex="-1">
       <router-outlet />
     </main>
-    <fm-dialogs />
+    <sm-dialogs />
   </div>
 </div>
 <nav class="mobile-navigation" [inert]="navOpen()" [attr.aria-label]="'Quick navigation'|t">

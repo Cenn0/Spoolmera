@@ -171,7 +171,7 @@ def test_administrator_restore_preserves_database_and_lock_owners(tmp_path, exis
         if exc.errno in (errno.EPERM, errno.EINVAL, errno.ENOTSUP):
             pytest.skip("This host cannot map runtime UID 10001; the real Docker recovery gate checks ownership")
         raise
-    active = directory / "filaments.sqlite3"
+    active = directory / "spoolmera.sqlite3"
     if existing:
         active.write_bytes(b"damaged original")
         os.chown(active, 10001, 10001)

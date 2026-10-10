@@ -389,7 +389,7 @@ label.checkbox-row input{width:auto;flex:none;accent-color:#277f73}
 .diagnostic-identity{overflow-wrap:anywhere;font-family:monospace}
 
 /* Runtime language selection remains reachable at every viewport width. */
-fm-language-picker{display:inline-block;flex:none}
+sm-language-picker{display:inline-block;flex:none}
 .language-picker{display:inline-flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:#425957}
 .language-picker select{font:inherit;min-height:36px;min-width:102px;padding:7px 10px;border:1px solid #d8e4dd;border-radius:8px;background:#fff;color:#172B32}
 .login-language{display:flex;justify-content:flex-end;margin-bottom:20px}

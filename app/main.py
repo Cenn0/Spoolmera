@@ -53,7 +53,7 @@ class SPAStaticFiles(StaticFiles):
 
 
 def create_app(database_path: str | Path | None = None) -> FastAPI:
-    db_path = Path(database_path or os.environ.get("FILAMENT_DB_PATH", ".data/filaments.sqlite3"))
+    db_path = Path(database_path or os.environ.get("SPOOLMERA_DB_PATH", ".data/spoolmera.sqlite3"))
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):

@@ -1,7 +1,7 @@
 /* Apply the saved theme before first paint, without an inline CSP exception. */
 (function () {
   var preference = 'system';
-  try { var saved = localStorage.getItem('filament-manager-theme');
+  try { var saved = localStorage.getItem('spoolmera-theme');
     if (saved === 'light' || saved === 'dark') preference = saved;
   } catch (_) { /* Storage can be blocked. */ }
   var dark = preference === 'dark' || (preference === 'system' &&

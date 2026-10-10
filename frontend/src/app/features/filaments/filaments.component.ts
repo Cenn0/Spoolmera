@@ -7,7 +7,7 @@ import { InventoryService } from '../../inventory.service';
 import { SpoolVisualComponent } from '../../core/ui/spool-visual.component';
 import { ProductOrder, productOrder, selectProducts, summarizeProducts, targetStockPercent, belowWarning } from './product-view';
 
-const SORT_PREFERENCE = 'filament-manager-product-sort';
+const SORT_PREFERENCE = 'spoolmera-product-sort';
 
 @Component({
   standalone: true,

@@ -16,14 +16,14 @@ BASE = "http://127.0.0.1:8765"
 @contextmanager
 def browser_session(playwright):
     browser = playwright.chromium.launch(headless=True,
-        executable_path=os.getenv("FILAMENT_TEST_BROWSER_EXECUTABLE") or None)
+        executable_path=os.getenv("SPOOLMERA_TEST_BROWSER_EXECUTABLE") or None)
     context = browser.new_context(accept_downloads=True, locale="en-US")
     context.tracing.start(screenshots=True, snapshots=True, sources=True)
     page = context.new_page()
     try:
         yield browser, page
     except Exception:
-        folder = Path(os.getenv("FILAMENT_BROWSER_ARTIFACT_DIR") or tempfile.mkdtemp(prefix="filament-browser-"))
+        folder = Path(os.getenv("SPOOLMERA_BROWSER_ARTIFACT_DIR") or tempfile.mkdtemp(prefix="spoolmera-browser-"))
         folder.mkdir(parents=True, exist_ok=True)
         page.screenshot(path=str(folder / "failure.png"), full_page=True)
         context.tracing.stop(path=str(folder / "trace.zip"))
@@ -44,14 +44,14 @@ def select_id(select, identifier: int) -> None:
 
 def report_failed_fixture(page, job_id: int) -> None:
     """A signed synthetic relay exercises the normal review boundary, not hardware."""
-    secret = os.environ["FILAMENT_CLOUD_HMAC_BROWSER"]
+    secret = os.environ["SPOOLMERA_CLOUD_HMAC_BROWSER"]
     raw = json.dumps({"event_id": "browser-partial-job-" + str(job_id),
                       "job_id": job_id, "status": "failed"}, separators=(",", ":")).encode()
     stamp = str(int(time.time()))
     signature = hmac.new(secret.encode(), stamp.encode() + b"." + raw, hashlib.sha256).hexdigest()
     result = page.request.post(BASE + "/api/cloud/hooks/BROWSER", data=raw, headers={
-        "Content-Type": "application/json", "X-Filament-Timestamp": stamp,
-        "X-Filament-Signature": signature})
+        "Content-Type": "application/json", "X-Spoolmera-Timestamp": stamp,
+        "X-Spoolmera-Signature": signature})
     assert result.status == 200 and result.json()["disposition"] == "needs_review"
 
 
@@ -61,23 +61,23 @@ def german_workflows(browser, errors: list[str]) -> None:
     context.tracing.start(screenshots=True, snapshots=True, sources=True)
     page = context.new_page()
     page.on("pageerror", lambda error: errors.append(str(error)))
-    folder = Path(os.getenv("FILAMENT_BROWSER_ARTIFACT_DIR") or tempfile.mkdtemp(prefix="filament-language-"))
+    folder = Path(os.getenv("SPOOLMERA_BROWSER_ARTIFACT_DIR") or tempfile.mkdtemp(prefix="spoolmera-language-"))
     folder.mkdir(parents=True, exist_ok=True)
     try:
         page.goto(BASE + "/", wait_until="networkidle")
         expect(page.locator("html")).to_have_attribute("lang", "de")
         expect(page.locator("h1")).to_have_text("Willkommen zurück.")
-        language = page.locator("fm-language-picker select")
+        language = page.locator("sm-language-picker select")
         expect(language).to_have_value("de")
-        page.locator('fm-login input[name="username"]').fill("browser-admin")
-        page.locator('fm-login input[name="password"]').fill("deliberately-wrong-password")
+        page.locator('sm-login input[name="username"]').fill("browser-admin")
+        page.locator('sm-login input[name="password"]').fill("deliberately-wrong-password")
         language.select_option("en")
         expect(page.locator("h1")).to_have_text("Welcome back.")
-        expect(page.locator('fm-login input[name="username"]')).to_have_value("browser-admin")
+        expect(page.locator('sm-login input[name="username"]')).to_have_value("browser-admin")
         language.select_option("de")
         page.get_by_role("button", name="Anmelden", exact=True).click()
         expect(page.locator(".form-error")).to_have_text("Ungültige Zugangsdaten.")
-        page.locator('fm-login input[name="password"]').fill("  browser-new-password-2026  ")
+        page.locator('sm-login input[name="password"]').fill("  browser-new-password-2026  ")
         page.get_by_role("button", name="Anmelden", exact=True).click()
         expect(page.get_by_role("button", name="Abmelden", exact=True)).to_be_visible()
         expect(page.locator("h1")).to_contain_text("Jede Spule")
@@ -159,9 +159,9 @@ def run() -> None:
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(BASE + "/", wait_until="networkidle")
         expect(page.locator("h1")).to_contain_text("Create the first administrator")
-        page.locator('fm-login input[name="username"]').fill("browser-admin")
-        page.locator('fm-login input[name="password"]').fill("browser-test-password-strong-2026")
-        page.locator('fm-login input[name="token"]').fill("test-only-bootstrap-token-long-enough")
+        page.locator('sm-login input[name="username"]').fill("browser-admin")
+        page.locator('sm-login input[name="password"]').fill("browser-test-password-strong-2026")
+        page.locator('sm-login input[name="token"]').fill("test-only-bootstrap-token-long-enough")
         page.get_by_role("button", name="Create administrator").click()
         expect(page.locator("h1")).to_contain_text("Every spool")
 
@@ -269,9 +269,9 @@ def run() -> None:
         expect(page.locator(".data-table tbody tr")).to_have_count(1)
         expect(page.locator(".data-table tbody")).to_contain_text("Printed a mounting bracket")
         page.locator('.side-nav a[href="/integrations"]').click()
-        expect(page.locator("fm-root")).to_contain_text("Read-only available")
-        expect(page.locator("fm-root")).to_contain_text("Signed cloud bridge")
-        expect(page.locator("fm-root")).to_contain_text("External relay required")
+        expect(page.locator("sm-root")).to_contain_text("Read-only available")
+        expect(page.locator("sm-root")).to_contain_text("Signed cloud bridge")
+        expect(page.locator("sm-root")).to_contain_text("External relay required")
 
         # Admin provisions users and a restricted fixture controller. Background
         # polling may attempt read-only status GETs; this smoke sends no printer commands.
@@ -334,7 +334,7 @@ def run() -> None:
         expect(job_row).to_contain_text("needs review")
         for actual, balance in [(37, 838), (40, 835)]:
             job_row.get_by_role("button", name="Review consumption").click()
-            consumption = page.locator("fm-consumption dialog")
+            consumption = page.locator("sm-consumption dialog")
             expect(consumption.get_by_label("Total actual use (g)")).to_be_visible()
             consumption.get_by_label("Total actual use (g)").fill(str(actual))
             consumption.locator('textarea[name="reason"]').fill("Confirmed partial print including purge")
@@ -366,8 +366,8 @@ def run() -> None:
         # Viewer access is read-only, and the session is genuinely revoked on logout.
         page.get_by_role("button", name="Sign out").click()
         expect(page.locator("h1")).to_contain_text("Welcome back")
-        page.locator('fm-login input[name="username"]').fill("browser-viewer")
-        page.locator('fm-login input[name="password"]').fill("browser-viewer-password-2026")
+        page.locator('sm-login input[name="username"]').fill("browser-viewer")
+        page.locator('sm-login input[name="password"]').fill("browser-viewer-password-2026")
         page.get_by_role("button", name="Sign in").click()
         # Absence of editor controls is already true on the login screen. Wait
         # for a confirmed session before those checks or a full-page navigation.
@@ -383,8 +383,8 @@ def run() -> None:
         page.goto(BASE + "/printers", wait_until="networkidle")
         expect(page.get_by_role("button", name="Save slot assignment")).to_have_count(0)
         page.get_by_role("button", name="Sign out").click()
-        page.locator('fm-login input[name="username"]').fill("browser-admin")
-        page.locator('fm-login input[name="password"]').fill("  browser-new-password-2026  ")
+        page.locator('sm-login input[name="username"]').fill("browser-admin")
+        page.locator('sm-login input[name="password"]').fill("  browser-new-password-2026  ")
         page.get_by_role("button", name="Sign in").click()
         expect(page.locator(".add-spool")).to_be_visible()
 

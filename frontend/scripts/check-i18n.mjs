@@ -17,7 +17,7 @@ const attributes = new Set(['placeholder', 'title', 'aria-label']);
 // Brand spellings, language autonyms, and the existing example integration alias
 // intentionally retain their original spelling in both interface languages.
 const originals = new Set([
-  'FILAMENT', 'MANAGER', 'FILAMENT MANAGER', 'Filament Manager',
+  'FILAMENT', 'MANAGER', 'SPOOLMERA', 'Spoolmera',
   'Spoolman.', 'Moonraker / Klipper', 'OctoPrint', 'Home Assistant',
   'English', 'Deutsch', 'PLA', 'workshop-spoolman',
 ]);
@@ -28,7 +28,7 @@ function originalText(value) {
   // Measurements, tool numbers/prefixes, API examples, URLs, environment keys.
   if (/^(?:[\s\d.,:;·/×+−\-()%#=]|kg|mg|mm|cm|min|ms|MiB|GiB|MB|GB|°C|°F|g|m|s|h|T)+$/.test(text)) return true;
   if (/^(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)(?:\s+\/\S+)?$/.test(text)) return true;
-  if (/^(?:https?:\/\/\S+|\/[A-Za-z0-9_/?&=.#%<>:+-]+|FILAMENT_[A-Z0-9_]+)$/.test(text)) return true;
+  if (/^(?:https?:\/\/\S+|\/[A-Za-z0-9_/?&=.#%<>:+-]+|SPOOLMERA_[A-Z0-9_]+)$/.test(text)) return true;
   return false;
 }
 

@@ -31,8 +31,8 @@ def run(base: str, persistence: bool = False) -> None:
             return json.loads(content) if "application/json" in response.headers.get("Content-Type", "") else content
 
     assert call("/api/health") == {"status": "ok"}
-    assert b"fm-root" in call("/")
-    assert b"fm-root" in call("/jobs")
+    assert b"sm-root" in call("/")
+    assert b"sm-root" in call("/jobs")
     call("/api/spools", expected=401)
     if persistence:
         result = call("/api/auth/login", "POST", {"username": "container-admin", "password": PASSWORD})
@@ -42,7 +42,7 @@ def run(base: str, persistence: bool = False) -> None:
         print("HTTP persistence smoke passed after restart.")
         return
     result = call("/api/auth/setup", "POST", {"username": "container-admin", "password": PASSWORD},
-                  headers={"X-Bootstrap-Token": os.environ["FILAMENT_BOOTSTRAP_TOKEN"]})
+                  headers={"X-Bootstrap-Token": os.environ["SPOOLMERA_BOOTSTRAP_TOKEN"]})
     csrf = result["csrf_token"]
     product = call("/api/products", "POST", {"brand": "Smoke", "name": "PLA", "material": "PLA",
                    "color_name": "Blue", "color_hex": "#3377AA"}, expected=201)

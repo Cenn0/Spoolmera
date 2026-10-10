@@ -12,7 +12,7 @@ from typing import Callable
 
 from app.infrastructure.database.migrations import CURRENT_SCHEMA_VERSION
 
-APPLICATION_ID = 0x464D4752
+APPLICATION_ID = 0x53504D52
 
 
 class BackupError(RuntimeError):

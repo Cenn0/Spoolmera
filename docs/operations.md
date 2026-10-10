@@ -18,22 +18,22 @@ Supported implemented API operations:
 
 Vendor documentation: [Moonraker printer operations](https://moonraker.readthedocs.io/en/latest/external_api/printer/), [Moonraker file upload](https://moonraker.readthedocs.io/en/latest/external_api/file_manager/), [OctoPrint file APIs](https://docs.octoprint.org/en/main/api/files.html), [OctoPrint job commands](https://docs.octoprint.org/en/main/api/job.html).
 
-1. Add **exact printer IP** to `FILAMENT_PRINTER_ALLOWED_IPS`. Only RFC1918/ULA addresses are accepted; DNS, redirects and proxy fallback are prohibited.
-2. Configure optional `FILAMENT_PRINTER_TOKEN_<ALIAS>` in private `.env`, then add the printer as administrator. OctoPrint requires its token variable.
-3. Set `FILAMENT_PRINTER_CONTROL_ENABLED=1` and restart the service to expose admin-only physical actions.
+1. Add **exact printer IP** to `SPOOLMERA_PRINTER_ALLOWED_IPS`. Only RFC1918/ULA addresses are accepted; DNS, redirects and proxy fallback are prohibited.
+2. Configure optional `SPOOLMERA_PRINTER_TOKEN_<ALIAS>` in private `.env`, then add the printer as administrator. OctoPrint requires its token variable.
+3. Set `SPOOLMERA_PRINTER_CONTROL_ENABLED=1` and restart the service to expose admin-only physical actions.
 4. Register the job and filename under **Print jobs**. Use **Upload G-code** to send raw bytes (max 16 MiB, filename must match the job); upload never starts the printer automatically.
 5. Review machine/material compatibility, tool mapping, temperatures and safety. Use **Start print** only while printer is idle. A physical start request does *not* establish a completed job or authorize inventory debit. Each start intent is persisted before contacting the controller. A timeout or lost acknowledgement is marked `unknown` and is **not retried automatically**. The administrator can inspect the command on **Print jobs** and clear it only after physically confirming the printer did not start, recording the reason. Moonraker's independent history poller retains its previous exact-run completion rules; OctoPrint completions still require manual review.
 
 Cancellation of physical printing flags currently observed active jobs for manual material review. A request to stop tracking **does not** stop the physical printer. APIs intentionally expose no arbitrary G-code command execution, no firmware update, no print-temperature override, and no arbitrary controller URLs.
 
-**Controller credentials:** stored in environment only; actual controller roles must allow the needed action. `FILAMENT_PRINTER_CONTROL_ENABLED=1` increases physical risk. Enabling write methods is not equivalent to vendor certification.
+**Controller credentials:** stored in environment only; actual controller roles must allow the needed action. `SPOOLMERA_PRINTER_CONTROL_ENABLED=1` increases physical risk. Enabling write methods is not equivalent to vendor certification.
 
 ## Automatic STL slicing (optional isolated worker)
 
 Slicing is **not installed in the default API image**. The opt-in Compose overlay starts a separate `slicer-worker` container and connects it to the API via an internal-only Docker network. The worker has no printer credentials, no database volume, no public port and no access to the default Docker network. It runs as non-root with a read-only filesystem, limited CPU/RAM/PIDs and bounded temporary storage.
 
 1. Create `slicer-profiles/` next to `compose.yaml`. Put only operator-reviewed PrusaSlicer `.ini` profiles in it, exported for the packaged PrusaSlicer version. They are mounted read-only to the worker.
-2. Generate a random 32+ character `FILAMENT_SLICER_WORKER_TOKEN` and place it in the private `.env` file. It must match on the API and worker; Compose sets it for the worker.
+2. Generate a random 32+ character `SPOOLMERA_SLICER_WORKER_TOKEN` and place it in the private `.env` file. It must match on the API and worker; Compose sets it for the worker.
 3. Start with:
 
    ```bash
@@ -68,12 +68,12 @@ Completion debits all assigned *physical spools in one SQLite transaction*. Each
 
 This is an inbound **signed adapter contract**, not native vendor-cloud authentication or printer control. An independently deployed bridge can translate Bambu/Prusa/other cloud events into this schema after the operator verifies that provider's supported API and permissions. Vendor compatibility is **not** claimed.
 
-Set `FILAMENT_CLOUD_HMAC_FARM=<32+ character random secret>` and `FILAMENT_CLOUD_PRINTER_FARM=<printer ID>` privately, then restart. Relays cannot mark jobs of other printers; a missing binding is rejected. External bridge example:
+Set `SPOOLMERA_CLOUD_HMAC_FARM=<32+ character random secret>` and `SPOOLMERA_CLOUD_PRINTER_FARM=<printer ID>` privately, then restart. Relays cannot mark jobs of other printers; a missing binding is rejected. External bridge example:
 
 ```http
 POST /api/cloud/hooks/FARM
-X-Filament-Timestamp: 1791470000
-X-Filament-Signature: sha256=<64 lowercase hexadecimal characters>
+X-Spoolmera-Timestamp: 1791470000
+X-Spoolmera-Signature: sha256=<64 lowercase hexadecimal characters>
 Content-Type: application/json
 
 {"event_id":"remote-job-000001","job_id":42,"status":"completed"}
@@ -85,7 +85,7 @@ The timestamp must be the current Unix epoch seconds (the example is illustrativ
 import hashlib, hmac, json, os, time
 body = json.dumps({"event_id":"remote-job-000001","job_id":42,"status":"completed"}).encode()
 stamp = str(int(time.time()))
-key = os.environ["FILAMENT_CLOUD_HMAC_FARM"]
+key = os.environ["SPOOLMERA_CLOUD_HMAC_FARM"]
 signature = hmac.new(key.encode(), stamp.encode() + b"." + body, hashlib.sha256).hexdigest()
 print(stamp, signature)
 ```
@@ -105,19 +105,19 @@ A reported completion/failure/cancellation only moves active tracking to **needs
 
 - The editor/admin **Operations** page and `GET /api/diagnostics` show application/schema versions, supervised poller state, lease owner/expiry, heartbeat, printer observation freshness, pending/uncertain commands and uploads, storage reserve and backup/restore metadata. Historical material-mapping mismatches are read-only warnings; the application never guesses how to rewrite a past ledger.
 - `GET /api/audit` gives an admin-only chronological record of user and automation actions. Existing records from older versions cannot be retrospectively attributed to a person.
-- Use `python scripts/backup.py backup.sqlite3 --database /data/filaments.sqlite3` where the data volume is mounted. The CLI creates a consistent single-file SQLite snapshot plus a SHA-256 manifest and refuses to overwrite either file. Keep both files together. Never copy just the live SQLite main file while writes may remain in its WAL.
+- Use `python scripts/backup.py backup.sqlite3 --database /data/spoolmera.sqlite3` where the data volume is mounted. The CLI creates a consistent single-file SQLite snapshot plus a SHA-256 manifest and refuses to overwrite either file. Keep both files together. Never copy just the live SQLite main file while writes may remain in its WAL.
 - REST `GET /api/inventory/v2/spools?limit=50&cursor=<id>` supports filtered cursor pagination while the original `/api/spools` array remains backwards-compatible.
 - One API process and a local SQLite volume are the supported deployment. An application lock is held from before migration until the poller has fully stopped; a second process cannot initialize the same database. A separate kernel file lock covers the whole poller lifetime; the operating system releases it after a hard process exit. Only the process holding that lock may replace an orphaned SQLite polling lease. The short lease is renewed while polling runs. Cancellation retains ownership until any running controller-request thread exits. Physical printer operation locks remain independent and are never cleared merely to restart polling.
 
 `/api/health` is a liveness probe. `/api/ready` additionally requires the poller task and its ownership to be healthy. An offline printer is a separate diagnostic condition; it does not itself make the application unready. The poller samples all enabled printers and keeps per-printer attempts, successes and failure counts. If a configured controller is deliberately unavailable, disable that printer to stop its polling and alerts.
 
-Startup rejects invalid polling intervals, backup timeouts, boolean feature flags and public origins. The polling interval accepts 10–300 seconds. `FILAMENT_BACKUP_TIMEOUT_SECONDS` defaults to 30 seconds (1–300); `FILAMENT_STORAGE_RESERVE_MIB` defaults to 64 MiB (1–4096). Enabled slicing requires the matching internal-worker configuration.
+Startup rejects invalid polling intervals, backup timeouts, boolean feature flags and public origins. The polling interval accepts 10–300 seconds. `SPOOLMERA_BACKUP_TIMEOUT_SECONDS` defaults to 30 seconds (1–300); `SPOOLMERA_STORAGE_RESERVE_MIB` defaults to 64 MiB (1–4096). Enabled slicing requires the matching internal-worker configuration.
 
 ## Material care and imports (v0.9)
 
 Use the Weigh spool action to enter gross mass and physical empty-spool tare; the balance delta is recorded with its explanation. It refuses impossible measurements or measurements that would violate active reservations. Drying records capture completed temperature, duration, timestamp and a note. **No general-purpose material-drying schedule is inferred.**
 
-Set FILAMENT_CATALOG_ENABLED=1 to browse optional Open Filament Database records. The API uses only a fixed HTTPS origin and stores read-only previews in the application data volume. Review imported values before saving as a product.
+Set SPOOLMERA_CATALOG_ENABLED=1 to browse optional Open Filament Database records. The API uses only a fixed HTTPS origin and stores read-only previews in the application data volume. Review imported values before saving as a product.
 
 Under Integrations, choose Import from Spoolman. Supply a JSON array from a Spoolman list-spools API response (or an object containing a spools array); select a unique source ID for that original Spoolman installation. Preview, then confirm. Imports are create-only, transactional and idempotent. No historical movements or user accounts are migrated.
 
@@ -131,11 +131,11 @@ Register a physical tag serial ID in spool details (nfc, openprinttag or custom)
 
 ## Signed physical scale events
 
-Set a random 32+ character environment secret, for example FILAMENT_SCALE_HMAC_WORKSHOP, and enable an external device to send JSON to POST /api/scales/hooks/WORKSHOP. Example exact JSON bytes:
+Set a random 32+ character environment secret, for example SPOOLMERA_SCALE_HMAC_WORKSHOP, and enable an external device to send JSON to POST /api/scales/hooks/WORKSHOP. Example exact JSON bytes:
 
     {"event_id":"scale-00000001","spool_uid":"930ff9ed-0d12-4124-8e28-39d21cdd47b2","gross_g":850,"tare_g":230}
 
-The request requires X-Filament-Timestamp with current Unix seconds and X-Filament-Signature containing sha256= followed by the HMAC-SHA256 hex digest of: the ASCII timestamp, a single dot byte and the exact raw JSON body, keyed with the device secret.
+The request requires X-Spoolmera-Timestamp with current Unix seconds and X-Spoolmera-Signature containing sha256= followed by the HMAC-SHA256 hex digest of: the ASCII timestamp, a single dot byte and the exact raw JSON body, keyed with the device secret.
 
 A signed report is only queued for authenticated review. In Integrations an editor can approve or discard a measurement; approval rechecks net mass and reservations and atomically records the inventory movement. Event IDs cannot be replayed with a different payload. This is a vendor-neutral adapter contract, not guaranteed compatibility with ESP32/ESPHome firmware.
 
@@ -143,11 +143,11 @@ A signed report is only queued for authenticated review. In Integrations an edit
 
 An administrator creates and revokes narrowly scoped machine tokens under Integrations. `GET /api/automation/v1/spools` requires `inventory_read`. The movement feed and `GET /api/automation/v1/alerts` require `events_read`. Every machine endpoint requires `Authorization: Bearer <issued token>`; a browser session is not a substitute. The existing ordered movement feed remains available for other local integrations.
 
-The optional notifier reads a snapshot of active alerts with an `events_read` token. Configure `FILAMENT_AUTOMATION_TOKEN` and `FILAMENT_NTFY_URL` privately; set a separate `FILAMENT_NTFY_TOKEN` when the receiving ntfy server requires Bearer authentication. Use HTTPS when the endpoint leaves a protected local network. Then run:
+The optional notifier reads a snapshot of active alerts with an `events_read` token. Configure `SPOOLMERA_AUTOMATION_TOKEN` and `SPOOLMERA_NTFY_URL` privately; set a separate `SPOOLMERA_NTFY_TOKEN` when the receiving ntfy server requires Bearer authentication. Use HTTPS when the endpoint leaves a protected local network. Then run:
 
     docker compose -f compose.yaml -f compose.notifications.yaml up -d --build
 
-`FILAMENT_NOTIFICATION_CATEGORIES` is a comma-separated subset of `low_stock`, `job_review` and `printer_offline`; all three are selected by default. Printer connection alerts begin after three consecutive failed attempts. The first snapshot forms a quiet baseline. Later new conditions are delivered once per active condition, with a durable state update after each acknowledgement. A condition can notify again after it resolves and recurs. Changes to a still-active alert's description do not generate repeated messages. At most 25 new messages are sent in one cycle; further pending alerts remain for the next cycle.
+`SPOOLMERA_NOTIFICATION_CATEGORIES` is a comma-separated subset of `low_stock`, `job_review` and `printer_offline`; all three are selected by default. Printer connection alerts begin after three consecutive failed attempts. The first snapshot forms a quiet baseline. Later new conditions are delivered once per active condition, with a durable state update after each acknowledgement. A condition can notify again after it resolves and recurs. Changes to a still-active alert's description do not generate repeated messages. At most 25 new messages are sent in one cycle; further pending alerts remain for the next cycle.
 
 Delivery remains at least once: a crash between an acknowledgement and durable state can duplicate one message. Failed deliveries are retried on the next polling cycle. Incomplete server snapshots are rejected rather than incorrectly treating omitted conditions as resolved. The old numeric movement cursor is upgraded to the new baseline automatically. Home Assistant may keep using the versioned read-only machine endpoints independently.
 
@@ -161,7 +161,7 @@ For scheduled or larger backups, run the CLI inside the normal container so it u
 
 ```bash
 docker compose exec -T spoolmera python scripts/backup.py \
-  /data/backups/before-upgrade.sqlite3 --database /data/filaments.sqlite3
+  /data/backups/before-upgrade.sqlite3 --database /data/spoolmera.sqlite3
 ```
 
 Choose a new filename for each backup, then copy the `.sqlite3` and `.manifest.json` files to independent storage. Files in the same Docker volume do not protect against losing that volume. The CLI defaults to a 300-second time limit and supports `--timeout-seconds` up to 3600.
@@ -172,7 +172,7 @@ To restore, fully stop the application and optional notifier. Use the same Compo
 docker compose stop
 docker compose run --rm --no-deps --entrypoint python spoolmera \
   scripts/restore.py /data/backups/before-upgrade.sqlite3 \
-  /data/filaments.sqlite3 --confirm
+  /data/spoolmera.sqlite3 --confirm
 docker compose up -d
 ```
 
@@ -186,4 +186,4 @@ Exercise the full recovery procedure on a separate test installation before rely
 
 Label pages support `size=60x40` or `size=50x30` query parameters in millimeters. Always select the matching stock and 100% print scaling.
 
-The web interface and printed labels support English and German. Labels use an explicit `lang=en` or `lang=de` query parameter first, then the interface language stored in the `fm_language` browser cookie, then supported browser `Accept-Language` preferences; otherwise they use English. Size-switch links retain the selected language. Language selection changes display text and number formatting only; product names, spool identities, QR targets and access requirements remain unchanged.
+The web interface and printed labels support English and German. Labels use an explicit `lang=en` or `lang=de` query parameter first, then the interface language stored in the `spoolmera_language` browser cookie, then supported browser `Accept-Language` preferences; otherwise they use English. Size-switch links retain the selected language. Language selection changes display text and number formatting only; product names, spool identities, QR targets and access requirements remain unchanged.

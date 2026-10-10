@@ -19,7 +19,7 @@ function blankSpool(): SpoolInput {
 }
 
 @Component({
-  selector:'fm-dialogs',
+  selector:'sm-dialogs',
   standalone:true,
   imports:[TranslatePipe,FormsModule,RouterLink,FileDropComponent],
   templateUrl:'./dialogs.component.html',

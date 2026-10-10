@@ -29,7 +29,7 @@ def test_non_admin_does_not_receive_printer_endpoint_details(tmp_path,monkeypatc
     path=tmp_path/"leastprivilege.sqlite3"
     with TestClient(create_app(path)) as admin:
         authenticate(admin)
-        monkeypatch.setenv("FILAMENT_PRINTER_ALLOWED_IPS","192.168.50.20")
+        monkeypatch.setenv("SPOOLMERA_PRINTER_ALLOWED_IPS","192.168.50.20")
         created=admin.post("/api/printers",json={
             "name":"Internal","kind":"moonraker","base_url":"http://192.168.50.20:7125"
         })

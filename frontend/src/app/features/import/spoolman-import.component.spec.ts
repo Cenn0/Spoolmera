@@ -53,6 +53,6 @@ describe('Spoolman preview ownership',()=>{
       const request=http.expectOne('/api/import/spoolman?source=spoolman&dry_run=false');
       expect(request.request.body).toBe('{"spools":[1]}');request.flush({...preview,dry_run:false});await committing;
       expect(selected.text).toHaveBeenCalledTimes(1);
-    }finally{component.i18n.setLanguage('en');localStorage.removeItem(LANGUAGE_STORAGE_KEY);document.cookie='fm_language=; Path=/; Max-Age=0';}
+    }finally{component.i18n.setLanguage('en');localStorage.removeItem(LANGUAGE_STORAGE_KEY);document.cookie='spoolmera_language=; Path=/; Max-Age=0';}
   });
 });

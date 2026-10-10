@@ -2,7 +2,7 @@ import { Component, inject } from '@angular/core';
 import { I18nService } from './i18n.service';
 import { TranslatePipe } from './translate.pipe';
 
-@Component({selector: 'fm-language-picker', standalone: true, imports: [TranslatePipe], template: `
+@Component({selector: 'sm-language-picker', standalone: true, imports: [TranslatePipe], template: `
   <label class="language-picker">
     <span>{{'Language' | t}}</span>
     <select [value]="i18n.language()" (change)="i18n.setLanguage($any($event.target).value)"

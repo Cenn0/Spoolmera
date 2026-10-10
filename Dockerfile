@@ -9,17 +9,17 @@ RUN npm ci --no-audit --no-fund && npm run build
 FROM python:3.12-slim-trixie@sha256:05cda9777409a9c3ffddd94a4c476b79f0769a0b4857f0c7ed9226b6800b0d6f AS python-runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    FILAMENT_DB_PATH=/data/filaments.sqlite3
+    SPOOLMERA_DB_PATH=/data/spoolmera.sqlite3
 WORKDIR /srv/spoolmera
 COPY requirements.txt ./
 RUN pip install --no-cache-dir --require-hashes -r requirements.txt \
-    && groupadd --gid 10001 filament \
-    && useradd --uid 10001 --gid filament --no-create-home filament \
+    && groupadd --gid 10001 spoolmera \
+    && useradd --uid 10001 --gid spoolmera --no-create-home spoolmera \
     && mkdir -p /data \
-    && chown filament:filament /data
-COPY --chown=filament:filament app ./app
-COPY --chown=filament:filament scripts/backup.py scripts/restore.py ./scripts/
-COPY --from=frontend-build --chown=filament:filament /work/frontend/dist/spoolmera/browser ./app/ui
+    && chown spoolmera:spoolmera /data
+COPY --chown=spoolmera:spoolmera app ./app
+COPY --chown=spoolmera:spoolmera scripts/backup.py scripts/restore.py ./scripts/
+COPY --from=frontend-build --chown=spoolmera:spoolmera /work/frontend/dist/spoolmera/browser ./app/ui
 USER 10001:10001
 EXPOSE 8765
 

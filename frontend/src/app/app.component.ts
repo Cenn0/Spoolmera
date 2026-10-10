@@ -10,7 +10,7 @@ import { AuthService } from './auth.service';
 import { LoginComponent } from './login.component';
 import { I18nService, LanguagePickerComponent, TranslatePipe } from './core/i18n';
 
-@Component({selector: 'fm-root', standalone: true,
+@Component({selector: 'sm-root', standalone: true,
   imports: [RouterLink, RouterLinkActive, RouterOutlet, DialogsComponent, LoginComponent, LanguagePickerComponent, ThemePickerComponent, TranslatePipe],
   templateUrl: './app.component.html'})
 export class AppComponent implements OnInit {

@@ -53,7 +53,7 @@ export const COMMON_DE = {
   'Username': 'Benutzername',
   'Password': 'Passwort',
   'Bootstrap token': 'Bootstrap-Token',
-  'From FILAMENT_BOOTSTRAP_TOKEN': 'Aus FILAMENT_BOOTSTRAP_TOKEN',
+  'From SPOOLMERA_BOOTSTRAP_TOKEN': 'Aus SPOOLMERA_BOOTSTRAP_TOKEN',
   'Working…': 'Wird verarbeitet…',
   'Create administrator': 'Administrator anlegen',
   'Credentials and inventory remain on your self-hosted server.': 'Zugangsdaten und Bestand bleiben auf deinem eigenen Server.',

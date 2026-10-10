@@ -27,7 +27,7 @@ describe('file picker and drop use one validation boundary',()=>{
     component.leave(event);expect(component.over()).toBe(false);
   });
   it('ignores internal object drops rather than discarding an existing file preview',()=>{
-    const event={dataTransfer:{types:['application/x-filament-spool'],files:[]},preventDefault:vi.fn(),stopPropagation:vi.fn()} as unknown as DragEvent;
+    const event={dataTransfer:{types:['application/x-spoolmera-spool'],files:[]},preventDefault:vi.fn(),stopPropagation:vi.fn()} as unknown as DragEvent;
     component.drop(event);expect(rejected).toEqual([]);expect(selected).toEqual([]);
   });
   it('picker and drop emit the same File object',()=>{

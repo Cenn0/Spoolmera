@@ -11,7 +11,7 @@ import { I18nService, LocalizedMessage, TranslatePipe } from '../../core/i18n';
 
 interface ActualRow {spool_id:number;actual_g:number|null;measured:boolean;gross_g:number|null;tare_g:number;}
 
-@Component({selector:'fm-consumption',standalone:true,imports:[FormsModule,RouterLink,TranslatePipe],templateUrl:'./consumption.component.html'})
+@Component({selector:'sm-consumption',standalone:true,imports:[FormsModule,RouterLink,TranslatePipe],templateUrl:'./consumption.component.html'})
 export class ConsumptionComponent implements OnInit, OnDestroy {
   readonly i18n=inject(I18nService);
   readonly job=input.required<PrintJob>();

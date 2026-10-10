@@ -98,8 +98,8 @@ the same HMAC value. The fresh fixture creates its first printer with ID 1; the
 binding authorizes only that printer's test event:
 
 ```bash
-export FILAMENT_CLOUD_HMAC_BROWSER="test-only-browser-relay-secret-long-enough"
-export FILAMENT_CLOUD_PRINTER_BROWSER="1"
+export SPOOLMERA_CLOUD_HMAC_BROWSER="test-only-browser-relay-secret-long-enough"
+export SPOOLMERA_CLOUD_PRINTER_BROWSER="1"
 ```
 
 The test sends a signed `failed` event to its own API so the partial-consumption
@@ -152,4 +152,4 @@ python scripts/notifier_container_smoke.py \
 
 The recovery gate exercises a root-run offline restore onto a UID-10001 database, validates database and lock-file ownership, starts the normal non-root app, downloads another online backup and records new material movements. It also restores over corruption and a missing database, verifies the preserved prior bytes and rejects an unrelated SQLite file. Unit tests that require actual UID changes are skipped when the host does not map UID 10001; the Docker gate must still pass. The notifier gate resolves the actual Compose files against synthetic secret sentinels and sends one authenticated message to a disposable local HTTP stub across three separate container runs. A configured gate is not evidence that it passed; consult the CI run for the commit being installed.
 
-For the isolated-slicer CI job, copy `tests/fixtures/slicer/ci.ini` into `slicer-profiles/ci.ini`, start the slicer Compose overlay with a fresh application database and export its generated `FILAMENT_BOOTSTRAP_TOKEN`. Then run `python scripts/slicer_smoke.py`. The test bootstraps only that fresh loopback instance and sends the closed 5 mm cube fixture through the authenticated API to the real PrusaSlicer executable. It checks the returned G-code without uploading it to any printer. The fixture profile is test data, not a physical-printer recommendation.
+For the isolated-slicer CI job, copy `tests/fixtures/slicer/ci.ini` into `slicer-profiles/ci.ini`, start the slicer Compose overlay with a fresh application database and export its generated `SPOOLMERA_BOOTSTRAP_TOKEN`. Then run `python scripts/slicer_smoke.py`. The test bootstraps only that fresh loopback instance and sends the closed 5 mm cube fixture through the authenticated API to the real PrusaSlicer executable. It checks the returned G-code without uploading it to any printer. The fixture profile is test data, not a physical-printer recommendation.

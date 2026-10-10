@@ -27,12 +27,12 @@ def check_product_gallery(page):
         page.get_by_label('Filter by material', exact=True).select_option('PETG')
         page.get_by_label('In stock only', exact=True).check()
         order.select_option('stock-high')
-        page.locator('fm-language-picker select').select_option('de')
+        page.locator('sm-language-picker select').select_option('de')
         expect(summary).to_contain_text('1 Filamentprodukt')
         expect(summary).to_contain_text('1 aktive Spule')
         expect(page.get_by_label('Filamente sortieren', exact=True)).to_have_value('stock-high')
         expect(page.locator('#product-search')).to_have_value('Ocean PETG')
-        page.locator('fm-language-picker select').select_option('en')
+        page.locator('sm-language-picker select').select_option('en')
         search.fill('No product matches this input')
         expect(cards).to_have_count(0)
         expect(summary).to_contain_text('0 filament products')
@@ -61,13 +61,13 @@ def check_product_gallery(page):
         expect(cards).to_have_count(len(before))
         order.select_option('name')
         # Long translated controls must not make the page wider on a phone.
-        page.locator('fm-language-picker select').select_option('de')
+        page.locator('sm-language-picker select').select_option('de')
         original = page.viewport_size
         for width in (320, 390, 768, 1024, 1440):
             page.set_viewport_size({'width': width, 'height': 1000})
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'), f'Gallery overflow at {width}px'
         page.set_viewport_size(original)
-        page.locator('fm-language-picker select').select_option('en')
+        page.locator('sm-language-picker select').select_option('en')
         assert not writes, writes
         assert page.request.get('http://127.0.0.1:8765/api/products').json() == before
         print('Gallery checks passed: filtered totals, combined search, sort persistence, keyboard reset, EN/DE and five widths without data writes.')

@@ -1,7 +1,7 @@
 # Optional. Start with:
 # docker compose -f compose.yaml -f compose.notifications.yaml up -d --build
 services:
-  filament-notifications:
+  spoolmera-notifications:
     build:
       context: .
       dockerfile: Dockerfile.notifications
@@ -10,13 +10,13 @@ services:
       spoolmera:
         condition: service_healthy
     environment:
-      FILAMENT_MANAGER_URL: http://spoolmera:8765
-      FILAMENT_AUTOMATION_TOKEN: ${FILAMENT_AUTOMATION_TOKEN:?Create an events_read automation token}
-      FILAMENT_NTFY_URL: ${FILAMENT_NTFY_URL:?Set the private notification endpoint}
-      FILAMENT_NTFY_TOKEN: ${FILAMENT_NTFY_TOKEN:-}
-      FILAMENT_NOTIFICATION_CATEGORIES: ${FILAMENT_NOTIFICATION_CATEGORIES:-low_stock,job_review,printer_offline}
+      SPOOLMERA_URL: http://spoolmera:8765
+      SPOOLMERA_AUTOMATION_TOKEN: ${SPOOLMERA_AUTOMATION_TOKEN:?Create an events_read automation token}
+      SPOOLMERA_NTFY_URL: ${SPOOLMERA_NTFY_URL:?Set the private notification endpoint}
+      SPOOLMERA_NTFY_TOKEN: ${SPOOLMERA_NTFY_TOKEN:-}
+      SPOOLMERA_NOTIFICATION_CATEGORIES: ${SPOOLMERA_NOTIFICATION_CATEGORIES:-low_stock,job_review,printer_offline}
     volumes:
-      - filament_notifier_state:/state
+      - spoolmera_notifier_state:/state
     read_only: true
     tmpfs:
       - /tmp:rw,nosuid,size=8m
@@ -28,4 +28,4 @@ services:
     pids_limit: 32
     cpus: 0.5
 volumes:
-  filament_notifier_state:
+  spoolmera_notifier_state:
