@@ -70,7 +70,7 @@ def restore(source: Path, destination: Path, *, confirm: bool = False,
              for name in ("application", "recovery", "poll", "backup")]
     acquired = []
     scope = hashlib.sha256(str(destination).encode()).hexdigest()[:16]
-    stage_prefix = ".filament-restore-" + scope + "-"
+    stage_prefix = ".spoolmera-restore-" + scope + "-"
     stage = destination.parent / (stage_prefix + str(uuid4()) + ".sqlite3")
     previous = None
     try:

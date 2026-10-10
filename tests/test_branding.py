@@ -1,4 +1,4 @@
-"""Brand identity regression tests for public surfaces and deployment continuity."""
+"""Brand identity regression tests for public surfaces and greenfield deployments."""
 from pathlib import Path
 
 from app.labels import label_html
@@ -27,7 +27,7 @@ def test_labels_are_branded_in_both_languages():
         assert "SPOOLMERA" in markup
 
 
-def test_existing_deployment_settings_are_preserved():
+def test_spoolmera_deployment_identifiers():
     compose = (ROOT / "compose.yaml").read_text()
     assert "name: spoolmera" in compose
     assert "spoolmera_data:/data" in compose
@@ -43,5 +43,4 @@ def test_dynamic_document_title_is_branded():
 
 def test_route_titles_use_spoolmera():
     routes = (ROOT / 'frontend/src/app/app.routes.ts').read_text()
-    assert 'Spoolmera' not in routes
     assert 'Spoolmera' in routes

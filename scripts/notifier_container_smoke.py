@@ -50,9 +50,9 @@ HTTPServer(('0.0.0.0',8768),Handler).serve_forever()
 
 def run(image: str, api_image: str) -> None:
     suffix = uuid4().hex[:12]
-    network, stub, state = ("filament-notify-net-" + suffix, "filament-notify-stub-" + suffix,
-                            "filament-notify-state-" + suffix)
-    notifier = "filament-notify-test-" + suffix
+    network, stub, state = ("spoolmera-notify-net-" + suffix, "spoolmera-notify-stub-" + suffix,
+                            "spoolmera-notify-state-" + suffix)
+    notifier = "spoolmera-notify-test-" + suffix
     test_env = dict(os.environ, SPOOLMERA_AUTOMATION_TOKEN="fmm_" + secrets.token_urlsafe(40),
                     SPOOLMERA_NTFY_TOKEN="ntfy-" + secrets.token_urlsafe(20),
                     SPOOLMERA_NTFY_URL="http://" + stub + ":8768/topic",
@@ -67,7 +67,7 @@ def run(image: str, api_image: str) -> None:
 
     # Resolve the actual Compose files using a disposable .env, never the user's.
     root = Path(__file__).resolve().parents[1]
-    with tempfile.TemporaryDirectory(prefix="filament-notify-compose-") as folder:
+    with tempfile.TemporaryDirectory(prefix="spoolmera-notify-compose-") as folder:
         folder = Path(folder)
         for filename in ("compose.yaml", "compose.notifications.yaml"):
             (folder / filename).write_text((root / filename).read_text(encoding="utf-8"), encoding="utf-8")
@@ -79,7 +79,7 @@ def run(image: str, api_image: str) -> None:
             "SPOOLMERA_SLICER_WORKER_TOKEN=sentinel-slicer-not-for-notifier\n", encoding="utf-8")
         config = docker("compose", "--project-directory", str(folder), "-f", str(folder / "compose.yaml"),
                         "-f", str(folder / "compose.notifications.yaml"), "config", "--format", "json")
-        values = json.loads(config.stdout)["services"]["filament-notifications"]["environment"]
+        values = json.loads(config.stdout)["services"]["spoolmera-notifications"]["environment"]
         assert set(values) == {"SPOOLMERA_URL", "SPOOLMERA_AUTOMATION_TOKEN", "SPOOLMERA_NTFY_URL",
                                "SPOOLMERA_NTFY_TOKEN", "SPOOLMERA_NOTIFICATION_CATEGORIES"}
         assert not any("sentinel-" in str(value) for value in values.values())

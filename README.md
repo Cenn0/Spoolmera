@@ -97,7 +97,7 @@ Do **not** run `docker compose down -v` unless you intend to remove your saved i
 
 By default, QR codes contain `http://127.0.0.1:8765/s/<spool-uuid>`. This works only on the host itself: **127.0.0.1 on a phone is the phone, not your server**.
 
-Set `SPOOLMERA_PUBLIC_BASE_URL` to an origin accessible from the device that scans the label, for example `http://filament.home.example:8765` or `https://filament.example.com`. It must be an HTTP(S) origin without credentials, path, query, or fragment.
+Set `SPOOLMERA_PUBLIC_BASE_URL` to an origin accessible from the device that scans the label, for example `http://spoolmera.home.example:8765` or `https://spoolmera.example.com`. It must be an HTTP(S) origin without credentials, path, query, or fragment.
 
 Example on a trusted private LAN, after deliberately changing the Compose port binding and ensuring the network is protected:
 
