@@ -170,7 +170,7 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
         found = {row['uid']: dict(row) for row in rows}
         if len(found) != len(requested):
             raise HTTPException(404, 'One or more spools were not found.')
-        language = label_language(lang, request.cookies.get('fm_language'), request.headers.get('accept-language', ''))
+        language = label_language(lang, request.cookies.get('spoolmera_language'), request.headers.get('accept-language', ''))
         return HTMLResponse(labels_html([found[uid] for uid in requested], size, language), headers={
             'Cache-Control': 'no-store',
             'Content-Language': language,
@@ -213,7 +213,7 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
             ).fetchone()
             if row is None:
                 raise HTTPException(status_code=404, detail="Spool not found.")
-        language = label_language(lang, request.cookies.get("fm_language"), request.headers.get("accept-language", ""))
+        language = label_language(lang, request.cookies.get("spoolmera_language"), request.headers.get("accept-language", ""))
         return HTMLResponse(
             content=label_html(dict(row), size=size, language=language),
             headers={"Cache-Control": "no-store", "Content-Language": language,

@@ -17,15 +17,21 @@ LEGACY = (
     ".filament-" + "restore-",
     "fm_" + "language",
     "fmm" + "_",
+    "fm" + "-",
+    "X-" + "Filament-",
+    "filament-browser-",
+    "filament-ui-previews",
+    "filament-language-",
 )
 SUFFIXES = {".py", ".ts", ".mjs", ".html", ".css", ".md", ".yml", ".yaml", ".json", ".example"}
-SKIP = {".git", ".venv", ".data", "node_modules", "dist", "coverage", "__pycache__", ".pytest_cache", "ui"}
+SKIP = {".git", ".venv", ".data", "node_modules", "dist", "coverage", "__pycache__", ".pytest_cache"}
 
 
 def test_no_obsolete_brand_identifiers_in_source():
     violations = []
     for path in ROOT.rglob("*"):
-        if any(part in SKIP for part in path.relative_to(ROOT).parts) or not path.is_file():
+        parts = path.relative_to(ROOT).parts
+        if any(part in SKIP for part in parts) or parts[:2] == ("app", "ui") or not path.is_file():
             continue
         if path.suffix not in SUFFIXES and path.name not in {"Dockerfile", "Dockerfile.notifications", ".env.example"}:
             continue

@@ -329,7 +329,7 @@ def test_web_page_and_user_language_are_english(client):
     else:
         assert response.status_code == 200
         assert '<html lang="en"' in response.text
-        assert "<fm-root>" in response.text
+        assert "<sm-root>" in response.text
         assert "Spoolmera" in response.text
         assert client.get("/spools").status_code == 200
         assert client.get("/integrations").status_code == 200
