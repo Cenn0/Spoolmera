@@ -14,3 +14,11 @@ Spoolmera is a **free, open-source, Apache-2.0** project and an explicit experim
 8. Update the [documentation index](docs/README.md), README and feature/status matrix when behavior changes. Screenshots must originate from the real Angular browser CI using disposable fixture data; record the revision and workflow run in [the screenshot provenance guide](docs/screenshots/README.md). Do not replace actual UI captures with generated mockups.
 
 No contributor is required to use an AI tool. AI-generated patches receive the same review, tests and security scrutiny as any other code. Maintainers remain accountable for the final design and merged changes.
+
+## Pull requests and public repository trust
+
+Use a feature branch and open a pull request to `main`; do not push directly to the default branch. All five CI jobs must pass before merge once the [branch ruleset](docs/repository-security.md) has been activated by an administrator. The project currently has a single maintainer, so required third-party approval is not configured; self-review is not an independent security assessment.
+
+The CI workflow runs contributed code with a read-only GitHub token and no production secrets. Test Docker images are published as GitHub Actions artifacts only from `main`, after merge and the required checks. Do not ask maintainers to run PR-supplied scripts with elevated access or to execute binary artifacts from an untrusted fork. Review [the security reporting policy](SECURITY.md) before disclosing a vulnerability.
+
+Dependabot changes are normal pull requests, not automatically trusted updates. Python hashed dependency locks and pinned Docker image digests need manual synchronization per [build reproducibility](docs/build-reproducibility.md).

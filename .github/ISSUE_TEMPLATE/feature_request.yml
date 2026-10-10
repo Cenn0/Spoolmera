@@ -1,0 +1,29 @@
+name: Feature request
+description: Suggest an improvement to the free, self-hosted project.
+title: "[Feature] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: Describe the workflow or limitation, not only a preferred implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and trade-offs
+      description: Consider user experience, maintenance and hardware or security risks.
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Project constraints
+      options:
+        - label: The suggestion can remain free and self-hosted without mandatory cloud accounts.
+          required: true

@@ -27,19 +27,14 @@ LEGACY = (
 SUFFIXES = {".py", ".ts", ".mjs", ".html", ".css", ".md", ".yml", ".yaml", ".json", ".example"}
 SKIP = {".git", ".venv", ".data", "node_modules", "dist", "coverage", "__pycache__", ".pytest_cache"}
 
-# The repository URL and its checkout directory still have the pre-rebrand name.
-# This narrow docs-only exception must not permit old application identifiers in
-# code, configuration, product descriptions or arbitrary documentation prose.
+# No obsolete repository name is allowed now that the GitHub repository has
+# been renamed. Keep these markers split to avoid a false positive in this test.
 REPOSITORY_NAME = "Filament" + "Manager"
 REPOSITORY_PATH = "Cenn0/" + REPOSITORY_NAME
 
 
 def checked_identity_content(path: Path) -> str:
-    content = path.read_text(encoding="utf-8")
-    if path.suffix == ".md":
-        content = content.replace(REPOSITORY_PATH, "")
-        content = content.replace("cd " + REPOSITORY_NAME, "")
-    return content
+    return path.read_text(encoding="utf-8")
 
 
 def test_no_obsolete_brand_identifiers_in_source():
@@ -71,7 +66,7 @@ def test_old_application_name_still_rejected_outside_repository_references(tmp_p
     doc.write_text("App: " + REPOSITORY_NAME + "\\n", encoding="utf-8")
     assert any(token.lower() in checked_identity_content(doc).lower() for token in LEGACY)
     doc.write_text("Repository: " + REPOSITORY_PATH + "\\ncd " + REPOSITORY_NAME + "\\n", encoding="utf-8")
-    assert all(token.lower() not in checked_identity_content(doc).lower() for token in LEGACY)
+    assert any(token.lower() in checked_identity_content(doc).lower() for token in LEGACY)
     source = tmp_path / "module.py"
     source.write_text("App: " + REPOSITORY_NAME, encoding="utf-8")
     assert REPOSITORY_NAME in checked_identity_content(source)

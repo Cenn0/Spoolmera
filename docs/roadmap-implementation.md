@@ -54,7 +54,7 @@ This release remains fully free, Apache-2.0-licensed, Docker-self-hosted and bas
 - Verify sensor calibration, NFC/physical tag readers and full print cost accuracy on real hardware.
 - The automated recovery gate covers the current Linux amd64 container and supported legacy schemas. Validate additional released-package upgrades and intended arm64 hosts before claiming that support.
 - Complete an independent security review and publish hardware support matrices.
-- Confirm no secrets exist in Git history and explicitly approve changing the private GitHub repository to public if an open-source community release is intended.
+- Now that the repository is public, audit the full Git history and published Actions artifacts for secrets and personal information; rotate any exposed credentials. Apply and verify the GitHub protection settings in [Repository security](repository-security.md). A CI pass cannot establish that historical content was never exposed.
 
 This document describes the code, not completion of these external release prerequisites.
 
