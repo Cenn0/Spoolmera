@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
 from app.infrastructure.database.migrations import (
-    CURRENT_SCHEMA_VERSION, migrate_v2_v4, migrate_v5, migrate_v6, migrate_v7, migrate_v8, migrate_v9, migrate_v10, migrate_v11, recover_interrupted_commands,
+    CURRENT_SCHEMA_VERSION, migrate_v2_v4, migrate_v5, migrate_v6, migrate_v7, migrate_v8, migrate_v9, migrate_v10, migrate_v11, migrate_v12, recover_interrupted_commands,
 )
 
 SCHEMA = """
@@ -181,6 +181,8 @@ def initialize_database(path: str | Path) -> None:
                 migrate_v10(connection)
             if version < 11:
                 migrate_v11(connection)
+            if version < 12:
+                migrate_v12(connection)
             recover_interrupted_commands(connection)
             if connection.execute("PRAGMA foreign_key_check").fetchone():
                 raise RuntimeError("Migration would leave invalid printer references.")

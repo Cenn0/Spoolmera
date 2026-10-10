@@ -7,6 +7,7 @@ import hashlib
 import hmac
 import time
 import json
+import math
 import os
 import re
 import secrets
@@ -135,7 +136,22 @@ def parse_status(report: dict) -> dict:
         filename = ''
     def number(key):
         value = print_data.get(key)
-        return value if type(value) in (int, float) and -100 <= value <= 10000 else None
+        return value if type(value) in (int, float) and math.isfinite(value) and -100 <= value <= 10000 else None
+    def layer(key):
+        value = print_data.get(key)
+        return value if type(value) is int and 0 <= value <= 200000 else None
+    task = print_data.get('task_id')
+    # Local jobs on some firmware expose no usable task ID. Never infer one
+    # from a filename, timestamp, plate or AMS slot for automatic accounting.
+    if type(task) not in (int, str):
+        task = None
+    else:
+        task = str(task)
+        if not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', task) or not task.strip('0'):
+            task = None
+    progress = number('mc_percent')
+    if progress is not None and not 0 <= progress <= 100:
+        progress = None
     ams = []
     devices = print_data.get('ams', {})
     if isinstance(devices, dict):
@@ -154,7 +170,8 @@ def parse_status(report: dict) -> dict:
                             'color': str(tray.get('tray_color',''))[:8],
                             'remaining_percent': tray.get('remain') if type(tray.get('remain')) is int and 0 <= tray['remain'] <= 100 else None})
     return {'state': states.get(raw, 'unknown'), 'filename': filename[:180],
-            'progress_percent': number('mc_percent'),
+            'task_id': task, 'progress_percent': progress,
+            'layer_num': layer('layer_num'), 'total_layer_num': layer('total_layer_num'),
             'remaining_minutes': number('mc_remaining_time'),
             'nozzle_c': number('nozzle_temper'), 'bed_c': number('bed_temper'),
             'ams': ams[:16]}
