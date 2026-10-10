@@ -2,7 +2,7 @@
 
 [← Project README and screenshots](../README.md)
 
-**Spoolmera v0.10.0** is an experimental, self-hosted Python/FastAPI + Angular + SQLite application. The source repository is still named `Cenn0/FilamentManager`. The UI supports English and German; developer and operator documentation is in English.
+**Spoolmera v0.10.0** is an experimental, self-hosted Python/FastAPI + Angular + SQLite application. The source repository is [`Cenn0/Spoolmera`](https://github.com/Cenn0/Spoolmera). The UI supports English and German; developer and operator documentation is in English.
 
 ## User and operator guides
 
