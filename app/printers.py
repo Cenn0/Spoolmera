@@ -142,7 +142,10 @@ def response_status(state, filename) -> dict:
 
 def printer_status(printer) -> dict:
     if printer['kind'] == 'bambu':
-        return read_bambu_status(printer, normalize_printer_url)
+        try:
+            return read_bambu_status(printer, normalize_printer_url)
+        except OSError as exc:
+            raise ValueError('Bambu LAN MQTT request timed out or disconnected.') from exc
     if printer["kind"] == "moonraker":
         data = fetch_json(printer, "/printer/objects/query?print_stats")
         result = response_object(data.get("result"), "result")
@@ -254,7 +257,10 @@ def write_controller(printer, path: str, *, body: bytes = b"", content_type: str
 
 def issue_control(printer, action: str) -> int:
     if printer['kind'] == 'bambu':
-        return send_bambu_control(printer, normalize_printer_url, action)
+        try:
+            return send_bambu_control(printer, normalize_printer_url, action)
+        except OSError as exc:
+            raise ValueError('Bambu LAN MQTT command timed out or disconnected; verify the printer.') from exc
     if printer["kind"] == "moonraker":
         return write_controller(printer, "/printer/print/" + action)
     payload = {"command": "pause", "action": action} if action != "cancel" else {"command": "cancel"}

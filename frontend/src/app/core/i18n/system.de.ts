@@ -1,5 +1,8 @@
 // German messages for account, administration and operational diagnostics.
 export const SYSTEM_DE: Readonly<Record<string,string>> = {
+  "Bambu Lab (LAN MQTT)": "Bambu Lab (LAN-MQTT)",
+  "mqtts://192.168.1.20:8883": "mqtts://192.168.1.20:8883",
+  "01P00A123456789": "01P00A123456789",
   "Local OctoPrint, Moonraker and Bambu Lab LAN integrations. Record the physical roll loaded in each tool and check connection and operation status.": "Lokale Anbindungen an OctoPrint, Moonraker und Bambu Lab im LAN. Erfasse die eingelegten Rollen und prüfe den Verbindungsstatus.",
   "Bambu LAN MQTT URL (private IP + 8883)": "Bambu-LAN-MQTT-URL (private IP + 8883)",
   "Bambu device serial number": "Bambu-Geräteseriennummer",

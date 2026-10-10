@@ -7,7 +7,7 @@
   <form class="workflow-form" #printerForm="ngForm" (ngSubmit)="create()">
     <div class="form-grid">
       <label>{{'Friendly name'|t}}<input name="name" [(ngModel)]="model.name" required maxlength="80" [placeholder]="'Workshop MK4'|t"></label>
-      <label>{{'Controller'|t}}<select name="kind" [(ngModel)]="model.kind"><option value="moonraker">Moonraker / Klipper</option><option value="octoprint">OctoPrint</option><option value="bambu">Bambu Lab (LAN MQTT)</option></select></label>
+      <label>{{'Controller'|t}}<select name="kind" [(ngModel)]="model.kind"><option value="moonraker">Moonraker / Klipper</option><option value="octoprint">OctoPrint</option><option value="bambu">{{'Bambu Lab (LAN MQTT)'|t}}</option></select></label>
       <label>{{(model.kind==='bambu'?'Bambu LAN MQTT URL (private IP + 8883)':'API URL (private IP + port)')|t}}<input name="base_url" [(ngModel)]="model.base_url" required [placeholder]="model.kind==='bambu'?'mqtts://192.168.1.20:8883':'http://192.168.1.20:7125'"></label>
       @if(model.kind==='bambu'){<label>{{'Bambu device serial number'|t}}<input name="serial" [(ngModel)]="model.serial" required minlength="8" maxlength="32" pattern="[A-Za-z0-9]{8,32}" placeholder="01P00A123456789"></label>}
       <label>{{(model.kind==='bambu'?'LAN access-code environment variable':'Token environment variable')|t}}<input name="token_env" [(ngModel)]="model.token_env" [required]="model.kind==='bambu'" placeholder="FILAMENT_PRINTER_TOKEN_WORKSHOP"></label>
