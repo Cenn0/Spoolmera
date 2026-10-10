@@ -360,7 +360,7 @@ def reconcile_consumption(db_path: Path, job_id: int, payload: ConsumptionInput,
         return reconcile_in_transaction(db, job_id, payload, actor_id)
 
 
-def apply_consumption(db, job, actor_id: int | None) -> bool:
+def apply_consumption(db, job, actor_id: int | None, *, reason: str | None = None) -> bool:
     """Compatibility entry point for verified completion and legacy confirmation.
 
     A previously reconciled run can still become physically completed. Its
@@ -375,7 +375,7 @@ def apply_consumption(db, job, actor_id: int | None) -> bool:
             db.execute("UPDATE print_jobs SET status='completed',updated_at=? WHERE id=?",
                        (utc_now(), current["id"]))
         return False
-    payload = ConsumptionInput(mode="estimated", reason="Confirmed print completion; original material estimate")
+    payload = ConsumptionInput(mode="estimated", reason=reason or "Confirmed print completion; original material estimate")
     try:
         reconcile_in_transaction(db, current["id"], payload, actor_id, automatic=True)
     except HTTPException as exc:

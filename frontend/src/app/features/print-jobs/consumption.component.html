@@ -6,6 +6,13 @@
     @if(loading()){<p role="status">{{'Loading current job balances…'|t}}</p>}
     @if(snapshot();as state){
       <p class="helper">{{'Print:'|t}} {{state.status|t}} · {{'Consumption:'|t}} {{state.accounting_status|t}} · {{'Previously recorded as'|t}} {{(state.accounting_method || 'not yet reviewed')|t}}</p>
+      @if(canSuggestPartial()){
+        <div class="confirm-box">
+          <p>{{'Observed {layers} / {total} layers before the print stopped.'|t:{layers:''+job().last_layer_num,total:''+job().total_layer_num} }}</p>
+          <p class="helper">{{'Layer-based grams are only a rough starting point: infill, purge and supports vary by layer. Check every physical roll; failed prints never debit automatically.'|t}}</p>
+          <button type="button" class="btn ghost" [disabled]="busy()" (click)="suggestPartial()">{{'Prefill rough layer estimate'|t}}</button>
+        </div>
+      }
       <form #form="ngForm" (ngSubmit)="submit()">
         <fieldset [disabled]="busy() || loading() || conflict()">
           <label>{{'How should consumption be recorded?'|t}}

@@ -3,7 +3,7 @@ import sqlite3
 from uuid import uuid4
 from datetime import datetime, timezone
 
-CURRENT_SCHEMA_VERSION = 11
+CURRENT_SCHEMA_VERSION = 12
 
 def migrate_v2_v4(connection: sqlite3.Connection) -> None:
     """Preserve legacy IDs and write an idempotent material mapping upgrade."""
@@ -250,3 +250,18 @@ def migrate_v11(db: sqlite3.Connection) -> None:
                   SELECT id,name,kind,base_url,token_env,enabled,created_at FROM printers""")
     db.execute("DROP TABLE printers")
     db.execute("ALTER TABLE printers_v11 RENAME TO printers")
+
+
+def migrate_v12(db: sqlite3.Connection) -> None:
+    """Per-job Bambu accounting opt-in and bounded progress for manual review.
+
+    Historical jobs remain non-automatic and existing stock is never modified.
+    """
+    _ensure_column(db, "print_jobs", "auto_account_bambu",
+                   "INTEGER NOT NULL DEFAULT 0 CHECK(auto_account_bambu IN (0,1))")
+    _ensure_column(db, "print_jobs", "last_progress_percent",
+                   "INTEGER CHECK(last_progress_percent BETWEEN 0 AND 100)")
+    _ensure_column(db, "print_jobs", "last_layer_num",
+                   "INTEGER CHECK(last_layer_num BETWEEN 0 AND 200000)")
+    _ensure_column(db, "print_jobs", "total_layer_num",
+                   "INTEGER CHECK(total_layer_num BETWEEN 0 AND 200000)")

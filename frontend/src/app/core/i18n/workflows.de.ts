@@ -1,5 +1,15 @@
 // English source text is the stable message key; API values and user content stay unchanged.
 export const WORKFLOWS_DE: Record<string, string> = {
+  "Auto-debit slicer estimates after a correlated Bambu print completes": "Slicer-Schätzung nach eindeutig zugeordnetem Bambu-Druck automatisch abbuchen",
+  "Opt-in: this works only when the printer reports a stable nonzero task ID, the exact filename was observed printing and the same task finishes successfully. Missing IDs, failed prints and ambiguous results require manual review. AMS slots are not verified against physical spools.": "Optional: Der Drucker muss eine stabile Auftrags-ID ungleich null melden. Exakt dieser Dateiname muss beim Drucken beobachtet worden sein und derselbe Auftrag erfolgreich enden. Fehlende IDs, Fehldrucke und unklare Ergebnisse benötigen eine manuelle Prüfung. Die AMS-Zuordnung zu physischen Spulen wird nicht verifiziert.",
+  "Importing G-code or 3MF here reads slicer metadata only; files are not transferred to Bambu. Moonraker history-confirmed jobs may debit automatically; OctoPrint always requires review.": "Der Import von G-Code oder 3MF liest nur Slicer-Metadaten; Dateien werden nicht an Bambu übertragen. Von Moonraker bestätigte Druckläufe können automatisch abgebucht werden; OctoPrint benötigt immer eine Prüfung.",
+  "Bambu automatic estimated consumption enabled": "Automatische Buchung des geschätzten Bambu-Verbrauchs aktiviert",
+  "Last observed {layers} of {total} layers": "Zuletzt {layers} von {total} Schichten beobachtet",
+  "Observed {layers} / {total} layers before the print stopped.": "Vor dem Druckende {layers} / {total} Schichten beobachtet.",
+  "Layer-based grams are only a rough starting point: infill, purge and supports vary by layer. Check every physical roll; failed prints never debit automatically.": "Aus Schichten berechnete Grammwerte sind nur eine grobe Orientierung: Infill, Reinigung und Stützen unterscheiden sich je Schicht. Prüfe jede physische Spule; fehlgeschlagene Drucke werden nie automatisch abgebucht.",
+  "Prefill rough layer estimate": "Grobe Schichtschätzung übernehmen",
+  "Proportional layer estimate (not weighed); verify against physical spools.": "Schichtanteilige Schätzung (nicht gewogen); mit den physischen Spulen abgleichen.",
+  "Bambu MQTT observed task finished; slicer-estimated grams, not measured": "Bambu-MQTT-Auftrag abgeschlossen; Verbrauch aus Slicer-Schätzung, nicht gemessen",
   "Print job filename on Bambu (e.g. .3mf)": "Druckauftrags-Dateiname auf Bambu (z. B. .3mf)",
   "(required for this correction)": "(für diese Korrektur erforderlich)",
   "3D printers": "3D-Drucker",

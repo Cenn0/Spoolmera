@@ -41,7 +41,8 @@ def test_status_normalizes_state_and_ams_without_silent_stock_change():
     state = bambu.parse_status({'print': {'gcode_state':'RUNNING', 'subtask_name':'part.3mf',
         'mc_percent':47, 'mc_remaining_time':31,'nozzle_temper':215.0,'bed_temper':60,
         'ams':{'ams':[{'id':'0','tray':[{'id':'1','tray_type':'PETG','tray_color':'F0A020FF','remain':72}]}]}}})
-    assert state == {'state':'printing','filename':'part.3mf','progress_percent':47,
+    assert state == {'state':'printing','filename':'part.3mf','task_id':None,
+                     'progress_percent':47,'layer_num':None,'total_layer_num':None,
                      'remaining_minutes':31,'nozzle_c':215.0,'bed_c':60,
                      'ams':[{'unit':'0','tray':'1','material':'PETG','color':'F0A020FF','remaining_percent':72}]}
     adapter = adapter_for('bambu',status=lambda _:state,history=lambda _:[],lookup=lambda *_:None)
@@ -66,6 +67,16 @@ class FakeMqttStream:
         self.timeout = timeout
     def __enter__(self): return self
     def __exit__(self, *args): pass
+
+
+def test_telemetry_validates_task_identity_and_layers():
+    state = bambu.parse_status({'print':{'gcode_state':'FINISH','subtask_name':'plate.3mf',
+        'task_id':4812,'mc_percent':100,'layer_num':76,'total_layer_num':76}})
+    assert state['state']=='complete'
+    assert state['task_id']=='4812' and state['layer_num']==76 and state['total_layer_num']==76
+    for invalid in (0, '0', True, '../bad', 'a'*80, None):
+        assert bambu.parse_status({'print':{'gcode_state':'RUNNING','task_id':invalid}})['task_id'] is None
+    assert bambu.parse_status({'print':{'gcode_state':'RUNNING','layer_num':True}})['layer_num'] is None
 
 
 def test_pushall_and_control_packet_framing(monkeypatch):
