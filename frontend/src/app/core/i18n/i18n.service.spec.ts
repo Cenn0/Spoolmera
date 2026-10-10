@@ -15,14 +15,14 @@ describe('runtime language preferences and rendering', () => {
   beforeEach(() => {
     TestBed.resetTestingModule();
     localStorage.removeItem(LANGUAGE_STORAGE_KEY);
-    document.cookie = 'fm_language=; Path=/; Max-Age=0';
+    document.cookie = 'spoolmera_language=; Path=/; Max-Age=0';
     vi.spyOn(navigator, 'languages', 'get').mockReturnValue(['en-US']);
   });
   afterEach(() => {
     TestBed.resetTestingModule();
     vi.restoreAllMocks();
     localStorage.removeItem(LANGUAGE_STORAGE_KEY);
-    document.cookie = 'fm_language=; Path=/; Max-Age=0';
+    document.cookie = 'spoolmera_language=; Path=/; Max-Age=0';
     document.documentElement.lang = 'en';
   });
 
@@ -37,13 +37,13 @@ describe('runtime language preferences and rendering', () => {
 
   it('honors an explicit saved selection and synchronizes document, cookie and storage', () => {
     localStorage.setItem(LANGUAGE_STORAGE_KEY, 'en');
-    document.cookie = 'fm_language=de; Path=/';
+    document.cookie = 'spoolmera_language=de; Path=/';
     vi.spyOn(navigator, 'languages', 'get').mockReturnValue(['de-DE']);
     const i18n = TestBed.inject(I18nService);
     expect(i18n.language()).toBe('en');
     i18n.setLanguage('de');
     expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe('de');
-    expect(document.cookie).toContain('fm_language=de');
+    expect(document.cookie).toContain('spoolmera_language=de');
     expect(document.documentElement.lang).toBe('de');
     expect(document.title).toContain('Materialbestand');
     i18n.setLanguage('fr');
@@ -52,7 +52,7 @@ describe('runtime language preferences and rendering', () => {
 
   it('ignores malformed stored values and supports a valid cookie fallback', () => {
     localStorage.setItem(LANGUAGE_STORAGE_KEY, '<script>');
-    document.cookie = 'fm_language=de; Path=/';
+    document.cookie = 'spoolmera_language=de; Path=/';
     expect(TestBed.inject(I18nService).language()).toBe('de');
   });
 

@@ -6,7 +6,7 @@ The web interface supports `en` and `de` in the same application build. Choose *
 
 On startup the UI uses a valid saved browser choice, then the language cookie, then the first supported language in the browser's ordered preferences. Regional German preferences such as `de-AT` and `de-CH` select German; English variants select English. Unsupported preferences fall back to English.
 
-An explicit choice is stored under `spoolmera.language` in local storage and in the non-secret `fm_language` cookie. The cookie is limited to `en` or `de`, uses `SameSite=Lax`, and is marked `Secure` on HTTPS. Blocked storage does not prevent the application from opening or the current page from changing language. The preference belongs to the browser, not an account. Other open tabs respond to changes through the browser's storage event. The document language and title update for assistive technology and browser tools.
+An explicit choice is stored under `spoolmera.language` in local storage and in the non-secret `spoolmera_language` cookie. The cookie is limited to `en` or `de`, uses `SameSite=Lax`, and is marked `Secure` on HTTPS. Blocked storage does not prevent the application from opening or the current page from changing language. The preference belongs to the browser, not an account. Other open tabs respond to changes through the browser's storage event. The document language and title update for assistive technology and browser tools.
 
 Weights, decimal numbers, prices and date-time values use `en-US` or `de-DE` formatting. The stored currency is retained; selecting German does not convert an amount to euros. Calendar-only purchase dates retain the existing ISO presentation in English and use `DD.MM.YYYY` in German. Date-time displays retain the browser's local time zone. Native date and number controls still submit the same machine values to the API.
 
@@ -14,7 +14,7 @@ Product, brand, color, user, printer and file names, notes, locations and batch 
 
 ## Printable labels
 
-Both individual and batch label pages support `?lang=en` and `?lang=de`. Their preference order is explicit query, valid `fm_language` cookie, supported `Accept-Language` preferences, then English. Label format links preserve the chosen language. HTML `lang`, `Content-Language`, caching and the original HTML escaping are covered by tests. QR targets and spool identities do not depend on language. Both 60 × 40 mm and 50 × 30 mm formats remain available.
+Both individual and batch label pages support `?lang=en` and `?lang=de`. Their preference order is explicit query, valid `spoolmera_language` cookie, supported `Accept-Language` preferences, then English. Label format links preserve the chosen language. HTML `lang`, `Content-Language`, caching and the original HTML escaping are covered by tests. QR targets and spool identities do not depend on language. Both 60 × 40 mm and 50 × 30 mm formats remain available.
 
 ## Translation maintenance
 

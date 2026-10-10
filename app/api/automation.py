@@ -22,7 +22,7 @@ class NewToken(BaseModel):
 
 def authenticate_machine(db_path: Path, request: Request, scope: str) -> None:
     raw = request.headers.get("authorization", "")
-    if not re.fullmatch(r"Bearer fmm_[A-Za-z0-9_-]{40,64}", raw):
+    if not re.fullmatch(r"Bearer spm_[A-Za-z0-9_-]{40,64}", raw):
         raise HTTPException(401, "Valid scoped machine token required.")
     secret = raw[7:]
     digest = hashlib.sha256(secret.encode("ascii")).hexdigest()
@@ -38,7 +38,7 @@ def authenticate_machine(db_path: Path, request: Request, scope: str) -> None:
 def register_automation_routes(app: FastAPI, db_path: Path) -> None:
     @app.post("/api/admin/automation-tokens", status_code=201, dependencies=[Depends(require_admin)])
     def create_token(payload: NewToken, request: Request):
-        secret = "fmm_" + secrets.token_urlsafe(40)
+        secret = "spm_" + secrets.token_urlsafe(40)
         digest = hashlib.sha256(secret.encode("ascii")).hexdigest()
         with session(db_path, write=True) as db:
             token_id = db.execute(

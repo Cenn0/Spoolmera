@@ -53,7 +53,7 @@ def run(image: str, api_image: str) -> None:
     network, stub, state = ("spoolmera-notify-net-" + suffix, "spoolmera-notify-stub-" + suffix,
                             "spoolmera-notify-state-" + suffix)
     notifier = "spoolmera-notify-test-" + suffix
-    test_env = dict(os.environ, SPOOLMERA_AUTOMATION_TOKEN="fmm_" + secrets.token_urlsafe(40),
+    test_env = dict(os.environ, SPOOLMERA_AUTOMATION_TOKEN="spm_" + secrets.token_urlsafe(40),
                     SPOOLMERA_NTFY_TOKEN="ntfy-" + secrets.token_urlsafe(20),
                     SPOOLMERA_NTFY_URL="http://" + stub + ":8768/topic",
                     SPOOLMERA_URL="http://" + stub + ":8768",

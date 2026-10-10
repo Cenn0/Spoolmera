@@ -55,7 +55,7 @@ def required_environment() -> tuple[str, str, str]:
         if (parsed.scheme not in {"http", "https"} or not parsed.hostname
                 or parsed.username or parsed.password or parsed.query or parsed.fragment):
             raise RuntimeError(name + " must be an HTTP(S) URL without credentials, query or fragment.")
-    if not token.startswith("fmm_") or not 45 <= len(token) <= 68:
+    if not token.startswith("spm_") or not 45 <= len(token) <= 68:
         raise RuntimeError("SPOOLMERA_AUTOMATION_TOKEN must be a scoped events_read token.")
     _secret("SPOOLMERA_NTFY_TOKEN")
     selected_categories()

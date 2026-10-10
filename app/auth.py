@@ -22,7 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from app.database import session, utc_now
 from app.core.policies import require_admin
 
-COOKIE = "filament_session"
+COOKIE = "spoolmera_session"
 SESSION_SECONDS = 7 * 24 * 3600
 DUMMY_SALT = b"spoolmera-dummy"
 PASSWORD_HASHER = PasswordHasher(time_cost=2, memory_cost=19456, parallelism=1,

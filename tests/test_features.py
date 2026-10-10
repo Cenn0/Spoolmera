@@ -83,7 +83,7 @@ def test_new_products_and_spools_get_stable_uuids(client):
 
 
 def test_label_qr_and_deep_link(client, monkeypatch):
-    monkeypatch.setenv("SPOOLMERA_PUBLIC_BASE_URL", "http://filament.example.test:8765")
+    monkeypatch.setenv("SPOOLMERA_PUBLIC_BASE_URL", "http://spoolmera.example.test:8765")
     result = spool(client)
     uid = result["uid"]
     svg_response = client.get(f"/api/spools/{uid}/qr.svg")

@@ -7,7 +7,7 @@
       "projectType": "application",
       "root": "",
       "sourceRoot": "src",
-      "prefix": "fm",
+      "prefix": "sm",
       "architect": {
         "build": {
           "builder": "@angular/build:application",
