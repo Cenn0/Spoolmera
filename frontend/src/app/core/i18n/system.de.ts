@@ -9,7 +9,6 @@ export const SYSTEM_DE: Readonly<Record<string,string>> = {
   "Bambu LAN status": "Bambu-LAN-Status",
   "Progress": "Fortschritt",
   "Remaining minutes": "Restzeit (Minuten)",
-  "Nozzle": "Düse",
   "Bed": "Druckbett",
   "AMS unit": "AMS-Einheit",
   "Tray": "Fach",
