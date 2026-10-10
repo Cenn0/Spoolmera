@@ -85,15 +85,15 @@ def test_label_languages_preserve_escaping_identity_and_access(tmp_path, batch):
         assert "<script>" not in german.text
         assert "&lt;script&gt;alert(1)&lt;/script&gt;" in german.text
 
-        client.cookies.set("fm_language", "en")
+        client.cookies.set("spoolmera_language", "en")
         cookie_choice = client.get(path, params=query, headers={"Accept-Language": "de-DE"})
         assert cookie_choice.headers["Content-Language"] == "en"
         explicit = client.get(path, params={**query, "lang": "de"}, headers={"Accept-Language": "en-US"})
         assert explicit.headers["Content-Language"] == "de"
-        client.cookies.set("fm_language", "de")
+        client.cookies.set("spoolmera_language", "de")
         explicit_english = client.get(path, params={**query, "lang": "en"}, headers={"Accept-Language": "de-DE"})
         assert explicit_english.headers["Content-Language"] == "en"
-        client.cookies.set("fm_language", "invalid")
+        client.cookies.set("spoolmera_language", "invalid")
         browser_choice = client.get(path, params=query, headers={"Accept-Language": "de-DE"})
         assert browser_choice.headers["Content-Language"] == "de"
         assert client.get(path, params={**query, "lang": "fr"}).status_code == 422
@@ -103,7 +103,7 @@ def test_label_languages_preserve_escaping_identity_and_access(tmp_path, batch):
         assert client.get("/api/auth/me").status_code == 200
 
         with closing(TestClient(client.app)) as anonymous:
-            anonymous.cookies.set("fm_language", "de")
+            anonymous.cookies.set("spoolmera_language", "de")
             assert anonymous.get(path, params={**query, "lang": "de"}).status_code == 401
             assert anonymous.get(qr_path).status_code == 401
 

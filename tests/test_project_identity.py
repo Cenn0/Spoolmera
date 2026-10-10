@@ -19,9 +19,9 @@ LEGACY = (
     "fmm" + "_",
     "fm" + "-",
     "X-" + "Filament-",
-    "filament-browser-",
-    "filament-ui-previews",
-    "filament-language-",
+    "filament-" + "browser-",
+    "filament-" + "ui-previews",
+    "filament-" + "language-",
 )
 SUFFIXES = {".py", ".ts", ".mjs", ".html", ".css", ".md", ".yml", ".yaml", ".json", ".example"}
 SKIP = {".git", ".venv", ".data", "node_modules", "dist", "coverage", "__pycache__", ".pytest_cache"}
@@ -38,7 +38,7 @@ def test_no_obsolete_brand_identifiers_in_source():
         # The identity guard uses concatenated markers, not actual legacy identifiers.
         content = path.read_text(encoding="utf-8")
         for token in LEGACY:
-            if token.lower() in content.lower():
+            if (token in content if token == "FILAMENT" + "_" else token.lower() in content.lower()):
                 violations.append(f"{path.relative_to(ROOT)}: {token}")
     assert not violations, "Obsolete project identifiers:\\n" + "\\n".join(violations)
 

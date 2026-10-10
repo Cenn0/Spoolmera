@@ -91,7 +91,7 @@ def test_category_filter_legacy_state_and_corruption(tmp_path, monkeypatch):
 
 def test_ntfy_uses_its_own_bearer_token_and_no_redirects(monkeypatch):
     monkeypatch.setenv("SPOOLMERA_NTFY_TOKEN", "ntfy-test-only-secret")
-    monkeypatch.setenv("SPOOLMERA_AUTOMATION_TOKEN", "fmm_application-secret-must-not-reach-ntfy")
+    monkeypatch.setenv("SPOOLMERA_AUTOMATION_TOKEN", "spm_application-secret-must-not-reach-ntfy")
     requests = []
 
     class Response:

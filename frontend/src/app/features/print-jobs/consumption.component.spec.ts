@@ -81,7 +81,7 @@ describe('explicit actual consumption and revisions',()=>{
       expect(fixture.nativeElement.textContent).toContain('Review consumption');
       expect(component.rows[0]).toBe(row);expect(component.confirmed).toBe(true);
       expect(api.consumption).toHaveBeenCalledTimes(requests);expect(api.reconcileConsumption).not.toHaveBeenCalled();
-    }finally{component.i18n.setLanguage('en');localStorage.removeItem(LANGUAGE_STORAGE_KEY);document.cookie='fm_language=; Path=/; Max-Age=0';}
+    }finally{component.i18n.setLanguage('en');localStorage.removeItem(LANGUAGE_STORAGE_KEY);document.cookie='spoolmera_language=; Path=/; Max-Age=0';}
   });
 
   it('retranslates an existing conflict instruction while retaining its retry block and entered values',async()=>{
@@ -94,7 +94,7 @@ describe('explicit actual consumption and revisions',()=>{
       expect(component.conflict()).toBe(true);expect(component.rows[0].actual_g).toBe(37);
       await component.submit();expect(api.reconcileConsumption).toHaveBeenCalledTimes(1);
       component.i18n.setLanguage('en');expect(component.error()).toContain('Reload the latest balances');
-    }finally{component.i18n.setLanguage('en');localStorage.removeItem(LANGUAGE_STORAGE_KEY);document.cookie='fm_language=; Path=/; Max-Age=0';}
+    }finally{component.i18n.setLanguage('en');localStorage.removeItem(LANGUAGE_STORAGE_KEY);document.cookie='spoolmera_language=; Path=/; Max-Age=0';}
   });
 
 });

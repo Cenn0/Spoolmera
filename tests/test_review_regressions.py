@@ -272,13 +272,13 @@ def test_invalid_history_cannot_change_stock(workspace, monkeypatch, changes):
 def test_angular_deep_links_do_not_mask_missing_api_or_assets(tmp_path, monkeypatch):
     ui = tmp_path / "ui"
     ui.mkdir()
-    (ui / "index.html").write_text("<fm-root>fixture</fm-root>", encoding="utf-8")
+    (ui / "index.html").write_text("<sm-root>fixture</sm-root>", encoding="utf-8")
     monkeypatch.setattr("app.main.UI_DIR", ui)
     with TestClient(create_app(tmp_path / "spa.sqlite3")) as client:
         for path in ["/", "/jobs", "/account", "/spools"]:
             response = client.get(path)
             assert response.status_code == 200
-            assert "fm-root" in response.text
+            assert "sm-root" in response.text
             assert response.headers["Cache-Control"] == "no-store"
         assert client.get("/missing.js").status_code == 404
         assert client.get("/api/missing").status_code == 401

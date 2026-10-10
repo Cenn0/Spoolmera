@@ -72,8 +72,8 @@ Set `SPOOLMERA_CLOUD_HMAC_FARM=<32+ character random secret>` and `SPOOLMERA_CLO
 
 ```http
 POST /api/cloud/hooks/FARM
-X-Filament-Timestamp: 1791470000
-X-Filament-Signature: sha256=<64 lowercase hexadecimal characters>
+X-Spoolmera-Timestamp: 1791470000
+X-Spoolmera-Signature: sha256=<64 lowercase hexadecimal characters>
 Content-Type: application/json
 
 {"event_id":"remote-job-000001","job_id":42,"status":"completed"}
@@ -135,7 +135,7 @@ Set a random 32+ character environment secret, for example SPOOLMERA_SCALE_HMAC_
 
     {"event_id":"scale-00000001","spool_uid":"930ff9ed-0d12-4124-8e28-39d21cdd47b2","gross_g":850,"tare_g":230}
 
-The request requires X-Filament-Timestamp with current Unix seconds and X-Filament-Signature containing sha256= followed by the HMAC-SHA256 hex digest of: the ASCII timestamp, a single dot byte and the exact raw JSON body, keyed with the device secret.
+The request requires X-Spoolmera-Timestamp with current Unix seconds and X-Spoolmera-Signature containing sha256= followed by the HMAC-SHA256 hex digest of: the ASCII timestamp, a single dot byte and the exact raw JSON body, keyed with the device secret.
 
 A signed report is only queued for authenticated review. In Integrations an editor can approve or discard a measurement; approval rechecks net mass and reservations and atomically records the inventory movement. Event IDs cannot be replayed with a different payload. This is a vendor-neutral adapter contract, not guaranteed compatibility with ESP32/ESPHome firmware.
 
@@ -186,4 +186,4 @@ Exercise the full recovery procedure on a separate test installation before rely
 
 Label pages support `size=60x40` or `size=50x30` query parameters in millimeters. Always select the matching stock and 100% print scaling.
 
-The web interface and printed labels support English and German. Labels use an explicit `lang=en` or `lang=de` query parameter first, then the interface language stored in the `fm_language` browser cookie, then supported browser `Accept-Language` preferences; otherwise they use English. Size-switch links retain the selected language. Language selection changes display text and number formatting only; product names, spool identities, QR targets and access requirements remain unchanged.
+The web interface and printed labels support English and German. Labels use an explicit `lang=en` or `lang=de` query parameter first, then the interface language stored in the `spoolmera_language` browser cookie, then supported browser `Accept-Language` preferences; otherwise they use English. Size-switch links retain the selected language. Language selection changes display text and number formatting only; product names, spool identities, QR targets and access requirements remain unchanged.
