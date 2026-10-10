@@ -41,3 +41,9 @@ def test_dynamic_document_title_is_branded():
     assert "this.t('Spoolmera · Material inventory')" in service
     operations = (ROOT / 'frontend/src/app/features/operations/operations.component.html').read_text()
     assert 'Spoolmera' in operations
+
+
+def test_route_titles_use_spoolmera():
+    routes = (ROOT / 'frontend/src/app/app.routes.ts').read_text()
+    assert 'Filament Manager' not in routes
+    assert 'Spoolmera' in routes
