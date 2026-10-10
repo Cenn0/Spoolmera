@@ -1,6 +1,6 @@
 # Printer and slicer integration — contract and roadmap
 
-**Status: the v1 inventory API remains read-only; separate authenticated Moonraker and OctoPrint connectors support optional commands and file upload, approved-profile PrusaSlicer CLI slicing, explicit tool mappings and an HMAC-signed cloud event bridge.** All write/physical operations are opt-in and documented in [Operations](operations.md).
+**Status (v0.10.0): the versioned external inventory API v1 remains read-only. Separate, admin-configured Moonraker and OctoPrint controllers expose optional commands and G-code transfer; an experimental, non-official Bambu Lab LAN MQTT adapter exposes observations and opt-in pause/resume/stop, but not upload or remote start. Optional PrusaSlicer CLI slicing, explicit tool mappings and an HMAC-signed cloud-event contract are implemented separately.** All write/physical operations are opt-in and documented in [Operations](operations.md).
 
 The goal is to make Spoolmera useful for a variety of printer ecosystems without binding the inventory schema to any single vendor or requiring remote printer access from the inventory service.
 

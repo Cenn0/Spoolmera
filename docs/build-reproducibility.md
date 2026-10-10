@@ -35,6 +35,10 @@ Install in a clean Python 3.12 environment with `--require-hashes`. Review npm u
 
 Regenerate API declarations with `python scripts/generate_api_types.py`; CI uses `--check`. Run the Python suite, `npm run typecheck`, `npm test`, `npm run build`, browser smoke, default/recovery/notifier Docker smoke, optional slicer smoke and dependency audits. A version bump updates `app/__init__.py`, `frontend/package.json`, npm lock package metadata and release documentation together.
 
+## Browser screenshot provenance
+
+A successful `browser-smoke` job publishes genuine German and UI/UX Chromium captures using a synthetic, disposable database. Reviewed images are checked in under [`docs/screenshots/`](screenshots/README.md), referenced by the README and accompanied by a source commit and run identifier. The files are not a claim of physical printer certification, and CI artifacts are only temporarily available.
+
 ## Test artifact provenance
 
 The Docker CI job produces `spoolmera-0.10.0-test-linux-amd64`. Its `release.json` identifies version, schema, tested checkout commit and Docker image ID. `SHA256SUMS` covers the archive and supporting files. `TESTING.md` explains the isolated test volume and launcher. Validate checksums before importing the image.
