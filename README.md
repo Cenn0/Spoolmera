@@ -214,8 +214,8 @@ Start with the [documentation index](docs/README.md), which separates **current 
 - [Security model and printer restrictions](docs/security-and-printers.md) · [Security policy](SECURITY.md)
 - [Architecture](docs/architecture.md) · [feature and limitation matrix](docs/roadmap-implementation.md)
 - [Testing and evidence](docs/testing.md) · [Screenshot provenance](docs/screenshots/README.md)
-- [Contributing](CONTRIBUTING.md) · [Public repository and branch security](docs/repository-security.md)
+- [Contributing](CONTRIBUTING.md)
 
 ## License and contributions
 
-Spoolmera is an **Apache License 2.0** project. See [LICENSE](LICENSE). Individual third-party packages and services retain their upstream terms. Development contributions, bug reports and critical reviews are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). The repository is public; security issues must be reported privately as described in [SECURITY.md](SECURITY.md). Pull requests are checked by CI and CodeQL; enforcement of the documented branch rules requires the repository administrator to apply the [ruleset](docs/repository-security.md).
+Spoolmera is an **Apache License 2.0** project. See [LICENSE](LICENSE). Individual third-party packages and services retain their upstream terms. Development contributions, bug reports and critical reviews are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). The repository is public; security issues must be reported privately as described in [SECURITY.md](SECURITY.md). Pull requests are checked by CI and CodeQL.

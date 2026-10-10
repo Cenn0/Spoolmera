@@ -1,6 +1,3 @@
-# Ownership routes high-impact changes to the maintainer for visibility.
-# GitHub does not enforce CODEOWNERS approval unless explicitly configured.
-# Do not require owner approval until a second eligible reviewer is available.
 /.github/ @Cenn0
 /app/ @Cenn0
 /scripts/ @Cenn0

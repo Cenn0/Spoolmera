@@ -17,7 +17,7 @@ No contributor is required to use an AI tool. AI-generated patches receive the s
 
 ## Pull requests and public repository trust
 
-Use a feature branch and open a pull request to `main`; do not push directly to the default branch. All five CI jobs must pass before merge once the [branch ruleset](docs/repository-security.md) has been activated by an administrator. The project currently has a single maintainer, so required third-party approval is not configured; self-review is not an independent security assessment.
+Use a feature branch and open a pull request to `main`; do not push directly to the default branch. Wait for CI checks and respond to review feedback before merging. Automated checks do not replace a security review.
 
 The CI workflow runs contributed code with a read-only GitHub token and no production secrets. Test Docker images are published as GitHub Actions artifacts only from `main`, after merge and the required checks. Do not ask maintainers to run PR-supplied scripts with elevated access or to execute binary artifacts from an untrusted fork. Review [the security reporting policy](SECURITY.md) before disclosing a vulnerability.
 
