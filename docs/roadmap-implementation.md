@@ -26,6 +26,7 @@ This release remains fully free, Apache-2.0-licensed, Docker-self-hosted and bas
 | Batch registration and labels | Atomic 1–100 roll creation, immutable preview, durable retries and one UUID/label per roll in both 60 x 40 mm and 50 x 30 mm formats | app/services/inventory_query_service.py, app/labels.py |
 | Restock | Product targets, active physical stock, zero-stock products and separately displayed reservations | app/services/inventory_query_service.py |
 | Operations | Supervised worker/lease state, device failures, unresolved commands/uploads, storage, backup and recovery diagnostics | app/api/diagnostics.py |
+| Bambu Lab LAN (experimental) | Community/non-official MQTT observations and AMS/status telemetry, opt-in pause/resume/stop, pinned TLS certificate; no upload, remote print start or vendor-cloud authentication | app/infrastructure/printers/bambu.py |
 
 ## Operational invariants
 

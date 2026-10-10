@@ -16,6 +16,8 @@ Supported implemented API operations:
 | Start tracked file | `POST /printer/print/start?filename=...` | `POST /api/files/local/{path}`, select+print |
 | Pause / resume / cancel | `POST /printer/print/{action}` | `POST /api/job` with explicit command |
 
+**Bambu Lab LAN MQTT is not included in the HTTP-controller table:** its community/non-official integration reads selected status/AMS telemetry and can optionally pause, resume or stop a job. It does not upload or remotely start a file, and requires Developer Mode compatibility plus a verified, pinned TLS leaf certificate. See [Bambu LAN configuration and limitations](security-and-printers.md#bambu-lab-lan-adapter-community--non-official). No real Bambu hardware is certified.
+
 Vendor documentation: [Moonraker printer operations](https://moonraker.readthedocs.io/en/latest/external_api/printer/), [Moonraker file upload](https://moonraker.readthedocs.io/en/latest/external_api/file_manager/), [OctoPrint file APIs](https://docs.octoprint.org/en/main/api/files.html), [OctoPrint job commands](https://docs.octoprint.org/en/main/api/job.html).
 
 1. Add **exact printer IP** to `SPOOLMERA_PRINTER_ALLOWED_IPS`. Only RFC1918/ULA addresses are accepted; DNS, redirects and proxy fallback are prohibited.

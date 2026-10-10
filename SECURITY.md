@@ -12,6 +12,10 @@ Use the latest tested main branch or tagged release. Keep the service on localho
 
 The project is maintained by volunteers; no guaranteed commercial SLA, response window, bounty, or paid support is offered. Security fixes should be accompanied by focused tests without exposing exploitable secrets.
 
+## Bambu Lab LAN boundary
+
+The experimental Bambu Lab MQTT adapter is a **community/non-official integration** and has not been certified against hardware or all firmware. It requires an exact private IP allowlist, a verified TLS leaf-certificate fingerprint and a separately protected LAN access code. Certificate-pin mismatches must not be bypassed to restore access. Never publish MQTT port 8883 or printer credentials. Read the [device configuration and limitations](docs/security-and-printers.md#bambu-lab-lan-adapter-community--non-official).
+
 ## Deployment reminder
 
 A malicious STL, G-code or controller can damage equipment. Optional network controls and an isolated slicer reduce exposure but cannot guarantee machine safety. Review generated G-code and supervise physical operation.

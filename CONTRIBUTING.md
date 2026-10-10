@@ -11,5 +11,6 @@ Spoolmera is a **free, open-source, Apache-2.0** project and an explicit experim
 5. Run `python -m pytest -q`, `python scripts/generate_api_types.py --check` and `cd frontend && npm ci && npm run typecheck && npm run build`. Use the repository's CI for Docker and browser checks.
 6. Do not commit secrets, databases, private printer profiles or generated build directories.
 7. Keep code comments, documentation and UI source messages in English. Supply German translations for user-facing messages and run the translation check. Keep the existing Apache 2.0 license headers where applicable; third-party licenses must be respected.
+8. Update the [documentation index](docs/README.md), README and feature/status matrix when behavior changes. Screenshots must originate from the real Angular browser CI using disposable fixture data; record the revision and workflow run in [the screenshot provenance guide](docs/screenshots/README.md). Do not replace actual UI captures with generated mockups.
 
 No contributor is required to use an AI tool. AI-generated patches receive the same review, tests and security scrutiny as any other code. Maintainers remain accountable for the final design and merged changes.

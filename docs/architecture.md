@@ -18,7 +18,7 @@ flowchart TD
 
 The optional slicer is an additional container on an internal Docker network. It has a separate token, trusted read-only profiles and resource limits, but no SQLite volume, printer credentials or published port. It produces downloadable G-code. The optional notifier has a scoped read-only application token, separate notification-service credentials and its own persistent deduplication state.
 
-Moonraker and OctoPrint adapters validate exact private IP allowlists before network access, reject redirects and proxies, and bound request and response sizes. Native vendor-cloud login/control is not implemented. Signed relay events are a separate boundary and do not establish physical material use.
+Moonraker and OctoPrint HTTP adapters validate exact private IP allowlists before network access, reject redirects and proxies, and bound request and response sizes. The separate Bambu Lab LAN MQTT adapter requires a pinned leaf-certificate SHA-256 fingerprint and exact allowlisted private IP; it is an experimental community integration, not an officially supported Bambu interface. There is no native vendor-cloud login/control. See [device-specific security boundaries](security-and-printers.md). Signed relay events are a separate boundary and do not establish physical material use.
 
 ## Code ownership
 
