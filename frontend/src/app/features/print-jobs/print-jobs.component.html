@@ -37,7 +37,7 @@
         </div>
       }
       @if(upload){<button type="button" class="btn ghost" [disabled]="busy()" (click)="useManualMapping()">{{'Use manual mapping instead'|t}}</button>}
-      <label class="full">{{'G-code filename already on printer'|t}}<input name="fileName" [(ngModel)]="fileName" required maxlength="180" [placeholder]="'e.g. bracket.gcode'|t" [readonly]="!!upload"></label>
+      <label class="full">{{(selectedPrinterIsBambu()?'Print job filename on Bambu (e.g. .3mf)':'G-code filename already on printer')|t}}<input name="fileName" [(ngModel)]="fileName" required maxlength="180" [placeholder]="'e.g. bracket.gcode'|t" [readonly]="!!upload"></label>
       <label>{{'Estimated filament (g)'|t}}<input name="estimatedG" type="number" [(ngModel)]="estimatedG" (ngModelChange)="invalidateSuggestions()" min="1" max="100000" step="1" [placeholder]="'Use G-code metadata when blank'|t"></label>
       <label>{{'Note (manual mapping only)'|t}}<input name="note" [(ngModel)]="note" maxlength="300" [placeholder]="'Optional reference'|t"></label>
     </div>
@@ -69,7 +69,7 @@
       }
     }
     <p class="helper">{{'The first spool is tool {tool}. All additional tools must have unique numbers and explicit weights. Imported estimates preserve their tool numbers. You must assign every physical roll explicitly. The combined amount is deducted atomically after verified completion or manual approval.'|t:{tool:''+firstTool} }}</p>
-    <p class="helper">{{'Importing a G-code file here registers metadata only. Uploading to a printer is a separate administrator action; it never starts automatically. Moonraker history-confirmed jobs may debit automatically; OctoPrint always requires review.'|t}}</p>
+    <p class="helper">{{'Importing a G-code file here registers metadata only. Uploading to a printer is a separate administrator action; it never starts automatically. Moonraker history-confirmed jobs may debit automatically; OctoPrint and Bambu LAN always require review.'|t}}</p>
     <button class="btn primary" type="submit" [disabled]="busy()||jobForm.invalid||!printerId||!spoolId||!!upload">{{'Register print job'|t}}</button>
   </form>
 </section>
@@ -113,7 +113,7 @@
             @if(job.status!=='needs_review'&&(job.status!=='pending'||!!job.observed_printing||!!job.start_command_state)){<button class="btn ghost" type="button" [disabled]="busy()" (click)="accountingJob.set(job)">{{'Review consumption'|t}}</button>}
             @if(job.status==='pending'||job.status==='printing'){
               <button type="button" class="btn ghost" [disabled]="busy()" (click)="poll(job.printer_id)">{{'Poll'|t}}</button>
-              @if(auth.isAdmin() && capabilities().write_enabled && job.status==='pending'){
+              @if(auth.isAdmin() && capabilities().write_enabled && job.status==='pending' && supportsJobDispatch(job.printer_id)){
                 <label class="btn ghost">{{'Upload G-code'|t}}
                   <input type="file" accept=".gcode,.gco,.gc" [disabled]="busy()||uncertainUploads().includes(job.printer_id)||!!(operations()[job.printer_id]||[]).length" (change)="uploadPending(job,$event)" hidden>
                 </label>

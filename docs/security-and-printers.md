@@ -14,6 +14,25 @@ This release provides read-only adapters by default, with admin-only controller 
 
 Use read-only or least-privilege keys for status-only connections, and narrowly scoped write permissions if available for opt-in physical actions. Printer firmware APIs may grant broader control than these HTTP requests use; inspect upstream permissions before pairing.
 
+## Bambu Lab LAN adapter (community / non-official)
+
+Bambu Lab X1, P1, A1 and A1 mini models may expose MQTT over TLS in **Developer Mode**, subject to firmware and device settings. This is **not a Bambu Lab officially supported integration**. Their [third-party integration announcement](https://blog.bambulab.com/updates-and-third-party-integration-with-bambu-connect/) explicitly warns that this mode is not covered by official support. Validate compatibility on your own device. This implementation never requires Bambu Cloud credentials.
+
+**Configuration**
+
+1. Ensure the printer and container are reachable on the same trusted LAN (or a deliberately secured local route), and enable Developer Mode on the printer if its firmware requires it. Never expose MQTT port 8883 to the internet.
+2. Set `FILAMENT_PRINTER_ALLOWED_IPS=192.168.1.20` (use your actual **private** printer IP). Allowlist only exact addresses.
+3. Set `FILAMENT_PRINTER_TOKEN_BAMBU1` to the printer's *LAN access code* (prefer Docker secrets via `FILAMENT_PRINTER_TOKEN_BAMBU1_FILE`), not your Bambu account password.
+4. Obtain and verify the *printer's* TLS leaf certificate from a trusted local network, then pin its SHA-256 **DER** fingerprint: `openssl s_client -connect 192.168.1.20:8883 -showcerts </dev/null 2>/dev/null | openssl x509 -outform DER | openssl dgst -sha256`. Compare the certificate source with the printer you intend to connect to. Set `FILAMENT_BAMBU_CERT_SHA256_BAMBU1` to the 64 hexadecimal characters (without the `SHA2-256(stdin)=` prefix). Re-pin only after inspecting a legitimate certificate rotation; a mismatch disables the connection.
+5. In **Printers → Add printer**, choose **Bambu Lab (LAN MQTT)**, use `mqtts://192.168.1.20:8883`, enter the physical device serial, and select `FILAMENT_PRINTER_TOKEN_BAMBU1` as the token-variable name.
+6. Use **Test connection** to read the current state, nozzle and bed temperatures, progress and AMS trays. No filament is assigned or deducted automatically.
+
+The backend uses a short-lived MQTT connection, validates the exact pinned TLS certificate **before** sending credentials, subscribes to `device/<serial>/report` and requests a `pushall` snapshot. It neither discovers printers nor silently trusts self-signed certificates. If configured, printer commands pause, resume and stop use `device/<serial>/request`; they require admin authentication and the global opt-in `FILAMENT_PRINTER_CONTROL_ENABLED=1`. A broker PUBACK is **not confirmation of physical execution**; inspect the printer after each command. 
+
+**Job filenames:** manually registered Bambu jobs can refer to an existing `.3mf` filename as reported by MQTT telemetry, in addition to G-code filenames. Archive uploads and slicing are not implied. Other controllers continue to accept G-code filenames only.
+
+**Limitations:** No Bambu FTP file upload, remote print start, camera streaming, Bambu cloud login, automatic AMS-to-spool mapping, guaranteed compatibility on newer firmware, or completion-proof for automatic stock deduction. Start and upload using Bambu Studio. Job polling records a matching active job, then marks it for review when printing stops; a human must approve the estimated consumption. AMS `remain` is a printer-reported percentage, not physical grams. All networking and protocol fields are bounded; credentials and certificate PINs are not persisted in SQLite.
+
 ## G-code import
 
 Importing a `.gcode`, `.gco` or `.gc` file (up to 16 MiB) reads slicer metadata for one estimated gram quantity. **Metadata import** does not persist or upload the file. A separate privileged operation can upload a file to the printer. You can alternatively enter a matching printer filename and estimated gram count manually. This is **print-job metadata import**, not automatic slicing.

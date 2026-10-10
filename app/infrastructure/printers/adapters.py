@@ -87,9 +87,26 @@ class OctoPrintAdapter:
             return Observation("needs_review")
         return Observation(None)
 
+class BambuAdapter(OctoPrintAdapter):
+    """A current MQTT snapshot is not immutable history: completion needs approval."""
+    capabilities = PrinterCapabilities(supports_history=False, supports_verified_completion=False,
+                                        supports_file_transfer=False, supports_control=True)
+
+    def observe(self, printer, job, history, status, claimed_ids):
+        state = status["state"].lower()
+        filename = status["filename"]
+        if state in ("printing", "paused") and filename and filename == job["file_name"]:
+            return Observation("printing")
+        if job["observed_printing"] and state not in ("printing", "paused"):
+            return Observation("needs_review", remote_state=state)
+        return Observation(None)
+
+
 def adapter_for(kind: str, *, status: Callable, history: Callable, lookup: Callable) -> PrinterAdapter:
     if kind == "moonraker":
         return MoonrakerAdapter(status, history, lookup)
     if kind == "octoprint":
         return OctoPrintAdapter(status)
+    if kind == "bambu":
+        return BambuAdapter(status)
     raise ValueError("Unsupported printer controller.")

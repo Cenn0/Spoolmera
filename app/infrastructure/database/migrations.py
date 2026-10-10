@@ -3,7 +3,7 @@ import sqlite3
 from uuid import uuid4
 from datetime import datetime, timezone
 
-CURRENT_SCHEMA_VERSION = 10
+CURRENT_SCHEMA_VERSION = 11
 
 def migrate_v2_v4(connection: sqlite3.Connection) -> None:
     """Preserve legacy IDs and write an idempotent material mapping upgrade."""
@@ -224,3 +224,29 @@ def migrate_v10(db: sqlite3.Connection) -> None:
     from app.infrastructure.database.workflow_migration import migrate_workflows
     migrate_accounting(db)
     migrate_workflows(db)
+
+
+def migrate_v11(db: sqlite3.Connection) -> None:
+    """Rebuild the printer kind constraint while preserving referenced printer IDs.
+
+    initialize_database disables FK enforcement before this transaction and
+    verifies referential integrity before reenabling it.
+    """
+    sql = db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='printers'").fetchone()[0]
+    if "'bambu'" in sql:
+        _ensure_column(db, "printers", "serial", "TEXT NOT NULL DEFAULT ''")
+        return
+    db.execute("""CREATE TABLE printers_v11 (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        kind TEXT NOT NULL CHECK(kind IN ('moonraker','octoprint','bambu')),
+        base_url TEXT NOT NULL,
+        token_env TEXT NOT NULL DEFAULT '',
+        serial TEXT NOT NULL DEFAULT '',
+        enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0,1)),
+        created_at TEXT NOT NULL
+    )""")
+    db.execute("""INSERT INTO printers_v11(id,name,kind,base_url,token_env,enabled,created_at)
+                  SELECT id,name,kind,base_url,token_env,enabled,created_at FROM printers""")
+    db.execute("DROP TABLE printers")
+    db.execute("ALTER TABLE printers_v11 RENAME TO printers")
