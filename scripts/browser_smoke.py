@@ -16,14 +16,14 @@ BASE = "http://127.0.0.1:8765"
 @contextmanager
 def browser_session(playwright):
     browser = playwright.chromium.launch(headless=True,
-        executable_path=os.getenv("FILAMENT_TEST_BROWSER_EXECUTABLE") or None)
+        executable_path=os.getenv("SPOOLMERA_TEST_BROWSER_EXECUTABLE") or None)
     context = browser.new_context(accept_downloads=True, locale="en-US")
     context.tracing.start(screenshots=True, snapshots=True, sources=True)
     page = context.new_page()
     try:
         yield browser, page
     except Exception:
-        folder = Path(os.getenv("FILAMENT_BROWSER_ARTIFACT_DIR") or tempfile.mkdtemp(prefix="filament-browser-"))
+        folder = Path(os.getenv("SPOOLMERA_BROWSER_ARTIFACT_DIR") or tempfile.mkdtemp(prefix="filament-browser-"))
         folder.mkdir(parents=True, exist_ok=True)
         page.screenshot(path=str(folder / "failure.png"), full_page=True)
         context.tracing.stop(path=str(folder / "trace.zip"))
@@ -44,7 +44,7 @@ def select_id(select, identifier: int) -> None:
 
 def report_failed_fixture(page, job_id: int) -> None:
     """A signed synthetic relay exercises the normal review boundary, not hardware."""
-    secret = os.environ["FILAMENT_CLOUD_HMAC_BROWSER"]
+    secret = os.environ["SPOOLMERA_CLOUD_HMAC_BROWSER"]
     raw = json.dumps({"event_id": "browser-partial-job-" + str(job_id),
                       "job_id": job_id, "status": "failed"}, separators=(",", ":")).encode()
     stamp = str(int(time.time()))
@@ -61,7 +61,7 @@ def german_workflows(browser, errors: list[str]) -> None:
     context.tracing.start(screenshots=True, snapshots=True, sources=True)
     page = context.new_page()
     page.on("pageerror", lambda error: errors.append(str(error)))
-    folder = Path(os.getenv("FILAMENT_BROWSER_ARTIFACT_DIR") or tempfile.mkdtemp(prefix="filament-language-"))
+    folder = Path(os.getenv("SPOOLMERA_BROWSER_ARTIFACT_DIR") or tempfile.mkdtemp(prefix="filament-language-"))
     folder.mkdir(parents=True, exist_ok=True)
     try:
         page.goto(BASE + "/", wait_until="networkidle")
