@@ -1,0 +1,27 @@
+version: 2
+updates:
+  # Keep GitHub-hosted workflow actions current and review their changelogs.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 5
+  - package-ecosystem: npm
+    directory: "/frontend"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 5
+    groups:
+      angular:
+        patterns:
+          - "@angular/*"
+      frontend-tooling:
+        dependency-type: development
+        exclude-patterns:
+          - "@angular/*"

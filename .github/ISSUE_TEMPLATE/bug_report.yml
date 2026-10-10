@@ -1,0 +1,53 @@
+name: Bug report
+description: Report a reproducible non-security defect in Spoolmera.
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: "For vulnerabilities or leaked secrets, follow SECURITY.md instead. Do not share production data or device credentials."
+  - type: textarea
+    id: issue
+    attributes:
+      label: Observed behavior
+      description: What happened? Include exact errors with credentials redacted.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Prefer a minimal disposable test environment and synthetic data.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit SHA
+      placeholder: "v0.10.0 or Git commit SHA"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Inventory / accounting
+        - Authentication / API
+        - Angular / UX
+        - Docker / deployment
+        - Printer / slicer
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Environment and diagnostic evidence
+      description: Browser, OS, Docker version and redacted logs. Do not attach live databases or printer access codes.
