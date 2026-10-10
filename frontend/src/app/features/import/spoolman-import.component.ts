@@ -11,7 +11,7 @@ import { RequestOwner } from '../../core/request-owner';
 import { I18nService, TranslatePipe } from '../../core/i18n';
 
 type Preview=ApiSpoolmanPreview;
-@Component({standalone:true,imports:[FormsModule,TranslatePipe,FileDropComponent],templateUrl:'./spoolman-import.component.html'})
+@Component({standalone:true,imports:[FormsModule,TranslatePipe,FileDropComponent],templateUrl:'./spoolman-import.component.html',styleUrl:'./spoolman-import.component.css'})
 export class SpoolmanImportComponent implements OnDestroy {
   readonly i18n=inject(I18nService);
   readonly auth=inject(AuthService);readonly http=inject(HttpClient);

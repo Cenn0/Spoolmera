@@ -66,6 +66,7 @@
     </section>
     <section class="panel">
       <div class="panel-heading"><div><span class="eyebrow">{{'MATERIAL USAGE'|t}}</span><h2>{{'Consumption & cost'|t}}</h2></div></div>
+      <div class="workflow-form cost-summary">
       @if(costsLoading()){<p class="helper" role="status">{{'Refreshing material costs…'|t}}</p>}
       @if(costError()){<p class="form-error" role="alert">{{costError()|t}} {{'Cost values may be out of date.'|t}} <button type="button" class="btn ghost" (click)="refreshCosts()">{{'Retry costs'|t}}</button>}
       @if(costs();as metrics){
@@ -78,6 +79,7 @@
           </div>
         }@empty{<p class="placeholder">{{'No consumption records yet.'|t}}</p>}
       }@else{<p class="helper">{{'Cost estimates are unavailable.'|t}}</p>}
+      </div>
     </section>
     <section class="side-note"><span class="eyebrow">{{'GOOD TO KNOW'|t}}</span><h3>{{'Every roll has its own identity.'|t}}</h3><p>{{'Print a QR label for each physical spool. A quick scan takes you straight to its details and consumption history.'|t}}</p><a routerLink="/spools" class="text-link">{{'Browse spools →'|t}}</a></section>
   </div>

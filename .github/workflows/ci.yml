@@ -154,7 +154,7 @@ jobs:
 
   browser-smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -195,6 +195,16 @@ jobs:
             sleep 1
           done
           python scripts/browser_smoke.py
+      - name: Capture every interface view in all four layouts
+        run: python scripts/ui_visual_audit.py --serve --strict --output "${{ runner.temp }}/ui-all-views-audit"
+      - name: Publish complete visual audit
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: ui-all-views-audit
+          path: ${{ runner.temp }}/ui-all-views-audit/
+          if-no-files-found: warn
+          retention-days: 7
       - name: Publish browser failure evidence
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

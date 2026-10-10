@@ -1,0 +1,3 @@
+/* Action controls must not squeeze file names and material mappings into a narrow column. */
+.job-row { align-items: flex-start; }
+.job-row > .workflow-buttons { flex-basis: 100%; }

@@ -9,6 +9,8 @@ This release remains fully free, Apache-2.0-licensed, Docker-self-hosted and bas
 | --- | --- | --- |
 | Rich material properties | Density, nozzle/bed limits, GTIN/SKU, slicer preset, low-stock threshold | app/models.py |
 | Physical spool metadata | Tare, purchase price/currency/date, batch and location | app/models.py |
+| Responsive inventory | Cards, full-width tables and location grids, independent lane heights, direct label selection and explicit physical-location confirmation | frontend/src/app/features/spools/ |
+| Complete visual audit | All routes and declared interactive states in light/dark desktop/mobile layouts, screenshot gallery and strict completeness/layout checks | scripts/ui_visual_audit.py, docs/testing.md |
 | Manual weighing | Revision-aware gross minus tare, pending-job guard and durable measurement anchors | app/services/material_service.py |
 | Consumption reconciliation | Actual/partial/zero use, preserved estimates, idempotent review, linked corrections and measurement reconciliation | app/services/accounting_service.py |
 | Material care | User-recorded drying temperature, duration and note | app/services/material_service.py |

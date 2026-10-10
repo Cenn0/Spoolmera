@@ -4,8 +4,9 @@
 .label{width:60mm;height:40mm;margin:25px auto;background:#fff;border:1px solid #1d292f;display:flex;align-items:center;padding:2.5mm;gap:1.5mm;overflow:hidden}
 .label-info{min-width:0;flex:1;height:100%;display:flex;flex-direction:column}
 .label-brand{font-size:6.5pt;font-weight:800;letter-spacing:.075em;border-bottom:1px solid #9da9a7;padding-bottom:1.5mm}
-.label-product{font-size:9pt;line-height:1.15;margin-top:1.8mm;overflow-wrap:anywhere;max-height:11mm;overflow:hidden}
-.label-product strong{font-size:10.5pt}
+.label-product{font-size:9pt;line-height:1.15;margin-top:1.8mm;flex:none;overflow:hidden}
+.label-product-brand{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.label-product strong{font-size:10.5pt;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;max-height:2.3em;overflow-wrap:anywhere;overflow:hidden}
 .label-material{font-size:8pt;margin-top:1mm;overflow-wrap:anywhere;line-height:1.2;max-height:7mm;overflow:hidden}
 .label-weight{font-size:8pt;font-weight:700;margin-top:auto}
 .label-id{font-size:6.5pt;letter-spacing:.025em;margin-top:1mm;white-space:nowrap}

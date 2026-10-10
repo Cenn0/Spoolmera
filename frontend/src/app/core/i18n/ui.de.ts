@@ -67,6 +67,7 @@ export const UI_DE = {
   "Cards": "Karten",
   "Table": "Tabelle",
   "Spool table": "Spulentabelle",
+  "Scroll horizontally to see all columns.": "Weitere Spalten: horizontal scrollen.",
   "Drag a spool by its handle to prepare labels, or use the selection button.": "Spulen am Griff in die Etikettenablage ziehen oder per Klick auswählen.",
   "Drag to label tray or click to select": "In die Etikettenablage ziehen oder per Klick auswählen",
   "Low stock": "Wenig Vorrat",

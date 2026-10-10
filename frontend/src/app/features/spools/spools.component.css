@@ -2,6 +2,10 @@
 .inventory-secondary-actions {display:flex;gap:8px;flex-wrap:wrap}
 .mobile-inventory-actions,.mobile-filter-toggle {display:none}
 .inventory-filter-controls {display:contents}
+@media(min-width:761px) and (max-width:1100px) {
+  .page-head {flex-direction:column;align-items:flex-start;gap:14px}
+  .heading-actions {width:100%}
+}
 @media(max-width:760px) {
   .page-head {align-items:stretch;gap:10px;margin-bottom:12px}
   .page-head .eyebrow {font-size:9px;margin-bottom:6px}
@@ -45,6 +49,37 @@
 .tray-feedback:empty {margin:0}
 .label-tray-item.drop-before {box-shadow:0 -3px 0 var(--teal)}
 .label-tray-item.drop-after {box-shadow:0 3px 0 var(--teal)}
+.label-tray-items {align-items:start}
+.label-tray-heading {flex-wrap:wrap;align-items:flex-start}
+.label-tray-heading>.selection-count {flex:none}
+.label-tray-item {display:grid;grid-template-columns:32px minmax(0,1fr) 32px 32px;gap:7px;padding:12px}
+.label-tray-item>.swatch {grid-column:1;grid-row:1;align-self:start;margin-top:2px}
+.label-tray-item>.label-identity {grid-column:2/-1;grid-row:1;min-width:0;font-size:12px;line-height:1.5}
+.label-tray-item>.drag-handle {grid-column:1;grid-row:2;justify-self:start}
+.label-tray-item>.label-move-up {grid-column:2;grid-row:2;justify-self:end}
+.label-tray-item>.label-move-down {grid-column:3;grid-row:2}
+.label-tray-item>.label-remove {grid-column:4;grid-row:2}
+.label-tray-intro,.label-tray-selection {min-width:0}
+.label-tray-intro>.helper {font-size:12px;line-height:1.65;margin:14px 0}
+
+/* Tables and location columns need the workspace width. Keep label preparation
+   beside cards, and give the wider views a compact tray below their results. */
+.inventory-layout.inventory-layout-expanded {grid-template-columns:minmax(0,1fr)}
+.inventory-layout-expanded .label-tray {position:static;max-height:none;display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);align-items:start;gap:24px}
+.inventory-layout-expanded .label-tray-items {margin-top:0;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr))}
+.inventory-layout-expanded .label-tray-empty {grid-column:1/-1}
+.spool-view-bar {flex-wrap:wrap}
+.spool-view-bar .view-switch {flex:none}
+.spool-view-bar>.helper {flex:1 1 220px}
+.spool-card {display:flex;flex-direction:column}
+.spool-card-stock {flex-wrap:wrap}
+.inventory-table .status {white-space:nowrap;overflow-wrap:normal;max-width:none}
+.inventory-table .data-table :is(th,td):nth-child(5) {min-width:115px}
+.inventory-table-hint {display:none}
+@media(max-width:1100px) {
+  .inventory-table-hint {display:flex;align-items:center;gap:8px;margin:0;padding:0 20px 12px;font-size:12px;line-height:1.5}
+  .inventory-table-hint>span {flex:none;font-size:18px}
+}
 @media(max-width:760px){
   .inventory-stats {grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:8px}
   .inventory-stats>:is(div,button) {flex-direction:row;align-items:center;min-height:43px;gap:5px;padding:8px 10px}
@@ -52,13 +87,18 @@
   .inventory-stats strong {font-size:16px;flex:none;white-space:nowrap;overflow-wrap:normal}
   .spool-view-bar .helper {display:none}
   .active-filters {padding:0 14px 10px}
+  .inventory-table-hint {padding-inline:14px}
   .tray-bulk-actions .btn,.tray-bulk-actions .text-action {min-height:44px}
+  .inventory-layout-expanded .label-tray {grid-template-columns:minmax(0,1fr);gap:14px}
+}
+@media(max-width:760px),(pointer:coarse){
+  .label-tray-item {grid-template-columns:44px minmax(0,1fr) 44px 44px}
 }
 
 .low-stock-filter {white-space:nowrap}
 
 /* Storage board: staged by default, persistent only after explicit verification. */
-.spool-sort {display:grid;gap:5px;font-size:11px;font-weight:700;color:var(--text);margin-left:auto}
+.spool-sort {display:grid;gap:5px;font-size:11px;font-weight:700;color:var(--text);margin-left:auto;min-width:0}
 .spool-sort select {min-height:39px;max-width:210px;border:1px solid var(--line);border-radius:8px;background:var(--white);color:var(--ink);padding:7px 10px}
 .storage-intro {display:flex;align-items:end;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:12px 17px}
 .storage-intro h2 {margin:0;font-size:18px;color:var(--ink)}
@@ -66,31 +106,30 @@
 .create-location {display:flex;align-items:end;gap:8px;flex-wrap:wrap}
 .create-location label {display:grid;gap:5px;font-size:11px;color:var(--text);font-weight:700}
 .create-location input {min-height:40px;max-width:190px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--white);color:var(--ink)}
-.storage-navigation {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:0 17px 8px}
-.storage-navigation .helper {font-size:12px;margin:0;line-height:1.45}
-.storage-navigation-actions {display:flex;flex-wrap:wrap;gap:8px}
-.storage-navigation-actions .btn {min-height:44px;min-width:44px;padding:10px 12px}
-.storage-navigation-actions .btn:disabled {opacity:.45;cursor:not-allowed}
-.storage-board {display:flex;gap:14px;overflow:auto;overscroll-behavior-x:contain;max-width:100%;padding:8px 17px 18px;scrollbar-width:thin}
-.storage-lane {flex:0 0 min(288px,80vw);min-width:0;padding:12px;border:1px solid var(--line);background:var(--canvas);border-radius:12px;transition:border-color .15s ease,box-shadow .15s ease}
+.storage-board {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));align-items:start;gap:14px;max-width:100%;padding:8px 17px 18px}
+.storage-lane {min-width:0;padding:12px;border:1px solid var(--line);background:var(--canvas);border-radius:12px;transition:border-color .15s ease,box-shadow .15s ease}
 .storage-lane.drop-active {border:2px dashed var(--teal);box-shadow:0 0 0 3px var(--accent-soft);padding:11px}
-.storage-lane-heading {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px;padding:3px 3px 11px;border-bottom:1px solid var(--line)}
-.storage-lane-heading h3 {font-size:14px;margin:0;color:var(--ink);overflow-wrap:anywhere}
-.storage-lane-heading span {font-size:10px;color:var(--muted)}
-.storage-lane-heading strong {grid-column:1/-1;font-size:16px;color:var(--ink)}
+.storage-lane-heading {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;padding:3px 3px 11px;border-bottom:1px solid var(--line)}
+.storage-lane-heading h3 {font-size:14px;line-height:1.4;margin:0;color:var(--ink);overflow-wrap:anywhere}
+.storage-lane-heading span {grid-column:1/-1;grid-row:2;font-size:11px;line-height:1.5;color:var(--muted)}
+.storage-lane-heading strong {grid-column:2;grid-row:1;font-size:14px;line-height:1.4;color:var(--ink);white-space:nowrap}
 .storage-lane-contents {display:grid;align-content:start;gap:9px;min-height:110px;padding-top:10px}
 .storage-spool {padding:10px;border:1px solid var(--line);background:var(--white);border-radius:10px;min-width:0}
+.storage-spool.selected {outline:2px solid var(--teal);outline-offset:-2px}
 .storage-spool-main {display:flex;align-items:center;gap:9px;min-width:0}
-.storage-spool-main .reel {transform:scale(.54);transform-origin:center;flex-shrink:0}
-.storage-spool-main sm-spool-visual {display:grid;place-items:center;width:55px;height:60px;overflow:hidden;flex-shrink:0}
+.storage-spool-main sm-spool-visual {width:46px;height:46px;flex-shrink:0}
 .storage-spool-main>div:last-child {display:grid;gap:4px;min-width:0}
-.storage-spool-main strong {font-size:12px;overflow-wrap:anywhere}
-.storage-spool-main small,.storage-spool-main span {font-size:10px;color:var(--muted)}
-.storage-destination {display:grid;gap:5px;margin-top:9px;font-weight:700;color:var(--text);font-size:10px}
+.storage-spool-main strong {font-size:12px;line-height:1.45;overflow-wrap:anywhere}
+.storage-spool-main small,.storage-spool-main span {font-size:11px;line-height:1.5;color:var(--muted);overflow-wrap:anywhere}
+.storage-spool-actions {display:flex;align-items:end;gap:8px;margin-top:10px}
+.storage-spool-actions .drag-handle {flex:none;min-width:38px;min-height:38px}
+.storage-destination {display:grid;flex:1;min-width:0;gap:5px;font-weight:700;color:var(--text);font-size:11px;line-height:1.4}
 .storage-destination select {width:100%;min-width:0;min-height:38px;background:var(--white);border:1px solid var(--line);border-radius:7px;padding:6px 8px;color:var(--ink)}
+.storage-label-selector {flex:none;min-width:38px;min-height:38px;margin-left:auto}
+.storage-label-selector[aria-pressed="true"] {background:var(--accent-soft);color:var(--accent-ink);border-color:var(--teal)}
 .storage-empty {display:grid;place-items:center;text-align:center;min-height:94px;padding:12px;border:1px dashed var(--line);border-radius:9px;color:var(--muted);font-size:12px}
 .storage-page-hint {padding:0 17px}
-.storage-confirm {margin:5px 17px 16px;padding:18px;border:1px solid var(--teal);border-radius:12px;background:var(--white)}
+.storage-confirm {margin:5px 17px 16px;padding:18px;border:1px solid var(--teal);border-radius:12px;background:var(--white);scroll-margin-block:20px 100px}
 .storage-confirm h3 {margin:0 0 8px;font-size:17px}
 .storage-confirm p {margin:8px 0;overflow-wrap:anywhere}
 .storage-confirm .checkbox-row {margin-top:12px}
@@ -98,14 +137,13 @@
 @media(max-width:760px){
   .spool-sort {margin-left:0;flex:1;min-width:100%}
   .spool-sort select {max-width:100%;width:100%}
-  .storage-navigation {padding:0 12px 8px;align-items:stretch}
-  .storage-navigation-actions {width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
-  .storage-navigation-actions .btn {min-width:0;white-space:normal}
-  .storage-board {padding:8px 12px 18px}
+  .storage-board {grid-template-columns:minmax(0,1fr);padding:8px 12px 18px}
   .storage-intro {padding:14px 12px;align-items:stretch}
   .create-location,.create-location label {flex:1}
   .create-location input {max-width:none;width:100%}
-  .storage-lane {flex-basis:min(280px,77vw)}
+  .storage-spool-main sm-spool-visual {width:52px;height:52px}
+  .storage-spool-actions .drag-handle,.storage-label-selector {min-width:44px;min-height:44px}
+  .storage-destination select {min-height:44px}
   .storage-confirm {margin:5px 12px 16px}
 }
 
@@ -126,8 +164,13 @@
 @media(max-width:760px) {
   .page-head {margin-bottom:10px}
   .inventory-stats>:is(div,button) {min-height:48px}
+  .inventory-stats span {overflow-wrap:anywhere}
   .spool-brand,.spool-card small {font-size:12px}
   .spool-card-meta,.spool-card-stock>span {font-size:12px}
   .storage-lane-heading span,.storage-spool-main small,.storage-spool-main span,.storage-destination {font-size:12px}
   .storage-destination select,.create-location input,.mobile-spool-sort select {font-size:16px}
+}
+@media(pointer:coarse) {
+  .storage-spool-actions .drag-handle,.storage-label-selector {min-width:44px;min-height:44px}
+  .storage-destination select {min-height:44px}
 }

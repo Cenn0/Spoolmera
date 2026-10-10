@@ -120,7 +120,7 @@ def _label_markup(spool: dict, size: str, language: str) -> str:
     return f"""<article class="label" aria-label="{aria}">
   <section class="label-info">
     <div class="label-brand">SPOOLMERA</div>
-    <div class="label-product">{brand}<br><strong>{name}</strong></div>
+    <div class="label-product"><span class="label-product-brand">{brand}</span><strong class="label-product-name">{name}</strong></div>
     <div class="label-material">{material} · {color}</div>
     <div class="label-weight">{text["remaining"]}: {remaining} g</div>
     <div class="label-id">{text["spool"]} {spool["id"]:06d} · {uid[:8].upper()}</div>

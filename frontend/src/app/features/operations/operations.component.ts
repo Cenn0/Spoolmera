@@ -6,7 +6,7 @@ import { RequestOwner } from '../../core/request-owner';
 import { apiError } from '../../inventory.service';
 import { I18nService } from '../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
-@Component({standalone:true,imports:[RouterLink,TranslatePipe],templateUrl:'./operations.component.html'})
+@Component({standalone:true,imports:[RouterLink,TranslatePipe],templateUrl:'./operations.component.html',styleUrl:'./operations.component.css'})
 export class OperationsComponent implements OnInit, OnDestroy {
   readonly i18n=inject(I18nService);readonly api=inject(WorkspaceService);readonly state=signal<ApiDiagnostics|null>(null);readonly alerts=signal<ApiAlerts|null>(null);
   readonly error=signal('');readonly loading=signal(false);readonly dateText=(value:string|null)=>this.i18n.dateText(value);readonly grams=(value:number)=>this.i18n.grams(value);

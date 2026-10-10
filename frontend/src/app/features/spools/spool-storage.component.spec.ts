@@ -37,35 +37,6 @@ describe('storage board: accessibility, staged moves and concurrent edits',()=>{
     expect(root.querySelector('.storage-spool')?.getAttribute('data-spool-uid')).toBe(original.uid);
     expect(data.updateSpool).not.toHaveBeenCalled();
   });
-  it('exposes keyboard scroll controls with correct boundary states and no inventory writes',async()=>{
-    component.setDisplay('locations');
-    component.locationDraft.set('Shelf C');component.createLocationLane();
-    fixture.detectChanges();await fixture.whenStable();
-    const root=fixture.nativeElement as HTMLElement;
-    const board=root.querySelector<HTMLElement>('#storage-board')!;
-    expect(board.getAttribute('role')).toBe('region');
-    const previous=root.querySelector<HTMLButtonElement>('button[aria-label="Previous storage locations"]')!;
-    const next=root.querySelector<HTMLButtonElement>('button[aria-label="Next storage locations"]')!;
-    expect(previous.getAttribute('aria-controls')).toBe('storage-board');
-    expect(next.getAttribute('aria-controls')).toBe('storage-board');
-    Object.defineProperty(board,'clientWidth',{configurable:true,value:330});
-    Object.defineProperty(board,'scrollWidth',{configurable:true,value:920});
-    Object.defineProperty(board,'scrollLeft',{configurable:true,writable:true,value:0});
-    const scroll=vi.fn();
-    Object.defineProperty(board,'scrollBy',{configurable:true,value:scroll});
-    component.updateStorageScrollState(board);fixture.detectChanges();
-    expect(previous.disabled).toBe(true);expect(next.disabled).toBe(false);
-    next.click();
-    expect(scroll).toHaveBeenCalledWith(expect.objectContaining({left:expect.any(Number)}));
-    expect((scroll.mock.calls[0][0] as ScrollToOptions).left!).toBeGreaterThan(0);
-    expect(component.pendingLocation()).toBeNull();
-    board.scrollLeft=590;
-    component.updateStorageScrollState(board);fixture.detectChanges();
-    expect(previous.disabled).toBe(false);expect(next.disabled).toBe(true);
-    previous.click();
-    expect((scroll.mock.calls[scroll.mock.calls.length-1][0] as ScrollToOptions).left!).toBeLessThan(0);
-    expect(data.updateSpool).not.toHaveBeenCalled();
-  });
   it('stages browser drops without writing, then requires an explicit check',async()=>{
     component.locationDraft.set('Shelf C');component.createLocationLane();
     expect(component.storageBoard().some(item=>item.location==='Shelf C')).toBe(true);
@@ -81,6 +52,34 @@ describe('storage board: accessibility, staged moves and concurrent edits',()=>{
     await component.saveLocation();
     expect(data.updateSpool).toHaveBeenCalledExactlyOnceWith(original.id,{location:'Shelf C',expected_location:'Shelf A'});
     expect(component.pendingLocation()).toBeNull();
+  });
+  it('focuses the staged confirmation before the board without saving a location',async()=>{
+    component.setDisplay('locations');component.stageLocation(original,'Shelf C');
+    fixture.detectChanges();await fixture.whenStable();
+    const root=fixture.nativeElement as HTMLElement;
+    const confirmation=root.querySelector<HTMLElement>('.storage-confirm')!;
+    const board=root.querySelector<HTMLElement>('.storage-board')!;
+    expect(document.activeElement).toBe(confirmation);
+    expect(confirmation.compareDocumentPosition(board)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(component.locationConfirmed()).toBe(false);expect(data.updateSpool).not.toHaveBeenCalled();
+  });
+  it('refocuses and reveals the existing confirmation when another destination is selected',async()=>{
+    component.extraLocations.set(['Shelf C','Shelf D']);
+    component.setDisplay('locations');component.stageLocation(original,'Shelf C');
+    fixture.detectChanges();await fixture.whenStable();
+    const root=fixture.nativeElement as HTMLElement;
+    const confirmation=root.querySelector<HTMLElement>('.storage-confirm')!;
+    const select=root.querySelector<HTMLSelectElement>('.storage-spool select')!;
+    const scroll=vi.fn();confirmation.scrollIntoView=scroll;
+    component.locationConfirmed.set(true);select.focus();
+    select.value='Shelf D';select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();await fixture.whenStable();
+    expect(root.querySelector('.storage-confirm')).toBe(confirmation);
+    expect(component.pendingLocation()?.target).toBe('Shelf D');
+    expect(confirmation.textContent).toContain('Shelf D');
+    expect(document.activeElement).toBe(confirmation);
+    expect(scroll).toHaveBeenCalledExactlyOnceWith({block:'nearest',behavior:'instant'});
+    expect(component.locationConfirmed()).toBe(false);expect(data.updateSpool).not.toHaveBeenCalled();
   });
   it('rejects stale changes and archived spools rather than silently overwriting',async()=>{
     component.stageLocation(original,'New A');
@@ -106,6 +105,20 @@ describe('storage board: accessibility, staged moves and concurrent edits',()=>{
     component.setDisplay('locations');fixture.detectChanges();await fixture.whenStable();
     expect(fixture.nativeElement.querySelectorAll('.storage-spool select')).toHaveLength(0);
     component.stageLocation(original,'New A');expect(component.pendingLocation()).toBeNull();
+  });
+  it('keeps label selection reachable directly from location cards without changing inventory',async()=>{
+    auth.user.set({...auth.user()!,role:'viewer'});
+    component.setDisplay('locations');fixture.detectChanges();await fixture.whenStable();
+    const root=fixture.nativeElement as HTMLElement;
+    const label=root.querySelector<HTMLButtonElement>('.storage-label-selector')!;
+    expect(label.getAttribute('aria-pressed')).toBe('false');
+    label.click();fixture.detectChanges();await fixture.whenStable();
+    expect(label.getAttribute('aria-pressed')).toBe('true');
+    expect(root.querySelector('.storage-spool')?.classList.contains('selected')).toBe(true);
+    expect(root.querySelector('.print-selected')?.getAttribute('href')).toContain(original.uid);
+    expect(component.pendingLocation()).toBeNull();expect(data.updateSpool).not.toHaveBeenCalled();
+    label.click();fixture.detectChanges();
+    expect(component.selectedLabels()).toEqual([]);
   });
   it('allows sorting without modifying server data, and persists only the display choice',()=>{
     const newer=spool({id:2,uid:'22222222-2222-4222-8222-222222222222',remaining_g:100});

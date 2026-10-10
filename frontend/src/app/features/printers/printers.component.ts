@@ -12,7 +12,7 @@ import { Spool } from '../../models';
 import { SpoolVisualComponent } from '../../core/ui/spool-visual.component';
 
 const blankPrinter=():PrinterInput=>({name:'',kind:'moonraker',base_url:'',token_env:'',serial:'',enabled:true});
-@Component({standalone:true,imports:[FormsModule,RouterLink,TranslatePipe,SpoolVisualComponent],templateUrl:'./printers.component.html'})
+@Component({standalone:true,imports:[FormsModule,RouterLink,TranslatePipe,SpoolVisualComponent],templateUrl:'./printers.component.html',styleUrl:'./printers.component.css'})
 export class PrintersComponent implements OnInit, OnDestroy {
   readonly i18n=inject(I18nService);
   readonly api=inject(WorkspaceService);readonly auth=inject(AuthService);readonly notice=inject(NoticeService);readonly data=inject(InventoryService);

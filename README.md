@@ -125,7 +125,7 @@ A filament *product* can have multiple physical rolls. In **Spools**, you see ea
 
 ### Locate spools without changing stock
 
-Switch the inventory to **Locations** to see physical rolls grouped by their recorded storage place. The horizontal board helps when stock is distributed across multiple shelves or boxes. Scrolling through the board does **not** move a spool; actual reassignment requires an explicit, confirmed action.
+Switch the inventory to **Locations** to see physical rolls grouped by their recorded storage place. The board uses the full inventory width, fits complete location columns to the available space and stacks them on phones. Each column follows its own contents, so empty locations remain compact. Reassign a roll by dragging it or choosing a destination; saving the new location still requires explicit physical confirmation.
 
 <a href="docs/screenshots/locations-dark.png">
   <img src="docs/screenshots/locations-dark.png" alt="Spoolmera Locations board grouping example filament rolls by storage area and showing their assigned locations" width="800">
@@ -149,7 +149,7 @@ The same responsive web interface works in a narrow mobile browser: key stock fi
 - **Move existing data:** Export or preview/import the versioned CSV format. Existing UUIDs are skipped rather than overwritten; CSV is **not** a complete backup. Spoolman JSON imports are snapshot-based, not live synchronization.
 - **Track printing:** Register a print job and deliberately map each extruder tool to a physical spool. Imported G-code/3MF provides metadata, not automatic printer instructions. Bambu jobs can explicitly opt into automatic debit of **slicer-estimated**, not weighed, grams after a correlated MQTT completion; failures and uncertain results always require manual review. Check estimates, actual stock and uncertainty before authorizing physical actions or accounting.
 
-All images on this page come from the passing [Chromium CI browser run](https://github.com/Cenn0/Spoolmera/actions/runs/38047886348) with disposable sample data and no connected printer. [Image sources and regeneration instructions](docs/screenshots/README.md) · [CSV schema](docs/csv-format.md) · [UI controls](docs/interface-ux.md) · [language behavior](docs/interface-languages.md) · [print operations](docs/operations.md).
+All images on this page come from the passing [Chromium CI browser run](https://github.com/Cenn0/Spoolmera/actions/runs/38064112965) with disposable sample data and no connected printer. [Image sources and regeneration instructions](docs/screenshots/README.md) · [CSV schema](docs/csv-format.md) · [UI controls](docs/interface-ux.md) · [language behavior](docs/interface-languages.md) · [print operations](docs/operations.md).
 
 ## Architecture at a glance
 
