@@ -50,7 +50,35 @@ def run_ui_workflows(browser, errors):
         page.locator('.label-tray-item').last.get_by_role('button', name='Move up', exact=True).click()
         # Angular commits signal changes on its render cycle; assert the DOM result, not a same-tick read.
         expect(page.locator('.print-selected')).not_to_have_attribute('href', ordered_before)
-        page.locator('.label-tray-item').first.locator('.drag-handle').drag_to(page.locator('.label-tray-item').last)
+        # Complete scrolling before pressing the mouse: drag_to can scroll its
+        # target after mousedown, moving the source before a native drag starts.
+        tray_items = page.locator('.label-tray-item')
+        tray_source = tray_items.first.locator('.drag-handle')
+        tray_target = tray_items.last
+        tray_target.scroll_into_view_if_needed()
+        tray_source.hover()
+        viewport = page.viewport_size
+        assert viewport
+        start, end = tray_source.bounding_box(), tray_target.bounding_box()
+        assert start and end
+        for box in (start, end):
+            assert 0 <= box['x'] and box['x'] + box['width'] <= viewport['width']
+            assert 0 <= box['y'] and box['y'] + box['height'] <= viewport['height']
+        sx, sy = start['x'] + start['width']/2, start['y'] + start['height']/2
+        page.mouse.down()
+        page.mouse.move(sx+12, sy-8, steps=5)
+        expect(page.locator('.label-tray')).to_have_class(re.compile(r'\baccepting-drag\b'))
+        # Read the current target after dragstart has rendered. Aim at its text
+        # area, away from the row's disabled reorder buttons, and send dragover
+        # twice using real pointer moves without another scroll action.
+        end = tray_target.locator('.label-identity').bounding_box()
+        assert end
+        tx, ty = end['x'] + end['width']/2, end['y'] + end['height']/2
+        assert 0 <= tx < viewport['width']-1 and 0 <= ty < viewport['height']
+        page.mouse.move(tx, ty, steps=12)
+        page.mouse.move(tx+1, ty)
+        expect(tray_target).to_have_class(re.compile(r'\bdrop-after\b'))
+        page.mouse.up()
         expect(page.locator('.print-selected')).to_have_attribute('href', ordered_before)
         page.get_by_label('Search spools', exact=True).fill('does-not-exist')
         expect(cards).to_have_count(0)
