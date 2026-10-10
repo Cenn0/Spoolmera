@@ -21,7 +21,7 @@
         }}
       </select></label>
       <div class="full">
-        <fm-file-drop label="Inspect G-code or sliced 3MF metadata (optional)" accept=".gcode,.gco,.gc,.3mf" [maxBytes]="16*1024*1024" [disabled]="busy()" (selected)="selectMetadataFile($event)" (rejected)="rejectMetadataFile($event)" />
+        <sm-file-drop label="Inspect G-code or sliced 3MF metadata (optional)" accept=".gcode,.gco,.gc,.3mf" [maxBytes]="16*1024*1024" [disabled]="busy()" (selected)="selectMetadataFile($event)" (rejected)="rejectMetadataFile($event)" />
         @if(upload){<p class="selected-file">{{upload.name}}</p>}
         <button class="btn ghost" type="button" [disabled]="busy()||!upload" (click)="inspect()">{{'Inspect file'|t}}</button>
       </div>
@@ -148,7 +148,7 @@
   @if(slicer().enabled && slicer().profiles.length){
     <div class="workflow-form">
       <div class="form-grid">
-        <div><fm-file-drop label="Model (.stl)" accept=".stl" [maxBytes]="8*1024*1024" [disabled]="busy()" (selected)="stlFile=$event" (rejected)="rejectStl($event)" />@if(stlFile){<p class="selected-file">{{stlFile.name}}</p>}</div>
+        <div><sm-file-drop label="Model (.stl)" accept=".stl" [maxBytes]="8*1024*1024" [disabled]="busy()" (selected)="stlFile=$event" (rejected)="rejectStl($event)" />@if(stlFile){<p class="selected-file">{{stlFile.name}}</p>}</div>
         <label>{{'Operator-approved profile'|t}}<select [(ngModel)]="sliceProfile">
           @for(profile of slicer().profiles;track profile){<option [value]="profile">{{profile}}</option>}
         </select></label>
@@ -162,4 +162,4 @@
 </section>
 }
 
-@if(accountingJob();as job){<fm-consumption [job]="job" (closed)="accountingJob.set(null)" (saved)="accountingSaved()" />}
+@if(accountingJob();as job){<sm-consumption [job]="job" (closed)="accountingJob.set(null)" (saved)="accountingSaved()" />}
