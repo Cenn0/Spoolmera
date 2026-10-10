@@ -6,7 +6,7 @@ These instructions apply to the experimental **Spoolmera v0.10.0** single-contai
 
 ## Requirements and first installation
 
-Docker with Compose, a host with sufficient storage, and Git access to `https://github.com/Cenn0/Spoolmera`. The repository is currently private and requires access permission.
+Docker with Compose, a host with sufficient storage, and Git access to the public repository at `https://github.com/Cenn0/Spoolmera`. No GitHub account is needed to clone public source code.
 
 ```bash
 git clone https://github.com/Cenn0/Spoolmera.git

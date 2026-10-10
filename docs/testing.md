@@ -37,11 +37,11 @@ bootstrap token and setup is incomplete, repair that file before starting.
 
 ## Download a tested image from GitHub Actions
 
-Open a successful CI run for the review pull request or `main`, then download
+Open a successful CI run on `main`, then download
 the versioned artifact **spoolmera-0.10.0-test-linux-amd64** (available for seven days).
 Extract it into a separate directory. It contains the same Docker image that
 passed real HTTP checks and a restart/persistence check, plus a launcher.
-The complete CI run must also have passed API/build and browser jobs.
+The complete `main` CI run must also have passed API/build, browser and security audit jobs. Fork pull requests execute tests, but no downloadable Docker image is published until the code is merged into `main`.
 
 ```bash
 docker load -i spoolmera-image.tar.gz
