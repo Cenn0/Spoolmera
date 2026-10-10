@@ -160,7 +160,7 @@ Administrators can download a verified online SQLite snapshot. The download incl
 For scheduled or larger backups, run the CLI inside the normal container so it uses the same UID and mounted volume:
 
 ```bash
-docker compose exec -T filament-manager python scripts/backup.py \
+docker compose exec -T spoolmera python scripts/backup.py \
   /data/backups/before-upgrade.sqlite3 --database /data/filaments.sqlite3
 ```
 
@@ -170,7 +170,7 @@ To restore, fully stop the application and optional notifier. Use the same Compo
 
 ```bash
 docker compose stop
-docker compose run --rm --no-deps --entrypoint python filament-manager \
+docker compose run --rm --no-deps --entrypoint python spoolmera \
   scripts/restore.py /data/backups/before-upgrade.sqlite3 \
   /data/filaments.sqlite3 --confirm
 docker compose up -d
