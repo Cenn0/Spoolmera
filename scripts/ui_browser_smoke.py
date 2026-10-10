@@ -18,6 +18,33 @@ def file_drop(page, selector, name, contents):
     transfer.dispose()
 
 
+def capture_preview(page, path, end_selector, *, full_page=True):
+    """Capture the rendered view and reject an image using stale page bounds."""
+    expect(page.locator(end_selector).last).to_be_visible()
+    page.evaluate('''async () => {
+      await document.fonts.ready;
+      window.scrollTo({top:0,left:0,behavior:'instant'});
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    }''')
+    geometry = '''selector => {
+      const end = [...document.querySelectorAll(selector)].at(-1).getBoundingClientRect();
+      return {width:Math.max(innerWidth,document.documentElement.scrollWidth,document.body.scrollWidth),
+        height:Math.max(innerHeight,document.documentElement.scrollHeight,document.body.scrollHeight),
+        viewportWidth:innerWidth,viewportHeight:innerHeight,endBottom:end.bottom+scrollY};
+    }'''
+    before = page.evaluate(geometry, end_selector)
+    png = page.screenshot(path=str(path), full_page=full_page, animations='disabled', scale='css')
+    after = page.evaluate(geometry, end_selector)
+    width, height = int.from_bytes(png[16:20], 'big'), int.from_bytes(png[20:24], 'big')
+    if full_page:
+        assert all(abs(before[key]-after[key]) <= 1 for key in ('width','height','endBottom')), (path.name,before,after)
+        assert abs(width-after['width']) <= 1 and abs(height-after['height']) <= 1, (path.name,width,height,after)
+    else:
+        assert (width,height) == (after['viewportWidth'],after['viewportHeight']), (path.name,width,height,after)
+    assert after['endBottom'] <= height+1, (path.name,'Preview clips its final element',height,after)
+    print('Preview bounds:',json.dumps({'file':path.name,'pixels':[width,height],'fullPage':full_page,**after}))
+
+
 def run_ui_workflows(browser, errors):
     folder = Path(os.environ.get('SPOOLMERA_BROWSER_ARTIFACT_DIR', '/tmp/spoolmera-ui-previews'))
     folder.mkdir(parents=True, exist_ok=True)
@@ -260,16 +287,21 @@ def run_ui_workflows(browser, errors):
             assert page.locator('#storage-board').evaluate('(el) => el.scrollWidth <= el.clientWidth+1'), f'Clipped locations at {width}px'
             assert page.locator('.storage-lane').evaluate_all('(lanes) => lanes.every(el => {const b=el.getBoundingClientRect();return b.left>=0&&b.right<=innerWidth+1})'), f'Location outside viewport at {width}px'
         page.set_viewport_size({'width': 1440, 'height': 1000})
-        page.screenshot(path=str(folder / 'ui-de-dark-locations.png'), full_page=True, animations='disabled')
+        expect(page.get_by_role('button', name='Lagerorte', exact=True)).to_have_attribute('aria-pressed', 'true')
+        expect(page.locator('.storage-spool')).to_have_count(8)
+        capture_preview(page, folder / 'ui-de-dark-locations.png', '.label-tray')
         page.get_by_role('button', name='Karten', exact=True).click()
-        page.screenshot(path=str(folder / 'ui-de-dark-spools.png'), full_page=True, animations='disabled')
+        expect(page.get_by_role('button', name='Karten', exact=True)).to_have_attribute('aria-pressed', 'true')
+        expect(page.locator('.spool-card')).to_have_count(8)
+        expect(page.locator('#storage-board')).to_have_count(0)
+        capture_preview(page, folder / 'ui-de-dark-spools.png', '.spool-card-actions')
         theme.select_option('light')
         expect(page.locator('html')).to_have_attribute('data-theme', 'light')
-        page.screenshot(path=str(folder / 'ui-de-light-spools.png'), full_page=True, animations='disabled')
+        capture_preview(page, folder / 'ui-de-light-spools.png', '.spool-card-actions')
         page.locator('.side-nav a[href="/filaments"]').click();theme.select_option('dark')
         expect(page.locator('html')).to_have_attribute('data-theme', 'dark')
         expect(page.locator('.filament-card')).to_have_count(6)
-        page.screenshot(path=str(folder / 'ui-de-dark-filaments.png'), full_page=True, animations='disabled')
+        capture_preview(page, folder / 'ui-de-dark-filaments.png', '.filament-card .spool-card-actions')
         page.set_viewport_size({'width': 390, 'height': 844})
         page.goto(BASE + '/spools', wait_until='networkidle')
         expect(page.locator('.mobile-navigation')).to_be_visible()
@@ -323,7 +355,9 @@ def run_ui_workflows(browser, errors):
         page.evaluate('window.scrollTo({top:0,behavior:"instant"})')
         first_identity=page.locator('.spool-card-identity').first
         assert first_identity.bounding_box()['y'] + first_identity.bounding_box()['height'] < page.locator('.mobile-navigation').bounding_box()['y']
-        page.screenshot(path=str(folder / 'ui-de-mobile-dark.png'), animations='disabled')
+        expect(page.get_by_role('button', name='Karten', exact=True)).to_have_attribute('aria-pressed', 'true')
+        expect(page.locator('.spool-card')).to_have_count(8)
+        capture_preview(page, folder / 'ui-de-mobile-dark.png', '.mobile-navigation', full_page=False)
         print('UI browser checks passed: real spool/label and printer drops, safe file previews, exact product filtering, light/dark/system, draft persistence, mobile drawer and six viewport widths.')
     except Exception:
         events = page.evaluate('window.printerDragEvents ?? []')
