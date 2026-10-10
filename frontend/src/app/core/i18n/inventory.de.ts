@@ -150,7 +150,7 @@ export const INVENTORY_DE: Record<string,string> = {
   "NEW DELIVERY": "NEUE LIEFERUNG",
   "NFC": "NFC",
   "No active spools are at or below their product’s configured warning level.": "Keine aktive Spule liegt auf oder unter der eingestellten Warnschwelle ihres Produkts.",
-  "No catalog data loaded. Enable FILAMENT_CATALOG_ENABLED=1 to allow optional lookups, then reload. Manual filament creation always remains available.": "Keine Katalogdaten geladen. Aktiviere FILAMENT_CATALOG_ENABLED=1, um optionale Abfragen zu erlauben, und lade die Seite neu. Filamente können jederzeit manuell angelegt werden.",
+  "No catalog data loaded. Enable SPOOLMERA_CATALOG_ENABLED=1 to allow optional lookups, then reload. Manual filament creation always remains available.": "Keine Katalogdaten geladen. Aktiviere SPOOLMERA_CATALOG_ENABLED=1, um optionale Abfragen zu erlauben, und lade die Seite neu. Filamente können jederzeit manuell angelegt werden.",
   "No consumption records yet.": "Noch keine Verbrauchsbuchungen vorhanden.",
   "No drying events recorded.": "Noch keine Trocknungen erfasst.",
   "No filament products exist yet. Add a product first.": "Noch keine Filamentprodukte vorhanden. Lege zuerst ein Produkt an.",

@@ -119,7 +119,7 @@ describe('runtime language preferences and rendering', () => {
     fixture.detectChanges(); await fixture.whenStable();
     const form = fixture.nativeElement.querySelector('form');
     const password = fixture.nativeElement.querySelector('input[name="password"]');
-    const picker: HTMLSelectElement = fixture.nativeElement.querySelector('fm-language-picker select');
+    const picker: HTMLSelectElement = fixture.nativeElement.querySelector('sm-language-picker select');
     picker.value = 'de'; picker.dispatchEvent(new Event('change')); fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('h1').textContent).toBe('Willkommen zurück.');
     expect(fixture.nativeElement.querySelector('form')).toBe(form);
