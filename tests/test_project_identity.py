@@ -27,6 +27,20 @@ LEGACY = (
 SUFFIXES = {".py", ".ts", ".mjs", ".html", ".css", ".md", ".yml", ".yaml", ".json", ".example"}
 SKIP = {".git", ".venv", ".data", "node_modules", "dist", "coverage", "__pycache__", ".pytest_cache"}
 
+# The repository URL and its checkout directory still have the pre-rebrand name.
+# This narrow docs-only exception must not permit old application identifiers in
+# code, configuration, product descriptions or arbitrary documentation prose.
+REPOSITORY_NAME = "Filament" + "Manager"
+REPOSITORY_PATH = "Cenn0/" + REPOSITORY_NAME
+
+
+def checked_identity_content(path: Path) -> str:
+    content = path.read_text(encoding="utf-8")
+    if path.suffix == ".md":
+        content = content.replace(REPOSITORY_PATH, "")
+        content = content.replace("cd " + REPOSITORY_NAME, "")
+    return content
+
 
 def test_no_obsolete_brand_identifiers_in_source():
     violations = []
@@ -37,7 +51,7 @@ def test_no_obsolete_brand_identifiers_in_source():
         if path.suffix not in SUFFIXES and path.name not in {"Dockerfile", "Dockerfile.notifications", ".env.example"}:
             continue
         # The identity guard uses concatenated markers, not actual legacy identifiers.
-        content = path.read_text(encoding="utf-8")
+        content = checked_identity_content(path)
         for token in LEGACY:
             if (token in content if token == "FILAMENT" + "_" else token.lower() in content.lower()):
                 violations.append(f"{path.relative_to(ROOT)}: {token}")
@@ -50,3 +64,14 @@ def test_greenfield_project_namespace():
     compose = (ROOT / "compose.yaml").read_text(encoding="utf-8")
     assert "name: spoolmera" in compose and "spoolmera_data:/data" in compose
     assert "SPOOLMERA_DB_PATH" in compose
+
+
+def test_old_application_name_still_rejected_outside_repository_references(tmp_path):
+    doc = tmp_path / "docs.md"
+    doc.write_text("App: " + REPOSITORY_NAME + "\\n", encoding="utf-8")
+    assert any(token.lower() in checked_identity_content(doc).lower() for token in LEGACY)
+    doc.write_text("Repository: " + REPOSITORY_PATH + "\\ncd " + REPOSITORY_NAME + "\\n", encoding="utf-8")
+    assert all(token.lower() not in checked_identity_content(doc).lower() for token in LEGACY)
+    source = tmp_path / "module.py"
+    source.write_text("App: " + REPOSITORY_NAME, encoding="utf-8")
+    assert REPOSITORY_NAME in checked_identity_content(source)
