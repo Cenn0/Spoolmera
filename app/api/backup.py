@@ -71,7 +71,7 @@ def register_backup_routes(app: FastAPI, db_path: Path) -> None:
             _record_status(db_path, last_success_at=info["created_at"],
                            last_size_bytes=str(info["size_bytes"]), last_error="")
             stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-            return SnapshotResponse(snapshot, lock, filename=f"filament-manager-{stamp}.sqlite3",
+            return SnapshotResponse(snapshot, lock, filename=f"spoolmera-{stamp}.sqlite3",
                                     media_type="application/vnd.sqlite3",
                                     headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
                                              "X-Backup-SHA256": info["sha256"]})

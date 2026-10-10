@@ -16,7 +16,7 @@ def test_spoolmera_branding_on_public_surfaces(tmp_path):
     sidebar = (ROOT / "frontend/src/app/app.component.html").read_text()
     assert "SPOOLMERA" in login and "spoolmera-mark.svg" in login
     assert "SPOOLMERA" in sidebar and "spoolmera-mark.svg" in sidebar
-    assert "Filament Manager" not in index + login + sidebar
+    assert "Spoolmera" not in index + login + sidebar
 
 
 def test_labels_are_branded_in_both_languages():
@@ -26,7 +26,7 @@ def test_labels_are_branded_in_both_languages():
     for language in ("en", "de"):
         markup = label_html(spool, language=language)
         assert "SPOOLMERA" in markup
-        assert "Filament Manager" not in markup
+        assert "Spoolmera" not in markup
 
 
 def test_existing_deployment_settings_are_preserved():
@@ -34,3 +34,10 @@ def test_existing_deployment_settings_are_preserved():
     assert "name: filamentmanager" in compose
     assert "filament_data:/data" in compose
     assert "FILAMENT_DB_PATH" in compose
+
+
+def test_dynamic_document_title_is_branded():
+    service = (ROOT / 'frontend/src/app/core/i18n/i18n.service.ts').read_text()
+    assert "this.t('Spoolmera · Material inventory')" in service
+    operations = (ROOT / 'frontend/src/app/features/operations/operations.component.html').read_text()
+    assert 'Spoolmera' in operations

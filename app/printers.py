@@ -104,7 +104,7 @@ def fetch_json(printer, path: str) -> dict:
     token = os.getenv(token_var, "") if token_var else ""
     if token_var and not token:
         raise ValueError("Printer credentials are not configured.")
-    headers = {"Accept": "application/json", "User-Agent": "FilamentManager/0.4"}
+    headers = {"Accept": "application/json", "User-Agent": "Spoolmera/0.4"}
     if token:
         headers["X-Api-Key"] = token
     request = urllib.request.Request(base + path, headers=headers, method="GET")
@@ -232,7 +232,7 @@ def write_controller(printer, path: str, *, body: bytes = b"", content_type: str
     token = os.getenv(token_var, "") if token_var else ""
     if token_var and not token:
         raise ValueError("Printer credentials are not configured.")
-    headers = {"User-Agent": "FilamentManager/0.5"}
+    headers = {"User-Agent": "Spoolmera/0.5"}
     if token:
         headers["X-Api-Key"] = token
     if content_type:
