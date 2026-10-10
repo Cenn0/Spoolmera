@@ -3,7 +3,7 @@ import { I18nService, TranslatePipe } from '../i18n';
 
 /** Both file picker and drop use exactly the same validation and preview path. */
 @Component({
-  selector: 'fm-file-drop', standalone: true, imports: [TranslatePipe],
+  selector: 'sm-file-drop', standalone: true, imports: [TranslatePipe],
   template: `<div class="file-drop" [class.drop-active]="over()" [class.is-disabled]="disabled()"
     (dragenter)="enter($event)" (dragover)="hover($event)" (dragleave)="leave($event)" (drop)="drop($event)">
     <span class="file-drop-icon" aria-hidden="true">↥</span>

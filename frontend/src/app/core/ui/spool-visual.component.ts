@@ -2,7 +2,7 @@ import { Component, computed, input } from '@angular/core';
 
 /** Decorative reel; adjacent text conveys color, material and stock accessibly. */
 @Component({
-  selector: 'fm-spool-visual', standalone: true,
+  selector: 'sm-spool-visual', standalone: true,
   host: {'aria-hidden': 'true'},
   template: `<div class="reel" [style.--filament]="safeColor()" [style.--fill]="fill() + '%'">
     <div class="reel-winding"></div><div class="reel-hub"><span></span></div>
