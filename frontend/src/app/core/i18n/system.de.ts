@@ -4,7 +4,7 @@ export const SYSTEM_DE: Readonly<Record<string,string>> = {
   "Bambu LAN MQTT URL (private IP + 8883)": "Bambu-LAN-MQTT-URL (private IP + 8883)",
   "Bambu device serial number": "Bambu-Geräteseriennummer",
   "LAN access-code environment variable": "Umgebungsvariable für LAN-Zugangscode",
-  "Bambu LAN: enable Developer Mode if required, allowlist the printer IP, store its LAN access code in the named token variable and pin FILAMENT_BAMBU_CERT_SHA256_<ALIAS> to the printer TLS certificate. Only LAN status, AMS and opt-in pause/resume/cancel are available; use Bambu Studio for uploads and starting jobs.": "Bambu LAN: Bei Bedarf Entwicklermodus aktivieren, Drucker-IP freigeben, den LAN-Zugangscode in der Tokenvariable hinterlegen und das TLS-Zertifikat unter FILAMENT_BAMBU_CERT_SHA256_<ALIAS> per Fingerabdruck binden. LAN-Status, AMS und optional Pause/Fortsetzen/Abbrechen werden unterstützt; Upload und Start erfolgen über Bambu Studio.",
+  "Bambu LAN: enable Developer Mode if required, allowlist the printer IP, store its LAN access code in the named token variable and pin FILAMENT_BAMBU_CERT_SHA256_BAMBU1 to the printer TLS certificate. Only LAN status, AMS and opt-in pause/resume/cancel are available; use Bambu Studio for uploads and starting jobs.": "Bambu LAN: Bei Bedarf Entwicklermodus aktivieren, Drucker-IP freigeben, den LAN-Zugangscode in der Tokenvariable hinterlegen und das TLS-Zertifikat unter FILAMENT_BAMBU_CERT_SHA256_BAMBU1 per Fingerabdruck binden. LAN-Status, AMS und optional Pause/Fortsetzen/Abbrechen werden unterstützt; Upload und Start erfolgen über Bambu Studio.",
   "Serial": "Seriennummer",
   "Bambu LAN status": "Bambu-LAN-Status",
   "Progress": "Fortschritt",
