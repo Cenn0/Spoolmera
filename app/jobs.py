@@ -199,10 +199,11 @@ def poll_printer(db_path: Path, printer_id: int) -> dict:
                                 or existing_run["state"] not in ("printing", "paused")):
                             outcome = "needs_review"
                         else:
-                            db.execute("UPDATE print_runs SET state='completed',last_seen_at=? WHERE id=?",
-                                       (utc_now(), db.execute(
-                                           "SELECT id FROM print_runs WHERE printer_id=? AND external_run_id=?",
-                                           (printer_id, external_id)).fetchone()[0]))
+                            db.execute(
+                                "UPDATE print_runs SET state='completed',last_seen_at=? "
+                                "WHERE printer_id=? AND external_run_id=?",
+                                (utc_now(), printer_id, external_id),
+                            )
                     if printer["kind"] == "moonraker" or outcome == "printing":
                         db.execute(
                             """INSERT INTO print_runs(printer_id,job_id,external_run_id,state,first_seen_at,last_seen_at)

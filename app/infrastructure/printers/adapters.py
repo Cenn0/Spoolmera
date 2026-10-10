@@ -107,6 +107,12 @@ class BambuAdapter(OctoPrintAdapter):
                 return Observation(None)  # an earlier registered print owns this task
             if previously_seen and previously_seen != run_id:
                 return Observation("needs_review", previously_seen, state)
+            if job["observed_printing"] and not previously_seen and run_id:
+                # A task ID appearing only mid-run is not evidence that the
+                # earlier unidentified print was the same run.
+                return Observation("needs_review", None, state)
+            if not job["observed_printing"] and state != "printing":
+                return Observation(None)  # paused-only snapshots prove no active run
             return Observation("printing", run_id, state)
         if job["observed_printing"]:
             if (state == "complete" and same_file and run_id
