@@ -74,12 +74,12 @@ def test_pushall_and_control_packet_framing(monkeypatch):
     full={'print':{'gcode_state':'RUNNING','subtask_name':'job.3mf','mc_percent':42}}
     def report(body):
         return bambu._frame(0x30,bambu._text(topic)+json.dumps(body).encode())
-    stream=FakeMqttStream([bambu._frame(0x90,b'\\x00\\x01\\x00'),report(partial),report(full)])
+    stream=FakeMqttStream([bambu._frame(0x90,b'\x00\x01\x00'),report(partial),report(full)])
     monkeypatch.setattr(bambu,'_connect',lambda *_:(stream,'01P00C5A1002021'))
     assert bambu.read_bambu_status({},lambda s:s)['progress_percent']==42
     assert b'pushall' in b''.join(stream.sent)
     assert b'device/01P00C5A1002021/request' in b''.join(stream.sent)
-    control=FakeMqttStream([bambu._frame(0x40,b'\\x00\\x03')])
+    control=FakeMqttStream([bambu._frame(0x40,b'\x00\x03')])
     monkeypatch.setattr(bambu,'_connect',lambda *_:(control,'01P00C5A1002021'))
     assert bambu.send_bambu_control({},lambda s:s,'cancel')==202
     assert b'"command":"stop"' in b''.join(control.sent)
