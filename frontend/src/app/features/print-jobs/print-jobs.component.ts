@@ -43,6 +43,7 @@ export class JobsComponent implements OnInit, OnDestroy {
   private suggestionContext = '';
   plateIndex = 0; firstTool = 0; printerId = 0; spoolId = 0;
   fileName = ''; estimatedG: number | null = null; upload: File | null = null; note = '';
+  autoAccountBambu = false;
   stlFile: File | null = null; sliceProfile = ''; clearReason = '';
 
   async ngOnInit(): Promise<void> {
@@ -233,6 +234,7 @@ export class JobsComponent implements OnInit, OnDestroy {
     this.busy.set(true); this.errorValue.set('');
     try {
       await this.api.createMultiJob({printer_id: this.printerId, file_name: this.fileName.trim(), note: this.note,
+        auto_account_bambu: this.selectedPrinterIsBambu() && this.autoAccountBambu,
         materials: materials.map(m => ({...m, estimated_g: Number(m.estimated_g)}))});
       this.fileName = ''; this.upload = null; this.estimatedG = null; this.note = ''; this.firstTool = 0;
       this.extraMaterials.set([]); this.inspection.set(null); this.invalidateSuggestions(); await this.refresh();
