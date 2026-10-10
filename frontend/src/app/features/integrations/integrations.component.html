@@ -55,10 +55,12 @@
       <button class="btn primary" type="submit" [disabled]="tokenBusy()||tokenForm.invalid">{{'Create scoped token'|t}}</button>
     </form>
     @if(issuedSecret()){
-      <div class="detail-summary"><div>
-        <strong>{{'Copy this token now — it will never be shown again.'|t}}</strong>
-        <input type="text" readonly [value]="issuedSecret()" [attr.aria-label]="'New automation token'|t"/>
-      </div><button class="btn ghost" type="button" (click)="issuedSecret.set('')">{{'Hide token'|t}}</button></div>
+      <div class="form-grid issued-token">
+        <label class="full">{{'Copy this token now — it will never be shown again.'|t}}
+          <input type="text" readonly [value]="issuedSecret()" [attr.aria-label]="'New automation token'|t"/>
+        </label>
+        <div class="full"><button class="btn ghost" type="button" (click)="issuedSecret.set('')">{{'Hide token'|t}}</button></div>
+      </div>
     }
   </div>
   <div class="workflow-list">

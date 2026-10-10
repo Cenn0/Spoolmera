@@ -1,7 +1,7 @@
 /* Optional 50 × 30 mm print format; includes an explicit matching print page size. */
 .label{width:50mm;height:30mm;padding:1.8mm;gap:1mm}
 .label-brand{font-size:5.5pt;padding-bottom:.7mm}
-.label-product{font-size:7pt;margin-top:.9mm;max-height:8mm}
+.label-product{font-size:7pt;margin-top:.9mm}
 .label-product strong{font-size:8pt}
 .label-material{font-size:6pt;margin-top:.7mm;max-height:5mm}
 .label-weight{font-size:7pt}

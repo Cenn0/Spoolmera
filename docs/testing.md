@@ -110,6 +110,75 @@ disposable test instance; they are not credentials for a vendor cloud service.
 
 The browser CI job creates **real Chromium screenshots from synthetic example data** after exercising the Angular UI in light, dark and mobile layouts. Successful runs publish the artifacts `ui-ux-previews` and `german-interface-previews`; failure evidence is kept separately. Five screenshots from the verified [2026-10-10 CI run](https://github.com/Cenn0/Spoolmera/actions/runs/38047886348) are committed under [`docs/screenshots/`](screenshots/README.md) and embedded in the project README, so images remain available after short-lived Actions artifacts expire. The [provenance guide](screenshots/README.md) maps the filenames and explains how to recapture them after frontend changes. They are visual regression evidence, **not** hardware compatibility results or a complete accessibility audit.
 
+### Complete view inventory
+
+The same CI job also runs [`scripts/ui_visual_audit.py`](../scripts/ui_visual_audit.py).
+Its default matrix contains **296 distinct captures** in German: 73 desktop
+states and 75 mobile states, each in light and dark mode. Desktop captures use
+1440 × 1000 pixels; mobile captures use 390 × 844 pixels. The separate browser
+smoke checks the inventory and location board at widths from 320 to 1920 pixels.
+
+| Views | Additional captured states |
+| --- | --- |
+| Overview, spools | Cards, table, locations, scanner, filters, label tray, pending location confirmation, empty results, mobile action menu and navigation drawer |
+| Filaments, catalog | Empty search, selected catalog material, product creation and editing, review before adding a catalog product |
+| Spool details | Long product names, movement history, consumption, adjustment, weighing and drying dialogs |
+| Batch, CSV and Spoolman imports | Input, preview, confirmation and result states |
+| History, restock | Empty history filter and all-product restock results |
+| Print jobs | Multiple tools, metadata inspection, focus/readiness states, unknown start review, enabled slicer form and all four consumption modes |
+| Printers | OctoPrint and Bambu forms, editing, loaded-spool assignment, Bambu status and uncertain upload review |
+| Integrations, diagnostics | Token issuance, scale receipts, capabilities and expanded service diagnostics |
+| Users, account and authentication | Password reset, account validation, access denied, sign-in errors and first setup |
+| Printed labels | 60 × 40 mm, 50 × 30 mm and a batch sheet |
+
+Build and stage the frontend, install the browser dependencies, then run the
+audit from the repository root:
+
+```bash
+python -m pip install --require-hashes -r requirements-e2e.txt
+python -m playwright install chromium
+# Run npm ci and npm run build inside frontend first.
+mkdir -p app/ui
+cp -a frontend/dist/spoolmera/browser/. app/ui/
+python scripts/ui_visual_audit.py --serve --strict --output /tmp/spoolmera-visual-audit
+```
+
+`--serve` starts the actual backend with a new temporary database, uses normal
+API routes to create synthetic inventory and removes the database when finished.
+Only the outbound polling cycle is replaced in that test subprocess; production
+code and its normal poller lifecycle stay intact. Browser routes block external
+requests and physical printer commands. Catalog, hardware and initial-setup
+response fixtures are explicitly recorded beside the affected captures.
+
+Open `index.html` for the screenshot gallery and `manifest.json` for the exact
+requested state matrix, actual captures, errors and geometry measurements.
+The gallery links each preview to its complete screenshot. Focused states also
+have viewport captures; full-page images start at the top of the document so
+fixed navigation is not displaced by screenshot scrolling. CI uploads the
+complete directory as **`ui-all-views-audit`**, including partial evidence on
+failure, with seven-day retention.
+
+The strict gate rejects missing requested states, capture failures, JavaScript
+page errors, horizontal document overflow and concrete regressions such as
+overlapping spool titles/statuses, clipped location columns or hidden dialog
+close controls. Printed-label checks require a loaded QR image and a visible
+product-name line. Intentional internal table scrolling is permitted. Geometry
+checks accompany visual inspection; they do not identify every possible design,
+accessibility or browser-specific problem.
+
+For a focused rerun, select states by name or glob; `--append` replaces matching
+captures and retains the rest of an earlier matrix **from the same build**:
+
+```bash
+python scripts/ui_visual_audit.py --serve --strict \
+  --contexts mobile-dark --only 'spools-*,locations*' \
+  --output /tmp/spoolmera-visual-audit --append
+```
+
+Use `--languages en` for English or `--languages de,en` for both supported
+languages. A selected-state run checks completeness only for its requested
+matrix; consult the manifest before describing it as a complete audit.
+
 ## Interpretation of results
 
 - **Technically tested:** API roles, password/session handling, import boundaries,

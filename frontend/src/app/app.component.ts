@@ -56,7 +56,11 @@ export class AppComponent implements OnInit {
     const params = new URLSearchParams(window.location.search);
     const returnUrl = params.get('returnUrl');
     const safeReturn=returnUrl?.startsWith('/')&&!returnUrl.startsWith('//')&&!returnUrl.startsWith('/login')?returnUrl:'/';
-    const uid = params.get('spool') || new URL(safeReturn,window.location.origin).searchParams.get('spool');
+    // QR links are rooted at /?spool=<uid>. Other routes, such as history,
+    // use their own spool query parameter and must keep that filter intact.
+    const spoolLinkUid = (url: URL): string | null => url.pathname === '/' ? url.searchParams.get('spool') : null;
+    const uid = spoolLinkUid(new URL(window.location.href)) || (this.router.url.startsWith('/login')
+      ? spoolLinkUid(new URL(safeReturn,window.location.origin)) : null);
     if (uid) {
       try {
         const spool = await this.inventory.spoolByUid(uid);

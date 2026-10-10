@@ -13,7 +13,7 @@ import { ConsumptionComponent } from './consumption.component';
 
 type Mapping = {tool: number; spool_id: number; estimated_g: number | null};
 type SlotSuggestion = {tool: number; spool_id: number; name: string; estimated_g: number};
-@Component({standalone: true, imports: [FormsModule, RouterLink, ConsumptionComponent, TranslatePipe,FileDropComponent], templateUrl: './print-jobs.component.html'})
+@Component({standalone: true, imports: [FormsModule, RouterLink, ConsumptionComponent, TranslatePipe,FileDropComponent], templateUrl: './print-jobs.component.html', styleUrl: './print-jobs.component.css'})
 export class JobsComponent implements OnInit, OnDestroy {
   readonly i18n=inject(I18nService);
   readonly route=inject(ActivatedRoute);private readonly destroy=inject(DestroyRef);

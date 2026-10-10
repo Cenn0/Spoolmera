@@ -14,7 +14,7 @@ Desktop navigation is fixed to the top and scrolls independently. Narrow screens
 
 ## Spools and filament products
 
-Spools default to color cards: material, color, physical roll identity, remaining weight, stock indicator, location and quick actions are visible together. **Cards / Table** is stored for the browser. Tables scroll in their own labeled region rather than forcing the page sideways. The optional NFC/scanner workflow is collapsed initially, leaving the inventory visible sooner. On phones, secondary import/export/batch actions are grouped under **Actions** and filters expand explicitly; a count keeps active filters visible when collapsed. Compact summaries leave the first roll identity visible above the bottom navigation on the tested 390 × 844 viewport.
+Spools default to color cards: material, color, physical roll identity, remaining weight, stock indicator, location and quick actions are visible together. **Cards / Table / Locations** is stored for the browser. Table and Locations views use the full inventory width and place a compact label tray below the results. Tables scroll in their own labeled region rather than forcing the page sideways. The optional NFC/scanner workflow is collapsed initially, leaving the inventory visible sooner. On phones, secondary import/export/batch actions are grouped under **Actions** and filters expand explicitly; a count keeps active filters visible when collapsed. Compact summaries leave the first roll identity visible above the bottom navigation on the tested 390 × 844 viewport.
 
 The summary describes all active inventory; the result count describes the loaded, filtered rows. These are deliberately different scopes. Existing server-side filtering and cursor pagination remain. Search, material, state, archive mode, exact product and low-stock filters are reflected in the URL, including reload and Back/Forward. Search changes replace the current history entry; explicit filter changes create a reversible entry. Inputs are bounded to the existing API limits. Warning filtering runs on the server before pagination and uses each product's inclusive threshold; zero-weight rolls are handled by the Empty filter. The summary buttons open the corresponding **global active inventory** view and deliberately clear unrelated filters.
 
@@ -42,6 +42,11 @@ The tray holds up to 100 unique spool UUIDs and preserves the explicit order in 
 
 Selection is intentionally not persisted across page reloads or navigation away from the spool page. **Select loaded labels** adds the currently loaded results in their displayed order; it is not a hidden select-all across unloaded pages. **Deselect loaded labels** keeps selections outside the active filters. Batch selection is all-or-nothing at the same 100-label cap. Dragging a selected label displays its insertion side, and moving it announces the resulting position. **Clear selection** is explicit. Selecting or sorting labels changes no physical stock. The currently selected interface language is carried to the label page.
 
+Printed labels reserve one line for the manufacturer and two lines for the
+product name. A long manufacturer is shortened with an ellipsis instead of
+hiding the product. Both paper sizes retain the original QR dimensions,
+physical spool identifier, material, color and remaining weight.
+
 ## Regression checks
 
 Run the normal frontend tests, `npm run i18n:check`, typecheck, production build, API contract check and backend suite. New unit tests cover appearance lifecycle, blocked storage, file picker/drop validation, ordered and bounded selection, stale/foreign drags and editor/viewer slot preparation. Backend regressions exercise exact product filtering with pagination/archive combinations and preservation of label order.
@@ -52,10 +57,18 @@ The follow-up regressions in `scripts/ui_followup_smoke.py` cover URL reload/his
 
 The concurrent gallery and file-drop feedback improvements remain covered by `catalog_browser_smoke.py`, the product-view/component suites and file-drop feedback regressions.
 
+The [complete visual audit](testing.md#complete-view-inventory) captures every
+application route and its explicit state inventory in light/dark desktop/mobile
+layouts. Its CI artifact contains the complete screenshots, a browsable index
+and a manifest with missing-state, geometry and JavaScript-error checks.
+Long spool-detail titles wrap without overlapping their status; dialog headings
+and close controls remain visible while scrolling. Job actions and loaded-spool
+controls wrap onto their own row when needed, preserving readable identities.
+
 ## Mobile legibility and warehouse board navigation (Issue #10)
 
 The mobile layout uses at least 11px for compact inventory metric labels, 12px for secondary spool labels and 16px for mobile text and select inputs to mitigate mobile-browser focus zoom. Drag handles, label-tray arrows and card actions provide at least 44px targets on narrow screens and devices reporting coarse pointer input. The stored filament properties and stock operations are unaffected.
 
-The horizontal **Locations** board exposes explicit **Previous/Next** buttons, operable by keyboard and touch. Each button is disabled at the corresponding actual scroll boundary; controls recalculate on resizing and when loaded location lanes change. Direct touch swiping and horizontal keyboard scrolling within the focusable board remain available. Scrolling never stages or saves a location change. The original physical verification and explicit save gate remain mandatory.
+The **Locations** board fits complete columns into a responsive grid and stacks locations vertically on phones. Short and empty columns retain their own height instead of stretching to match the busiest location. There are no partially clipped columns or horizontal board navigation controls. Every roll has a destination selector for editors and a separate label-selection button available to viewers as well. Selecting labels does not stage a location change. The original physical verification and explicit save gate remain mandatory for reassignment.
 
-The Angular unit suite validates scroll limits and absence of inventory writes. Real Chromium smoke checks exercise keyboard board scrolling, computed mobile font/control sizes, existing drag/drop confirmations, and the first spool visibility above the fixed bottom navigation at 390 × 844. This is **not** physical iOS Safari, iPhone, screen-reader or 3D-printer certification; real-device acceptance remains a separate validation scope.
+The Angular unit suite validates label selection, staged location changes and absence of unintended inventory writes. Real Chromium smoke checks verify complete location columns and independent heights, overflow at six viewport widths, computed mobile font/control sizes, existing drag/drop confirmations, and the first spool visibility above the fixed bottom navigation at 390 × 844. This is **not** physical iOS Safari, iPhone, screen-reader or 3D-printer certification; real-device acceptance remains a separate validation scope.

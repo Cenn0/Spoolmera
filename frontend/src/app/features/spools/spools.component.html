@@ -38,7 +38,7 @@
 </details>
 @if(error()){<p class="form-error" role="alert">{{error()|t}}</p>}
 @if(productId()){<div class="filter-context">{{'Filtered to one filament product'|t}}<button class="btn ghost" type="button" (click)="clearProductFilter()">{{'Show all products'|t}}</button></div>}
-<div class="inventory-layout"><section class="panel inventory-results" [attr.aria-busy]="loading()">
+<div class="inventory-layout" [class.inventory-layout-expanded]="displayMode()!=='cards'"><section class="panel inventory-results" [attr.aria-busy]="loading()">
   <div class="toolbar">
     <label class="search-field"><span aria-hidden="true">⌕</span><input id="spool-search" type="search" maxlength="120" [placeholder]="'Search brand, color, location…'|t" [value]="query()" (input)="changeSearch($any($event.target).value)" [attr.aria-label]="'Search spools'|t"></label>
     <div class="inventory-filter-controls" id="inventory-filters" [class.filters-open]="filtersOpen()">
@@ -76,7 +76,9 @@
 <span class="helper">{{'Drag a spool by its handle to prepare labels, or use the selection button.'|t}}</span></div>
 <div class="result-count">{{'{count} spools loaded'|t:{count:i18n.number(items().length)} }} @if(loading()){<span role="status"> {{'· Loading…'|t}}</span>}
     <button class="btn ghost" type="button" [disabled]="loading()" (click)="refresh()">{{'Refresh spools'|t}}</button></div>
-@if(displayMode()==='table'){  <div class="table-wrap inventory-table" tabindex="0" role="region" [attr.aria-label]="'Spool table'|t"><table class="data-table">
+@if(displayMode()==='table'){
+  <p class="inventory-table-hint helper" id="spool-table-help"><span aria-hidden="true">↔</span>{{'Scroll horizontally to see all columns.'|t}}</p>
+  <div class="table-wrap inventory-table" tabindex="0" role="region" [attr.aria-label]="'Spool table'|t" aria-describedby="spool-table-help"><table class="data-table">
     <thead><tr><th [attr.aria-label]="'Select labels'|t">{{'Label'|t}}</th><th>{{'Filament'|t}}</th><th>{{'Material'|t}}</th><th>{{'Remaining'|t}}</th><th>{{'Status'|t}}</th><th>{{'Location'|t}}</th><th class="align-right">{{'Actions'|t}}</th></tr></thead>
     <tbody id="spool-table-body">
       @for (spool of filtered();track spool.id) {
@@ -102,41 +104,8 @@
       <button type="button" class="btn ghost" [disabled]="!locationDraft().trim()" (click)="createLocationLane()">{{'Add location'|t}}</button></div>
     }
   </div>
-  <div class="storage-navigation">
-    <p class="helper">{{'Swipe or use the arrows to explore storage locations.'|t}}</p>
-    <div class="storage-navigation-actions" role="group" [attr.aria-label]="'Storage location navigation'|t">
-      <button class="btn ghost" type="button" aria-controls="storage-board" [disabled]="!canScrollStorageBack()" (click)="scrollStorage(-1)" [attr.aria-label]="'Previous storage locations'|t"><span aria-hidden="true">←</span> {{'Previous locations'|t}}</button>
-      <button class="btn ghost" type="button" aria-controls="storage-board" [disabled]="!canScrollStorageForward()" (click)="scrollStorage(1)" [attr.aria-label]="'Next storage locations'|t">{{'Next locations'|t}} <span aria-hidden="true">→</span></button>
-    </div>
-  </div>
-  <div #storageBoardEl class="storage-board" id="storage-board" tabindex="0" role="region" [attr.aria-label]="'Storage locations'|t" (scroll)="updateStorageScrollState(storageBoardEl)">
-  @for(lane of storageBoard();track lane.location){
-    <section class="storage-lane" [class.drop-active]="hoverLocation()===lane.location && !!dragged()" [attr.data-location]="lane.location" (dragover)="overLocation($event,lane.location)" (dragleave)="hoverLocation.set(null)" (drop)="dropLocation($event,lane.location)">
-      <div class="storage-lane-heading"><h3>{{lane.location||('Unassigned'|t)}}</h3><span>{{'{count} spools on this page'|t:{count:i18n.number(lane.spools.length)} }}</span><strong>{{grams(lane.totalG)}}</strong></div>
-      <div class="storage-lane-contents">
-        @for(spool of lane.spools;track spool.uid){
-          <article class="storage-spool" [attr.data-spool-uid]="spool.uid">
-            <div class="storage-spool-main">
-              @if(auth.canEdit()&&!spool.archived_at){<button type="button" class="drag-handle" draggable="true" (dragstart)="dragStart($event,spool)" (dragend)="dragEnd()" [attr.aria-label]="'Drag spool {id}'|t:{id:''+spool.id}" [attr.title]="'Drag spool to a location'|t">⠿</button>}
-              <sm-spool-visual [color]="spool.color_hex" [percentage]="percent(spool)" />
-              <div><strong>{{spool.brand}} · {{spool.product_name}}</strong><small>{{spool.color_name}} · {{spool.material}}</small><span>{{'Spool #{id}'|t:{id:''+spool.id} }} · {{grams(spool.remaining_g)}}</span></div>
-            </div>
-            @if(auth.canEdit()&&!spool.archived_at){
-              <label class="storage-destination">{{'Move to location'|t}}
-                <select [value]="spool.location||''" (change)="chooseLocation($event,spool)" [attr.aria-label]="'Move spool {id} to location'|t:{id:''+spool.id}">
-                  @for(target of storageBoard();track target.location){<option [value]="target.location" [selected]="target.location===(spool.location||'')">{{target.location||('Unassigned'|t)}}</option>}
-                </select>
-              </label>
-            }
-          </article>
-        }@empty{<div class="storage-empty">{{'Drop a spool here'|t}}</div>}
-      </div>
-    </section>
-  }
-  </div>
-  <p class="storage-page-hint helper">{{'The board shows currently loaded spools. Load more to include older spools.'|t}}</p>
   @if(pendingLocation();as pending){
-    <section class="storage-confirm" aria-live="polite">
+    <section #locationConfirmation class="storage-confirm" tabindex="-1" [attr.aria-label]="'Confirm location change'|t" aria-live="polite">
       <h3>{{'Confirm location change'|t}}</h3>
       <p><strong>{{pending.name}}</strong> · {{'Spool #{id}'|t:{id:''+pending.id} }}</p>
       <p>{{pending.original||('Unassigned'|t)}} <span aria-hidden="true">→</span> <strong>{{pending.target||('Unassigned'|t)}}</strong></p>
@@ -147,6 +116,31 @@
     </section>
   }
   @if(locationError()){<p class="form-error" role="alert">{{locationError()|t}}</p>}
+  <div class="storage-board" id="storage-board" role="region" [attr.aria-label]="'Storage locations'|t">
+  @for(lane of storageBoard();track lane.location){
+    <section class="storage-lane" [class.drop-active]="hoverLocation()===lane.location && !!dragged()" [attr.data-location]="lane.location" [attr.aria-label]="lane.location||('Unassigned'|t)" (dragover)="overLocation($event,lane.location)" (dragleave)="hoverLocation.set(null)" (drop)="dropLocation($event,lane.location)">
+      <div class="storage-lane-heading"><h3>{{lane.location||('Unassigned'|t)}}</h3><span>{{'{count} spools on this page'|t:{count:i18n.number(lane.spools.length)} }}</span><strong>{{grams(lane.totalG)}}</strong></div>
+      <div class="storage-lane-contents">
+        @for(spool of lane.spools;track spool.uid){
+          <article class="storage-spool" [class.selected]="selectedLabels().includes(spool.uid)" [attr.data-spool-uid]="spool.uid">
+            <div class="storage-spool-main">
+              <sm-spool-visual [color]="spool.color_hex" [percentage]="percent(spool)" />
+              <div><strong>{{spool.brand}} · {{spool.product_name}}</strong><small>{{spool.color_name}} · {{spool.material}}</small><span>{{'Spool #{id}'|t:{id:''+spool.id} }} · {{grams(spool.remaining_g)}}</span></div>
+            </div>
+            <div class="storage-spool-actions">@if(auth.canEdit()&&!spool.archived_at){
+              <label class="storage-destination">{{'Move to location'|t}}
+                <select [value]="spool.location||''" (change)="chooseLocation($event,spool)" [attr.aria-label]="'Move spool {id} to location'|t:{id:''+spool.id}">
+                  @for(target of storageBoard();track target.location){<option [value]="target.location" [selected]="target.location===(spool.location||'')">{{target.location||('Unassigned'|t)}}</option>}
+                </select>
+              </label><button type="button" class="drag-handle" draggable="true" (dragstart)="dragStart($event,spool)" (dragend)="dragEnd()" [attr.aria-label]="'Drag spool {id}'|t:{id:''+spool.id}" [attr.title]="'Drag spool to a location'|t">⠿</button>
+            }<button type="button" class="icon-btn storage-label-selector" (click)="toggleLabel(spool.uid)" [attr.aria-label]="'Select label for spool {id}'|t:{id:''+spool.id}" [attr.aria-pressed]="selectedLabels().includes(spool.uid)" [attr.title]="'Select label for spool {id}'|t:{id:''+spool.id}">▦</button></div>
+          </article>
+        }@empty{<div class="storage-empty">{{'Drop a spool here'|t}}</div>}
+      </div>
+    </section>
+  }
+  </div>
+  <p class="storage-page-hint helper">{{'The board shows currently loaded spools. Load more to include older spools.'|t}}</p>
 }@else{<div class="spool-grid" id="spool-card-grid">
 @for(spool of filtered();track spool.id){
   <article class="spool-card" [class.selected]="selectedLabels().includes(spool.uid)" [class.is-dragging]="dragged()?.uid===spool.uid">
@@ -172,6 +166,7 @@
 </div>}
 @if(nextCursor()){<div class="pagination-actions"><button class="btn ghost" type="button" [disabled]="loading()" (click)="refresh(true)">{{'Load more spools'|t}}</button></div>}
 </section><aside class="label-tray" [class.drag-over]="overTray()" [class.accepting-drag]="!!dragged()" (dragover)="dragOverTray($event)" (dragleave)="overTray.set(false)" (drop)="dropOnTray($event)" [attr.aria-label]="'Label tray'|t">
+  <div class="label-tray-intro">
   <div class="label-tray-heading"><div><span class="eyebrow">{{'PRINT PREPARATION'|t}}</span><h2>{{'Label tray'|t}}</h2></div><span class="selection-count" role="status" aria-live="polite">{{'{count} selected'|t:{count:i18n.number(selectedLabels().length)} }}</span></div>
   <p class="helper">{{'Drop spools here. Drag selected labels to reorder them; arrow buttons do the same.'|t}}</p>
   <div class="tray-bulk-actions">
@@ -180,14 +175,16 @@
     <small>{{'Up to 100 labels. Selection outside the current filters is kept.'|t}}</small>
   </div>
   <p class="tray-feedback" role="status" aria-live="polite" aria-atomic="true">{{labelFeedback()|t}}</p>
+  </div>
+  <div class="label-tray-selection">
   <ol class="label-tray-items">
   @for(spool of selectedSpools();track spool.uid){
     <li class="label-tray-item" [class.drop-before]="dropSide(spool.uid)==='before'" [class.drop-after]="dropSide(spool.uid)==='after'" (dragover)="markDropTarget($event,spool.uid)" (dragleave)="dropTarget.set(null)" (drop)="reorderSelected($event,spool.uid)">
       <button type="button" class="drag-handle" draggable="true" (dragstart)="dragStart($event,spool)" (dragend)="dragEnd()" (click)="moveSelected(spool.uid,-1)" [attr.aria-label]="'Move label earlier'|t">⠿</button>
       <span class="swatch small" [style.background-color]="spool.color_hex"></span><span class="label-identity"><strong>{{spool.brand}} · {{spool.color_name}}</strong><small>{{'Spool #{id}'|t:{id:''+spool.id} }}</small></span>
-      <button type="button" class="icon-btn" [disabled]="$first" (click)="moveSelected(spool.uid,-1)" [attr.aria-label]="'Move up'|t">↑</button>
-      <button type="button" class="icon-btn" [disabled]="$last" (click)="moveSelected(spool.uid,1)" [attr.aria-label]="'Move down'|t">↓</button>
-      <button type="button" class="icon-btn" (click)="toggleLabel(spool.uid)" [attr.aria-label]="'Remove from label tray'|t">×</button>
+      <button type="button" class="icon-btn label-move-up" [disabled]="$first" (click)="moveSelected(spool.uid,-1)" [attr.aria-label]="'Move up'|t">↑</button>
+      <button type="button" class="icon-btn label-move-down" [disabled]="$last" (click)="moveSelected(spool.uid,1)" [attr.aria-label]="'Move down'|t">↓</button>
+      <button type="button" class="icon-btn label-remove" (click)="toggleLabel(spool.uid)" [attr.aria-label]="'Remove from label tray'|t">×</button>
     </li>
   }@empty{<li class="label-tray-empty"><span aria-hidden="true">▦</span>{{'No labels selected'|t}}</li>}
   </ol>
@@ -196,4 +193,5 @@
     <a class="btn primary print-selected" [href]="labelUrl" target="_blank" rel="noopener noreferrer">{{'Print {count} selected labels ↗'|t:{count:i18n.number(selectedLabels().length)} }}</a>
     <button type="button" class="btn ghost clear-selection" (click)="clearSelection()">{{'Clear selection'|t}}</button>
   }
+  </div>
 </aside></div>

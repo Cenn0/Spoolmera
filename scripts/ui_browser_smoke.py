@@ -159,19 +159,14 @@ def run_ui_workflows(browser, errors):
         uid = source.get_attribute('data-spool-uid')
         assert uid
         before_move = page.request.get(BASE + '/api/spools/by-uid/' + uid).json()
-        # Drag to the visible empty zone, not the centre of a tall horizontal
-        # scroll lane; scrolling the entire section during a native drag can
-        # otherwise cancel the gesture before the browser dispatches drop.
+        # Every location stays inside the inventory width, and short/empty
+        # columns must not stretch to the height of the busiest location.
         target = page.locator('.storage-lane[data-location="Lab / Bin C"] .storage-empty')
-        # Real keyboard activation scrolls the board, without staging stock changes.
-        next_location = page.get_by_role('button', name='Next storage locations', exact=True)
-        expect(next_location).to_be_enabled()
-        next_location.focus()
-        page.keyboard.press('Enter')
-        page.wait_for_function("document.querySelector('#storage-board').scrollLeft > 20")
+        board = page.locator('#storage-board')
+        assert board.evaluate('(el) => el.scrollWidth <= el.clientWidth + 1')
+        lane_heights = page.locator('.storage-lane').evaluate_all('(lanes) => lanes.map(el => el.getBoundingClientRect().height)')
+        assert min(lane_heights) < max(lane_heights) - 100, lane_heights
         assert page.request.get(BASE + '/api/spools/by-uid/' + uid).json()['location'] == before_move['location']
-        page.get_by_role('button', name='Previous storage locations', exact=True).click()
-        page.wait_for_function("document.querySelector('#storage-board').scrollLeft <= 2")
         page.evaluate("""() => {
           window.storageDragEvents=[];
           for(const type of ['dragstart','dragenter','dragover','drop','dragend']){
@@ -231,6 +226,12 @@ def run_ui_workflows(browser, errors):
         page.evaluate('window.scrollTo({top:0,behavior:"instant"})')
         assert page.locator('.sidebar').bounding_box()['y'] == 0
         page.get_by_role('button', name='Lagerorte', exact=True).click()
+        for width in (320, 390, 768, 1024, 1440, 1920):
+            page.set_viewport_size({'width': width, 'height': 1000})
+            assert page.evaluate('document.documentElement.scrollWidth <= innerWidth+1'), f'Locations page overflow at {width}px'
+            assert page.locator('#storage-board').evaluate('(el) => el.scrollWidth <= el.clientWidth+1'), f'Clipped locations at {width}px'
+            assert page.locator('.storage-lane').evaluate_all('(lanes) => lanes.every(el => {const b=el.getBoundingClientRect();return b.left>=0&&b.right<=innerWidth+1})'), f'Location outside viewport at {width}px'
+        page.set_viewport_size({'width': 1440, 'height': 1000})
         page.screenshot(path=str(folder / 'ui-de-dark-locations.png'), full_page=True, animations='disabled')
         page.get_by_role('button', name='Karten', exact=True).click()
         page.screenshot(path=str(folder / 'ui-de-dark-spools.png'), full_page=True, animations='disabled')

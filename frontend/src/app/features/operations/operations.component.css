@@ -1,0 +1,3 @@
+/* Operational values are words as well as numbers; preserve readable word breaks. */
+.operations-metrics .metric > strong { font-size: clamp(20px, 1.6vw, 28px); line-height: 1.3; overflow-wrap: normal; hyphens: auto; }
+.operations-metrics .metric > span { letter-spacing: .08em; hyphens: auto; }

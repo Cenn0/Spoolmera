@@ -2,7 +2,7 @@
 @if(error()){<p class="form-error" role="alert">{{error()|t}} {{'Previously loaded values may be out of date.'|t}}</p>}
 @if(loading()){<p class="helper" role="status">{{'Checking workspace health…'|t}}</p>}
 @if(state();as status){
-  <div class="metrics">
+  <div class="metrics operations-metrics">
     <article class="metric" [class.attention]="status.status==='degraded'"><span>{{'WORKSPACE'|t}}</span><strong>{{(status.status==='ok'?'Operating':'Needs attention')|t}}</strong><small>{{'Spoolmera' | t}} {{status.version}}</small></article>
     <article class="metric"><span>{{'PRINTER OBSERVATIONS'|t}}</span><strong>{{(status.poller.status==='running'?'Running':status.poller.status==='waiting'?'Standby':status.poller.status==='starting'?'Starting':status.poller.status==='failed'?'Failed':'Stopped')|t}}</strong><small>{{'Last completed check: {time}'|t:{time:dateText(status.poller.last_cycle_at)} }}</small></article>
     <article class="metric"><span>{{'LATEST BACKUP'|t}}</span><strong>{{(status.backup.status==='ready'?'Available':status.backup.status==='failed'?'Failed':'None yet')|t}}</strong><small>{{dateText(status.backup.last_success_at)}}</small></article>

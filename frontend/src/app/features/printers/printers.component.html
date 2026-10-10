@@ -13,7 +13,7 @@
       <label>{{(model.kind==='bambu'?'LAN access-code environment variable':'Token environment variable')|t}}<input name="token_env" [(ngModel)]="model.token_env" [required]="model.kind==='bambu'" placeholder="SPOOLMERA_PRINTER_TOKEN_WORKSHOP"></label>
     </div>
     <p class="helper">{{(model.kind==='bambu'?'Bambu LAN: enable Developer Mode if required, allowlist the printer IP, store its LAN access code in the named token variable and pin SPOOLMERA_BAMBU_CERT_SHA256_BAMBU1 to the printer TLS certificate. Only LAN status, AMS and opt-in pause/resume/cancel are available; use Bambu Studio for uploads and starting jobs.':'Ask the server operator to allow this private printer address and configure its API token before testing the connection. Use a friendly name that identifies the physical printer.')|t}}</p>
-    <button class="btn primary" type="submit" [disabled]="busy()||printerForm.invalid">{{(editingId?'Save printer':'Add printer')|t}}</button>@if(editingId){<button class="btn ghost" type="button" (click)="cancelEdit()">{{'Cancel editing'|t}}</button>}
+    <div class="workflow-buttons"><button class="btn primary" type="submit" [disabled]="busy()||printerForm.invalid">{{(editingId?'Save printer':'Add printer')|t}}</button>@if(editingId){<button class="btn ghost" type="button" (click)="cancelEdit()">{{'Cancel editing'|t}}</button>}</div>
   </form>
 </section>
 }

@@ -7,6 +7,8 @@ import { LanguagePickerComponent, TranslatePipe } from './core/i18n';
 
 @Component({
   selector:'sm-login', standalone:true, imports:[FormsModule,LanguagePickerComponent,ThemePickerComponent,TranslatePipe],
+  styles: [`.login-brand strong { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+    .login-brand small { line-height: 1.4; }`],
   template: `
     <main class="login-screen">
       <section class="login-card">

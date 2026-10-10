@@ -52,9 +52,15 @@ h1 em {color:var(--warm-ink)}
 :is(.data-table th,.detail-stats>div,.reconciliation-material,.printer-detail,.inline-reset,.csv-preview,
  .side-note,.search-field,.integration-card code) {background:var(--surface-soft);border-color:var(--line);color:var(--text)}
 :is(.side-note p,.csv-preview p,.capabilities strong) {color:var(--text)}
+.capabilities>div {color:var(--text)}
 :is(.spool-line,.activity-row,.workflow-row,.restock-row,.capabilities>div,.data-table th,.data-table td,.archive-zone) {border-color:var(--line)}
 .data-table tbody tr:hover {background:var(--surface-hover)}
-.status {background:var(--surface-soft);color:var(--text)}
+.panel-heading {flex-wrap:wrap}
+.panel-heading>div {min-width:0}
+.panel-heading h2,.panel-heading>.text-link {overflow-wrap:anywhere}
+.panel-heading>.text-link {white-space:normal;line-height:1.5}
+.status {background:var(--surface-soft);color:var(--text);max-width:100%;white-space:normal;overflow-wrap:anywhere;line-height:1.4}
+.status::before {flex:none}
 .status.sealed {background:var(--info-soft);color:var(--info-ink)}
 .status.opened,.status.connected {background:var(--accent-soft);color:var(--accent-ink)}
 .status.empty,.status.archived {background:var(--surface-soft);color:var(--muted)}
@@ -62,19 +68,33 @@ h1 em {color:var(--warm-ink)}
 .metric.attention {background:var(--warning-soft);border-color:var(--line)}
 .metric.attention>strong,.metric.attention>span b {color:var(--warning-ink)}
 .form-error,.error-banner {background:var(--danger-soft);color:var(--danger);border-color:var(--line)}
+.main-content>.form-error,.main-content>*>.form-error {margin:0 0 24px}
+.form-error,.error-banner,.helper {overflow-wrap:anywhere}
 .archive-zone {color:var(--danger)}
 .progress,.material-track {background:var(--line)}
 .progress span {background:var(--action)}
 :root[data-theme="dark"] .progress span {background:var(--teal)}
 .progress.low span {background:#c59643}
+:root[data-theme="dark"] .progress.low span {background:var(--warning-ink)}
 .swatch {border-color:var(--white);box-shadow:0 0 0 1px var(--line),0 2px 4px #00000018}
 .login-screen {background:radial-gradient(ellipse at 30% 0,var(--accent-soft),transparent 65%),var(--canvas)}
 .login-card {max-width:480px}
+.login-card>.eyebrow {color:var(--teal)}
+.empty-symbol {background:var(--accent-soft);color:var(--accent-ink)}
 .login-language {gap:10px;flex-wrap:wrap;justify-content:space-between}
 sm-theme-picker {display:inline-flex;flex:none}
 .theme-picker {display:inline-flex;align-items:center;gap:3px;color:var(--text);font-size:12px}
 .theme-symbol {width:18px;font-size:19px;text-align:center}
 .theme-picker select {background:var(--field);border:1px solid var(--line);border-radius:8px;padding:7px 8px;min-height:36px;font-size:11px;color:var(--ink);max-width:145px}
+/* Long forms retain their title and close control while their contents scroll. */
+.modal {scroll-padding-block:120px 24px}
+.modal-header {position:sticky;top:0;z-index:2;background:var(--white)}
+.modal-header>div {min-width:0}
+.modal-header h2 {overflow-wrap:anywhere}
+.modal-header .close-button {flex:none}
+.detail-summary :is(h3,p),.reconciliation-material h3 {overflow-wrap:anywhere}
+.detail-movement {grid-template-columns:minmax(0,1fr) minmax(0,.65fr) minmax(0,.55fr)}
+.detail-movement>* {min-width:0;overflow-wrap:anywhere}
 /* Fixed desktop rail is independent of document height and full-page capture. */
 .shell {display:block;min-height:100dvh}
 .sidebar {position:fixed;inset:0 auto 0 0;width:var(--sidebar-width);height:100dvh;padding:28px 14px 20px;align-self:start}
@@ -221,6 +241,9 @@ sm-spool-visual {display:block;width:100%;max-width:124px;aspect-ratio:1}
   .label-tray-items {grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr))}
 }
 @media (max-width:760px) {
+  .modal-header .close-button {width:44px;height:44px}
+  .detail-summary:has(>.swatch) {display:grid;grid-template-columns:48px minmax(0,1fr);align-items:start}
+  .detail-summary:has(>.swatch)>.status {grid-column:2;justify-self:start}
   .workspace {margin-left:0}
   .sidebar {width:min(300px,86vw);position:fixed;inset:0 auto 0 0;height:100dvh;padding:24px 18px;overflow:auto;z-index:110;transform:translateX(-101%);visibility:hidden;transition:transform .18s,visibility .18s}
   .sidebar.nav-open {transform:none;visibility:visible}

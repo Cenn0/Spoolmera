@@ -15,7 +15,7 @@
 | Manage job states, opt-in slicer, cloud relays, backups and restoration | [Operations](operations.md) |
 | Configure Moonraker, OctoPrint or community Bambu Lab LAN MQTT | [Security and printers](security-and-printers.md) |
 | Determine actual feature coverage and limitations | [Feature/status matrix](roadmap-implementation.md) |
-| Test in an isolated environment, interpret CI evidence | [Testing](testing.md) |
+| Test in an isolated environment, inspect every UI view in four layouts, interpret CI evidence | [Testing](testing.md) |
 | Examine/refresh real browser screenshots | [Screenshot provenance](screenshots/README.md) |
 
 ## Engineering and integration reference

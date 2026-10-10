@@ -125,7 +125,7 @@ A filament *product* can have multiple physical rolls. In **Spools**, you see ea
 
 ### Locate spools without changing stock
 
-Switch the inventory to **Locations** to see physical rolls grouped by their recorded storage place. The horizontal board helps when stock is distributed across multiple shelves or boxes. Scrolling through the board does **not** move a spool; actual reassignment requires an explicit, confirmed action.
+Switch the inventory to **Locations** to see physical rolls grouped by their recorded storage place. The board uses the full inventory width, fits complete location columns to the available space and stacks them on phones. Each column follows its own contents, so empty locations remain compact. Reassign a roll by dragging it or choosing a destination; saving the new location still requires explicit physical confirmation.
 
 <a href="docs/screenshots/locations-dark.png">
   <img src="docs/screenshots/locations-dark.png" alt="Spoolmera Locations board grouping example filament rolls by storage area and showing their assigned locations" width="800">

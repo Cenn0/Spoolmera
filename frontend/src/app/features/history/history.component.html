@@ -1,7 +1,7 @@
 <section class="page-head"><div><span class="eyebrow">{{'MOVEMENT RECORDS'|t}}</span><h1><em>{{'Inventory history.'|t}}</em></h1><p>{{'Follow every registration, consumption and correction, including archived spools.'|t}}</p></div></section>
 @if(error()){<p class="form-error" role="alert">{{error()|t}}</p>}
 <section class="panel workflow-panel">
-  <form class="workflow-form" (ngSubmit)="apply()">
+  <form class="workflow-form history-filters" (ngSubmit)="apply()">
     <div class="form-grid">
       <label>{{'Movement type'|t}}<select id="movement-type" name="kind" [ngModel]="kind()" (ngModelChange)="kind.set($event)"><option value="">{{'All movements'|t}}</option><option value="initial">{{'Registered'|t}}</option><option value="consume">{{'Consumption'|t}}</option><option value="adjust">{{'Adjustment'|t}}</option></select></label>
       <label>{{'Spool number'|t}}<input name="spool" type="number" min="1" step="1" [(ngModel)]="spoolId" [placeholder]="'All spools'|t"></label>
@@ -14,7 +14,7 @@
     <div class="workflow-buttons"><button class="btn primary" type="submit">{{'Apply filters'|t}}</button><button class="btn ghost" type="button" (click)="reset()">{{'Clear filters'|t}}</button></div>
   </form>
 </section>
-<section class="panel data-panel">
+<section class="panel data-panel history-results">
   <div class="result-count">{{'{count} matching movements loaded'|t:{count:i18n.number(items().length)} }} <button class="btn ghost" type="button" [disabled]="loading()" (click)="load()">{{'Refresh history'|t}}</button> @if(loading()){<span role="status"> {{'· Loading…'|t}}</span>}</div>
   <div class="table-wrap"><table class="data-table"><thead><tr><th>{{'Time / entry'|t}}</th><th>{{'Filament'|t}}</th><th>{{'Movement'|t}}</th><th>{{'Change'|t}}</th><th>{{'Balance'|t}}</th><th>{{'Origin / note'|t}}</th></tr></thead>
     <tbody>
