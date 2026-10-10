@@ -8,10 +8,12 @@
 ![Status: experimental](https://img.shields.io/badge/status-experimental-orange)
 ![UI languages: EN / DE](https://img.shields.io/badge/UI-English%20%7C%20Deutsch-167d75)
 ![Deployment: Docker](https://img.shields.io/badge/deployment-Docker-2496ED)
+[![CI](https://github.com/Cenn0/Spoolmera/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Cenn0/Spoolmera/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Cenn0/Spoolmera/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/Cenn0/Spoolmera/actions/workflows/codeql.yml)
 
 > **Fully AI-developed, human-engineered.** This is an experiment in AI-led software development: AI produces implementation and initial documentation while a human defines requirements, makes engineering decisions, reviews results and remains responsible for operation. Tests cover specific behavior; they do **not** guarantee security, hardware compatibility or production readiness.
 >
-> **Project status:** experimental v0.10.0, Apache-2.0 source code. The GitHub repository is currently private, despite the project's free/open-source licensing intent. Access to cloning and CI artifacts depends on repository permissions. This is not a hosted product or a published stable release.
+> **Project status:** experimental v0.10.0, Apache-2.0 source code in the **public** [Spoolmera repository](https://github.com/Cenn0/Spoolmera). It is not a hosted product or a published stable release. CI artifacts on `main` are temporary test builds, not signed official releases.
 
 ## Filament products at a glance
 
@@ -212,8 +214,8 @@ Start with the [documentation index](docs/README.md), which separates **current 
 - [Security model and printer restrictions](docs/security-and-printers.md) · [Security policy](SECURITY.md)
 - [Architecture](docs/architecture.md) · [feature and limitation matrix](docs/roadmap-implementation.md)
 - [Testing and evidence](docs/testing.md) · [Screenshot provenance](docs/screenshots/README.md)
-- [Contributing](CONTRIBUTING.md)
+- [Contributing](CONTRIBUTING.md) · [Public repository and branch security](docs/repository-security.md)
 
 ## License and contributions
 
-Spoolmera is an **Apache License 2.0** project. See [LICENSE](LICENSE). Individual third-party packages and services retain their upstream terms. Development contributions, bug reports and critical reviews are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). The project's current private repository visibility is independent of the license and must be changed deliberately before public distribution.
+Spoolmera is an **Apache License 2.0** project. See [LICENSE](LICENSE). Individual third-party packages and services retain their upstream terms. Development contributions, bug reports and critical reviews are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). The repository is public; security issues must be reported privately as described in [SECURITY.md](SECURITY.md). Pull requests are checked by CI and CodeQL; enforcement of the documented branch rules requires the repository administrator to apply the [ruleset](docs/repository-security.md).

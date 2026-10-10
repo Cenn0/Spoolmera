@@ -70,6 +70,11 @@ def main() -> int:
         if not 0 < width <= 10000 or not 0 < height <= 10000:
             errors.append(f"Invalid PNG dimensions: {relative}")
 
+    obsolete_repository = 'https://github.com/Cenn0/' + 'Filament' + 'Manager'
+    for markdown in markdown_files:
+        if obsolete_repository in markdown.read_text(encoding='utf-8'):
+            errors.append(f'{markdown.relative_to(ROOT)}: outdated repository URL')
+
     for error in errors:
         print(f"ERROR: {error}")
     if errors:

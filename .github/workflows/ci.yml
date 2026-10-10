@@ -8,11 +8,18 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -53,6 +60,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Validate Compose configuration
         run: docker compose config --quiet
       - name: Build image
@@ -102,6 +111,7 @@ jobs:
           docker build -f Dockerfile.notifications --tag spoolmera:notifier-ci .
           python3 scripts/notifier_container_smoke.py --image spoolmera:notifier-ci --api-image spoolmera:ci
       - name: Package tested image
+        if: github.event_name == 'push'
         run: |
           mkdir -p test-release/scripts
           docker save spoolmera:test | gzip > test-release/spoolmera-image.tar.gz
@@ -134,6 +144,7 @@ jobs:
               output.write('RELEASE_VERSION=' + __version__ + '\n')
           PY
       - name: Publish downloadable test instance
+        if: github.event_name == 'push'
         uses: actions/upload-artifact@v7
         with:
           name: spoolmera-${{ env.RELEASE_VERSION }}-test-linux-amd64
@@ -146,6 +157,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -215,6 +228,8 @@ jobs:
       SPOOLMERA_SLICER_WORKER_TOKEN: test-only-ci-slicer-worker-token-long-enough
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Validate optional slicer Compose overlay
         run: docker compose -f compose.yaml -f compose.slicer.yaml config --quiet
       - name: Build opt-in slicer image from distribution packages
@@ -239,8 +254,11 @@ jobs:
 
   security-audit:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
