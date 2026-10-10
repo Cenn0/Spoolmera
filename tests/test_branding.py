@@ -16,7 +16,7 @@ def test_spoolmera_branding_on_public_surfaces(tmp_path):
     sidebar = (ROOT / "frontend/src/app/app.component.html").read_text()
     assert "SPOOLMERA" in login and "spoolmera-mark.svg" in login
     assert "SPOOLMERA" in sidebar and "spoolmera-mark.svg" in sidebar
-    assert "Spoolmera" not in index + login + sidebar
+    assert "Filament Manager" not in index + login + sidebar
 
 
 def test_labels_are_branded_in_both_languages():
@@ -26,7 +26,7 @@ def test_labels_are_branded_in_both_languages():
     for language in ("en", "de"):
         markup = label_html(spool, language=language)
         assert "SPOOLMERA" in markup
-        assert "Spoolmera" not in markup
+        assert "Filament Manager" not in markup
 
 
 def test_existing_deployment_settings_are_preserved():
