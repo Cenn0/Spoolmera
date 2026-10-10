@@ -106,6 +106,10 @@ The test sends a signed `failed` event to its own API so the partial-consumption
 review can be completed in the browser. These values belong only to the
 disposable test instance; they are not credentials for a vendor cloud service.
 
+## Verified UI screenshots
+
+The browser CI job creates **real Chromium screenshots from synthetic example data** after exercising the Angular UI in light, dark and mobile layouts. Successful runs publish the artifacts `ui-ux-previews` and `german-interface-previews`; failure evidence is kept separately. Five screenshots from the verified [2026-10-10 CI run](https://github.com/Cenn0/FilamentManager/actions/runs/38047886348) are committed under [`docs/screenshots/`](screenshots/README.md) and embedded in the project README, so images remain available after short-lived Actions artifacts expire. The [provenance guide](screenshots/README.md) maps the filenames and explains how to recapture them after frontend changes. They are visual regression evidence, **not** hardware compatibility results or a complete accessibility audit.
+
 ## Interpretation of results
 
 - **Technically tested:** API roles, password/session handling, import boundaries,

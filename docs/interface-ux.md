@@ -1,5 +1,7 @@
 # Inventory interface and interaction model
 
+[← Documentation index](README.md) · [Real UI screenshots and CI provenance](screenshots/README.md) · [Main README preview](../README.md)
+
 The interface keeps English and German in one self-hosted Angular application. No external assets, translation services or new runtime dependencies are required for this UI revision.
 
 ## Appearance and navigation

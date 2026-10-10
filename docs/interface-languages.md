@@ -1,5 +1,7 @@
 # English and German interface
 
+[← Documentation index](README.md) · [Actual German-language browser screenshots](screenshots/README.md)
+
 The web interface supports `en` and `de` in the same application build. Choose **English** or **Deutsch** on the sign-in page or in the application header. Switching updates existing views without navigation, another login or a database migration. Unsaved form fields, reviewed import previews and consumption decisions remain in place.
 
 ## Preference and formatting
