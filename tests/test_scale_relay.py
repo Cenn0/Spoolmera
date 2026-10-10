@@ -10,7 +10,7 @@ from tests.support import authenticate
 
 def test_scale_event_requires_approval_and_is_idempotent(tmp_path,monkeypatch):
     key="scale-adapter-key-long-enough-for-HMAC-2026"
-    monkeypatch.setenv("FILAMENT_SCALE_HMAC_SHOP",key)
+    monkeypatch.setenv("SPOOLMERA_SCALE_HMAC_SHOP",key)
     with TestClient(create_app(tmp_path/"scale.sqlite3")) as c:
         authenticate(c)
         product=c.post("/api/products",json={"brand":"Example","name":"PLA",
@@ -45,7 +45,7 @@ def test_scale_event_requires_approval_and_is_idempotent(tmp_path,monkeypatch):
 
 def test_scale_event_rejects_modified_body_with_reused_id(tmp_path,monkeypatch):
     key="scale-adapter-key-long-enough-for-HMAC-2026"
-    monkeypatch.setenv("FILAMENT_SCALE_HMAC_SHOP",key)
+    monkeypatch.setenv("SPOOLMERA_SCALE_HMAC_SHOP",key)
     with TestClient(create_app(tmp_path/"scale.sqlite3")) as c:
         authenticate(c)
         p=c.post("/api/products",json={"brand":"Example","name":"PLA",

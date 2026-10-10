@@ -129,8 +129,8 @@ def test_malformed_moonraker_returns_gateway_error(workspace, monkeypatch, route
 @pytest.mark.parametrize("data", [{"job": []}, {"job": {"file": []}}, {"state": []}])
 def test_malformed_octoprint_returns_gateway_error(workspace, monkeypatch, data):
     client, _, _, _, printer_id, printer = workspace
-    monkeypatch.setenv("FILAMENT_PRINTER_TOKEN_TEST", "test-secret")
-    changed = {**printer, "kind": "octoprint", "token_env": "FILAMENT_PRINTER_TOKEN_TEST"}
+    monkeypatch.setenv("SPOOLMERA_PRINTER_TOKEN_TEST", "test-secret")
+    changed = {**printer, "kind": "octoprint", "token_env": "SPOOLMERA_PRINTER_TOKEN_TEST"}
     assert client.put(f"/api/printers/{printer_id}", json=changed).status_code == 200
     monkeypatch.setattr("app.printers.fetch_json", lambda *args: data)
     assert client.post(f"/api/printers/{printer_id}/probe").status_code == 502
@@ -242,9 +242,9 @@ def test_gcode_import_limits_and_manual_override(workspace, monkeypatch):
 
 def test_octoprint_matches_relative_file_path(workspace, monkeypatch):
     client, _, _, spool, printer_id, printer = workspace
-    monkeypatch.setenv("FILAMENT_PRINTER_TOKEN_TEST", "secret")
+    monkeypatch.setenv("SPOOLMERA_PRINTER_TOKEN_TEST", "secret")
     assert client.put(f"/api/printers/{printer_id}", json={**printer, "kind": "octoprint",
-                      "token_env": "FILAMENT_PRINTER_TOKEN_TEST"}).status_code == 200
+                      "token_env": "SPOOLMERA_PRINTER_TOKEN_TEST"}).status_code == 200
     register(client, spool, printer_id, "folder/fixture.gcode")
     state = {"state": "Printing", "job": {"file": {"name": "fixture.gcode", "path": "folder/fixture.gcode"}}}
     monkeypatch.setattr("app.printers.fetch_json", lambda *args: state)
@@ -291,7 +291,7 @@ def test_test_launcher_never_replaces_existing_credentials(tmp_path):
     from scripts.start_test import ensure_test_env
     path = ensure_test_env(tmp_path)
     content = path.read_text()
-    assert content.startswith("FILAMENT_BOOTSTRAP_TOKEN=")
+    assert content.startswith("SPOOLMERA_BOOTSTRAP_TOKEN=")
     assert len(content.strip().split("=", 1)[1]) >= 32
-    path.write_text("FILAMENT_BOOTSTRAP_TOKEN=existing-operator-secret\n")
-    assert ensure_test_env(tmp_path).read_text() == "FILAMENT_BOOTSTRAP_TOKEN=existing-operator-secret\n"
+    path.write_text("SPOOLMERA_BOOTSTRAP_TOKEN=existing-operator-secret\n")
+    assert ensure_test_env(tmp_path).read_text() == "SPOOLMERA_BOOTSTRAP_TOKEN=existing-operator-secret\n"

@@ -88,7 +88,7 @@ def test_allowlist_rejects_ssrf_targets(monkeypatch):
         except ValueError:
             pass
     assert normalize_printer_url("http://192.168.50.20:7125")=="http://192.168.50.20:7125"
-    monkeypatch.setenv("FILAMENT_PRINTER_ALLOWED_IPS","")
+    monkeypatch.setenv("SPOOLMERA_PRINTER_ALLOWED_IPS","")
     try:
         normalize_printer_url("http://192.168.50.20:7125")
         assert False, "allowlist incorrectly bypassed"
@@ -150,13 +150,13 @@ def test_moonraker_exact_once_completion_and_gcode_import(tmp_path, monkeypatch)
 
 
 def test_octoprint_requires_human_completion_review(tmp_path, monkeypatch):
-    monkeypatch.setenv("FILAMENT_PRINTER_TOKEN_OCTO","test-secret")
+    monkeypatch.setenv("SPOOLMERA_PRINTER_TOKEN_OCTO","test-secret")
     with TestClient(create_app(tmp_path/"octo.db")) as client:
         authenticate(client)
         spool_id = make_inventory(client)
         printer = client.post("/api/printers",json={
             "name":"OctoPrint","kind":"octoprint","base_url":"http://192.168.50.21:5000",
-            "token_env":"FILAMENT_PRINTER_TOKEN_OCTO","enabled":True
+            "token_env":"SPOOLMERA_PRINTER_TOKEN_OCTO","enabled":True
         })
         assert printer.status_code==201,printer.text
         printer_id=printer.json()["id"]

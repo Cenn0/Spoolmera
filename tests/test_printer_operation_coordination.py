@@ -29,7 +29,7 @@ def workshop(tmp_path, monkeypatch):
     async def idle_poller(*_):
         await asyncio.Event().wait()
     monkeypatch.setattr("app.main.poll_worker", idle_poller)
-    monkeypatch.setenv("FILAMENT_PRINTER_CONTROL_ENABLED", "1")
+    monkeypatch.setenv("SPOOLMERA_PRINTER_CONTROL_ENABLED", "1")
     path = tmp_path / "coordination.sqlite3"
     with TestClient(create_app(path)) as client:
         authenticate(client)
@@ -377,10 +377,10 @@ def test_unresolved_operation_keeps_device_identity_bound_after_tracking_cancel(
     assert workshop["client"].post(f"/api/jobs/{job_id}/cancel").status_code == 200
     current = workshop["printers"][0]
     config = {key: value for key, value in current.items() if key != "id"}
-    monkeypatch.setenv("FILAMENT_PRINTER_TOKEN_CHANGED", "test-token-value")
+    monkeypatch.setenv("SPOOLMERA_PRINTER_TOKEN_CHANGED", "test-token-value")
     for change in ({"base_url": "http://192.168.50.21:7125"},
-                   {"token_env": "FILAMENT_PRINTER_TOKEN_CHANGED"},
-                   {"kind": "octoprint", "token_env": "FILAMENT_PRINTER_TOKEN_CHANGED"}):
+                   {"token_env": "SPOOLMERA_PRINTER_TOKEN_CHANGED"},
+                   {"kind": "octoprint", "token_env": "SPOOLMERA_PRINTER_TOKEN_CHANGED"}):
         result = workshop["client"].put(f"/api/printers/{current['id']}", json={**config, **change})
         assert result.status_code == 409, result.text
     assert rows(workshop, "SELECT base_url,kind,token_env FROM printers WHERE id=?", (current["id"],)) == [
@@ -404,8 +404,8 @@ def test_later_failure_signal_preserves_already_reviewed_actual_consumption(work
         result = client.post(f"/api/printers/{pid}/control", json={"action": "cancel"})
     else:
         secret = "cloud-test-secret-with-more-than-thirty-two-bytes"
-        monkeypatch.setenv("FILAMENT_CLOUD_HMAC_TEST", secret)
-        monkeypatch.setenv("FILAMENT_CLOUD_PRINTER_TEST", str(pid))
+        monkeypatch.setenv("SPOOLMERA_CLOUD_HMAC_TEST", secret)
+        monkeypatch.setenv("SPOOLMERA_CLOUD_PRINTER_TEST", str(pid))
         raw = json.dumps({"event_id": "accounted-print-failed", "job_id": job_id, "status": "failed"}).encode()
         stamp = str(int(time.time()))
         signature = hmac.new(secret.encode(), stamp.encode() + b"." + raw, hashlib.sha256).hexdigest()

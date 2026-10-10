@@ -121,7 +121,7 @@ def test_printer_control_default_off_and_admin_only(workspace, monkeypatch):
     client, path, printer, s0, s1 = workspace
     assert client.get("/api/printers/capabilities").json()["write_enabled"] is False
     assert client.post(f"/api/printers/{printer}/control", json={"action": "pause"}).status_code == 403
-    monkeypatch.setenv("FILAMENT_PRINTER_CONTROL_ENABLED", "1")
+    monkeypatch.setenv("SPOOLMERA_PRINTER_CONTROL_ENABLED", "1")
     seen = []
     monkeypatch.setattr("app.printers.write_controller", lambda row, route, **kwargs: seen.append((route,kwargs)) or 204)
     assert client.post(f"/api/printers/{printer}/control", json={"action": "pause"}).status_code == 200
@@ -147,7 +147,7 @@ def test_upload_requires_matching_filename_never_auto_prints(workspace, monkeypa
     query = {"file_name": "part.gcode"}
     headers = {"Content-Type": "application/octet-stream"}
     assert client.post(f"/api/jobs/{job_id}/upload", params=query, content=b"G1 X0\n", headers=headers).status_code == 403
-    monkeypatch.setenv("FILAMENT_PRINTER_CONTROL_ENABLED", "1")
+    monkeypatch.setenv("SPOOLMERA_PRINTER_CONTROL_ENABLED", "1")
     assert client.post(f"/api/jobs/{job_id}/upload", params={"file_name": "other.gcode"},
                        content=b"G1 X0\n", headers=headers).status_code == 422
     monkeypatch.setattr("app.jobs.printer_status", lambda row: {"state": "standby", "filename": ""})
@@ -168,7 +168,7 @@ def test_start_requires_idle_and_never_marks_observed_printing(workspace, monkey
     job_id = client.post("/api/jobs", json={
         "printer_id": printer, "spool_id": s0, "file_name": "part.gcode", "estimated_g": 20,
     }).json()["id"]
-    monkeypatch.setenv("FILAMENT_PRINTER_CONTROL_ENABLED", "1")
+    monkeypatch.setenv("SPOOLMERA_PRINTER_CONTROL_ENABLED", "1")
     monkeypatch.setattr("app.jobs.printer_status", lambda row: {"state": "printing", "filename": "part.gcode"})
     assert client.post(f"/api/jobs/{job_id}/start").status_code == 409
     issued = []
@@ -190,8 +190,8 @@ def test_cloud_signature_replay_and_conservative_review(workspace, monkeypatch):
     job_id = client.post("/api/jobs", json={
         "printer_id": printer, "spool_id": s0, "file_name": "cloud.gcode", "estimated_g": 35
     }).json()["id"]
-    monkeypatch.setenv("FILAMENT_CLOUD_HMAC_FARM", "cloud-test-key-with-at-least-thirty-two-characters")
-    monkeypatch.setenv("FILAMENT_CLOUD_PRINTER_FARM", str(printer))
+    monkeypatch.setenv("SPOOLMERA_CLOUD_HMAC_FARM", "cloud-test-key-with-at-least-thirty-two-characters")
+    monkeypatch.setenv("SPOOLMERA_CLOUD_PRINTER_FARM", str(printer))
     data = {"event_id": "remote-run-0001", "job_id": job_id, "status": "completed"}
     body = json.dumps(data).encode()
     stamp = str(int(time.time()))
@@ -236,11 +236,11 @@ def test_slicing_opt_in_profile_and_cli_argument_guards(workspace, monkeypatch, 
     binary = tmp_path/"prusa-slicer"
     binary.write_text("fake executable")
     binary.chmod(0o755)
-    monkeypatch.setenv("FILAMENT_SLICER_ENABLED", "1")
-    monkeypatch.setenv("FILAMENT_SLICER_PROFILES_DIR", str(directory))
-    monkeypatch.setenv("FILAMENT_SLICER_EXECUTABLE", str(binary))
-    monkeypatch.setenv("FILAMENT_SLICER_WORKER_URL", "http://slicer-worker:8767")
-    monkeypatch.setenv("FILAMENT_SLICER_WORKER_TOKEN", "slicer-test-worker-secret-at-least-32-characters")
+    monkeypatch.setenv("SPOOLMERA_SLICER_ENABLED", "1")
+    monkeypatch.setenv("SPOOLMERA_SLICER_PROFILES_DIR", str(directory))
+    monkeypatch.setenv("SPOOLMERA_SLICER_EXECUTABLE", str(binary))
+    monkeypatch.setenv("SPOOLMERA_SLICER_WORKER_URL", "http://slicer-worker:8767")
+    monkeypatch.setenv("SPOOLMERA_SLICER_WORKER_TOKEN", "slicer-test-worker-secret-at-least-32-characters")
     monkeypatch.setattr("app.slicing.worker_profiles", lambda: __import__("app.slicing", fromlist=["list_profiles"]).list_profiles())
     assert client.get("/api/slicing/profiles").json() == {"enabled": True, "profiles": ["approved"]}
     assert client.post("/api/slicing/slice", params={"profile": "../evil"},
@@ -248,7 +248,7 @@ def test_slicing_opt_in_profile_and_cli_argument_guards(workspace, monkeypatch, 
     def fake_run(argv, **kwargs):
         assert "--load" in argv and "--output" in argv
         assert argv[argv.index("--load")+1] == str(directory/"approved.ini")
-        assert kwargs["timeout"] == 60 and kwargs["env"].get("FILAMENT_BOOTSTRAP_TOKEN") is None
+        assert kwargs["timeout"] == 60 and kwargs["env"].get("SPOOLMERA_BOOTSTRAP_TOKEN") is None
         assert kwargs["check"] is False and "shell" not in kwargs
         Path(argv[argv.index("--output")+1]).write_bytes(b"; filament used [g] = 22.4\nG1 E2\n")
         return SimpleNamespace(returncode=0)
@@ -269,11 +269,11 @@ def test_slicer_rejects_profile_postprocessing(workspace, monkeypatch, tmp_path)
     binary = tmp_path / "prusa-slicer"
     binary.write_text("fake")
     binary.chmod(0o755)
-    monkeypatch.setenv("FILAMENT_SLICER_ENABLED", "1")
-    monkeypatch.setenv("FILAMENT_SLICER_PROFILES_DIR", str(root))
-    monkeypatch.setenv("FILAMENT_SLICER_EXECUTABLE", str(binary))
-    monkeypatch.setenv("FILAMENT_SLICER_WORKER_URL", "http://slicer-worker:8767")
-    monkeypatch.setenv("FILAMENT_SLICER_WORKER_TOKEN", "slicer-test-worker-secret-at-least-32-characters")
+    monkeypatch.setenv("SPOOLMERA_SLICER_ENABLED", "1")
+    monkeypatch.setenv("SPOOLMERA_SLICER_PROFILES_DIR", str(root))
+    monkeypatch.setenv("SPOOLMERA_SLICER_EXECUTABLE", str(binary))
+    monkeypatch.setenv("SPOOLMERA_SLICER_WORKER_URL", "http://slicer-worker:8767")
+    monkeypatch.setenv("SPOOLMERA_SLICER_WORKER_TOKEN", "slicer-test-worker-secret-at-least-32-characters")
     monkeypatch.setattr("app.slicing.remote_slice_stl",
         lambda data, profile: __import__("app.slicing", fromlist=["slice_stl"]).slice_stl(data, profile))
     response = client.post("/api/slicing/slice?profile=unsafe",
@@ -291,15 +291,15 @@ def test_upload_transport_revalidates_allowlist_and_rejects_redirect(workspace, 
     # Invalid filename is rejected before any attempted I/O.
     with pytest.raises(ValueError):
         upload_controller_file(row, "../bad.gcode", b"G1 X0\n")
-    monkeypatch.setenv("FILAMENT_PRINTER_ALLOWED_IPS", "")
+    monkeypatch.setenv("SPOOLMERA_PRINTER_ALLOWED_IPS", "")
     with pytest.raises(ValueError):
         upload_controller_file(row, "allowed.gcode", b"G1 X0\n")
 
 
 def test_cloud_event_does_not_require_web_session_but_requires_hmac(workspace, monkeypatch):
     client, path, printer, s0, s1 = workspace
-    monkeypatch.setenv("FILAMENT_CLOUD_HMAC_RELAY", "unique-cloud-signing-secret-at-least-32-characters")
-    monkeypatch.setenv("FILAMENT_CLOUD_PRINTER_RELAY", str(printer))
+    monkeypatch.setenv("SPOOLMERA_CLOUD_HMAC_RELAY", "unique-cloud-signing-secret-at-least-32-characters")
+    monkeypatch.setenv("SPOOLMERA_CLOUD_PRINTER_RELAY", str(printer))
     job_id = client.post("/api/jobs",json={"printer_id":printer,"spool_id":s0,
                                            "file_name":"unsigned.gcode","estimated_g":2}).json()["id"]
     with closing(TestClient(client.app)) as anonymous:
