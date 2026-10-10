@@ -4,7 +4,7 @@ Date: 2026-10-09. This document records the implementation of the architecture, 
 
 ## Starting point and delivery
 
-PR [#7](https://github.com/Cenn0/FilamentManager/pull/7), head `95738baea12d7fa63040c57e1ade492f28f30be9`, was merged on the user's instruction. The implementation starts from the resulting main commit `53eaf91533834441554dc66a4eaa7dae938b7a1b` and continues in [PR #8](https://github.com/Cenn0/FilamentManager/pull/8). The first migration fix is separately reviewable at commit `c431892af74616930300ef142cb4a46c225ab321`.
+PR [#7](https://github.com/Cenn0/Spoolmera/pull/7), head `95738baea12d7fa63040c57e1ade492f28f30be9`, was merged on the user's instruction. The implementation starts from the resulting main commit `53eaf91533834441554dc66a4eaa7dae938b7a1b` and continues in [PR #8](https://github.com/Cenn0/Spoolmera/pull/8). The first migration fix is separately reviewable at commit `c431892af74616930300ef142cb4a46c225ab321`.
 
 Repository visibility and public release publication are separate decisions. This work prepares versioned, checksum-protected CI test artifacts; it does not publish a public release.
 
@@ -57,7 +57,7 @@ The complete application backend suite was run in a fresh CPython 3.12 environme
 
 Frontend verification: **46 tests across 12 files passed**, TypeScript checking passed, and the production Angular build passed without Angular warnings. Generated API contracts match their Pydantic sources. The existing test helpers for multiple user sessions now share a running application instead of accidentally starting a second application lifespan.
 
-The [current PR checks](https://github.com/Cenn0/FilamentManager/pull/8/checks) provide the required commit-specific remote evidence:
+The [current PR checks](https://github.com/Cenn0/Spoolmera/pull/8/checks) provide the required commit-specific remote evidence:
 
 | CI job | What it actually exercises |
 | --- | --- |

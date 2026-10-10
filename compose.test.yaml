@@ -4,13 +4,13 @@ services:
     image: spoolmera:test
     build: .
     ports:
-      - "127.0.0.1:${FILAMENT_TEST_PORT:-8766}:8765"
+      - "127.0.0.1:${SPOOLMERA_TEST_PORT:-8766}:8765"
     env_file: .env.test
     environment:
-      FILAMENT_DB_PATH: /data/filaments.sqlite3
-      FILAMENT_COOKIE_SECURE: "0"
-      FILAMENT_PUBLIC_BASE_URL: "http://127.0.0.1:${FILAMENT_TEST_PORT:-8766}"
-      FILAMENT_PRINTER_ALLOWED_IPS: ""
+      SPOOLMERA_DB_PATH: /data/spoolmera.sqlite3
+      SPOOLMERA_COOKIE_SECURE: "0"
+      SPOOLMERA_PUBLIC_BASE_URL: "http://127.0.0.1:${SPOOLMERA_TEST_PORT:-8766}"
+      SPOOLMERA_PRINTER_ALLOWED_IPS: ""
     volumes:
       - test_data:/data
     read_only: true

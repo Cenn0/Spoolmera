@@ -1,10 +1,10 @@
 # Optional, separately sandboxed slicing process on an internal-only Docker network.
-# Generate FILAMENT_SLICER_WORKER_TOKEN (32+ characters) in the private .env file.
+# Generate SPOOLMERA_SLICER_WORKER_TOKEN (32+ characters) in the private .env file.
 services:
   spoolmera:
     environment:
-      FILAMENT_SLICER_ENABLED: "1"
-      FILAMENT_SLICER_WORKER_URL: "http://slicer-worker:8767"
+      SPOOLMERA_SLICER_ENABLED: "1"
+      SPOOLMERA_SLICER_WORKER_URL: "http://slicer-worker:8767"
     networks:
       - default
       - slicer_internal
@@ -17,9 +17,9 @@ services:
       target: slicer-runtime
     restart: unless-stopped
     environment:
-      FILAMENT_SLICER_ENABLED: "1"
-      FILAMENT_SLICER_PROFILES_DIR: /config/slicer-profiles
-      FILAMENT_SLICER_WORKER_TOKEN: ${FILAMENT_SLICER_WORKER_TOKEN:?Set FILAMENT_SLICER_WORKER_TOKEN in .env}
+      SPOOLMERA_SLICER_ENABLED: "1"
+      SPOOLMERA_SLICER_PROFILES_DIR: /config/slicer-profiles
+      SPOOLMERA_SLICER_WORKER_TOKEN: ${SPOOLMERA_SLICER_WORKER_TOKEN:?Set SPOOLMERA_SLICER_WORKER_TOKEN in .env}
     volumes:
       - ./slicer-profiles:/config/slicer-profiles:ro
     networks:
