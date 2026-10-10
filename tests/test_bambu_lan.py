@@ -16,17 +16,17 @@ from tests.test_security_jobs import make_inventory
 
 
 def configured(monkeypatch):
-    monkeypatch.setenv('FILAMENT_PRINTER_ALLOWED_IPS', '192.168.50.20')
-    monkeypatch.setenv('FILAMENT_PRINTER_TOKEN_BAMBU1', '12345678')
-    monkeypatch.setenv('FILAMENT_BAMBU_CERT_SHA256_BAMBU1', hashlib.sha256(b'printer-cert').hexdigest())
+    monkeypatch.setenv('SPOOLMERA_PRINTER_ALLOWED_IPS', '192.168.50.20')
+    monkeypatch.setenv('SPOOLMERA_PRINTER_TOKEN_BAMBU1', '12345678')
+    monkeypatch.setenv('SPOOLMERA_BAMBU_CERT_SHA256_BAMBU1', hashlib.sha256(b'printer-cert').hexdigest())
     return {'name':'Bambu test', 'kind':'bambu', 'base_url':'mqtts://192.168.50.20:8883',
-            'token_env':'FILAMENT_PRINTER_TOKEN_BAMBU1', 'serial':'01P00C5A1002021', 'enabled':True}
+            'token_env':'SPOOLMERA_PRINTER_TOKEN_BAMBU1', 'serial':'01P00C5A1002021', 'enabled':True}
 
 
 def test_config_rejects_missing_pin_url_and_serial(monkeypatch):
     p = configured(monkeypatch)
     assert validate_printer_input(PrinterInput(**p)) == p['base_url']
-    monkeypatch.delenv('FILAMENT_BAMBU_CERT_SHA256_BAMBU1')
+    monkeypatch.delenv('SPOOLMERA_BAMBU_CERT_SHA256_BAMBU1')
     with pytest.raises(ValueError, match='fingerprint'):
         validate_printer_input(PrinterInput(**p))
     configured(monkeypatch)
@@ -127,7 +127,7 @@ def test_routes_keep_pin_and_secret_out_of_database_and_require_operator_opt_in(
         job=client.post('/api/jobs',json={'printer_id':identity,'spool_id':spool,
             'file_name':'part.3mf','estimated_g':42})
         assert job.status_code==201,job.text
-        monkeypatch.setenv('FILAMENT_PRINTER_CONTROL_ENABLED','1')
+        monkeypatch.setenv('SPOOLMERA_PRINTER_CONTROL_ENABLED','1')
         assert client.post(f"/api/jobs/{job.json()['id']}/start").status_code==422
         assert client.post(f"/api/jobs/{job.json()['id']}/upload?file_name=part.3mf",
             content=b'G1 E1',headers={'content-type':'application/octet-stream'}).status_code==422
@@ -139,7 +139,7 @@ def test_migration_v10_upgrade_preserves_referenced_jobs(tmp_path,monkeypatch):
     with TestClient(create_app(path)) as client:
         authenticate(client)
         pid=client.post('/api/printers',json={'name':'Old','kind':'octoprint',
-            'base_url':'http://192.168.50.20:5000','token_env':'FILAMENT_PRINTER_TOKEN_BAMBU1',
+            'base_url':'http://192.168.50.20:5000','token_env':'SPOOLMERA_PRINTER_TOKEN_BAMBU1',
             'enabled':True}).json()['id']
         sid=make_inventory(client)
         jid=client.post('/api/jobs',json={'printer_id':pid,'spool_id':sid,
@@ -171,7 +171,7 @@ def test_3mf_job_name_allowed_only_for_bambu(tmp_path,monkeypatch):
         spool=make_inventory(client)
         bambu_id=client.post('/api/printers',json=configured(monkeypatch)).json()['id']
         other_id=client.post('/api/printers',json={'name':'Octo','kind':'octoprint',
-            'base_url':'http://192.168.50.20:5000','token_env':'FILAMENT_PRINTER_TOKEN_BAMBU1',
+            'base_url':'http://192.168.50.20:5000','token_env':'SPOOLMERA_PRINTER_TOKEN_BAMBU1',
             'enabled':True}).json()['id']
         def job(printer_id,filename):
             return client.post('/api/jobs',json={'printer_id':printer_id,'spool_id':spool,

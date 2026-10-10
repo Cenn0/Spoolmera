@@ -25,7 +25,7 @@ def test_durable_start_command_prevents_replay(tmp_path):
             "brand": "Example", "name": "PLA", "material": "PLA", "color_name": "Green"
         }).json()["id"]
         spool = client.post("/api/spools", json={"product_id":product,"initial_g":1000}).json()["id"]
-        os.environ["FILAMENT_PRINTER_ALLOWED_IPS"] = "192.168.50.20"
+        os.environ["SPOOLMERA_PRINTER_ALLOWED_IPS"] = "192.168.50.20"
         printer = client.post("/api/printers", json={
             "name":"Printer","kind":"moonraker","base_url":"http://192.168.50.20:7125"
         }).json()["id"]
@@ -59,17 +59,17 @@ def test_snapshot_backup_and_future_version_guard(tmp_path):
 
 
 def test_isolated_worker_requires_token(monkeypatch, tmp_path):
-    monkeypatch.setenv("FILAMENT_SLICER_WORKER_TOKEN", "unique-test-worker-key-over-thirty-two-characters")
-    monkeypatch.setenv("FILAMENT_SLICER_ENABLED", "1")
+    monkeypatch.setenv("SPOOLMERA_SLICER_WORKER_TOKEN", "unique-test-worker-key-over-thirty-two-characters")
+    monkeypatch.setenv("SPOOLMERA_SLICER_ENABLED", "1")
     profiles = tmp_path / "profiles"
     profiles.mkdir()
     (profiles/"approved.ini").write_text("nozzle_diameter = 0.4")
-    monkeypatch.setenv("FILAMENT_SLICER_PROFILES_DIR", str(profiles))
+    monkeypatch.setenv("SPOOLMERA_SLICER_PROFILES_DIR", str(profiles))
     with TestClient(create_worker_app()) as client:
         assert client.get("/health").status_code == 200
         assert client.get("/profiles").status_code == 401
         assert client.get("/profiles", headers={"X-Worker-Token": "wrong"}).status_code == 401
-        assert client.get("/profiles", headers={"X-Worker-Token": os.environ["FILAMENT_SLICER_WORKER_TOKEN"]}).json() == {"profiles": ["approved"]}
+        assert client.get("/profiles", headers={"X-Worker-Token": os.environ["SPOOLMERA_SLICER_WORKER_TOKEN"]}).json() == {"profiles": ["approved"]}
 
 def test_restart_recovers_unacknowledged_start_without_retry(tmp_path):
     """A crash between physical execution and response must not trigger replay."""

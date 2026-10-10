@@ -73,7 +73,7 @@ class DisposableDocker:
         assert argv[0] == "docker"
         args = argv[1:]
         self.commands.append(args)
-        self.bootstrap = env["FILAMENT_BOOTSTRAP_TOKEN"]
+        self.bootstrap = env["SPOOLMERA_BOOTSTRAP_TOKEN"]
         output, returncode = "", 0
         if args[0] == "start" or (args[0] == "run" and "--detach" in args):
             self.port += 1
