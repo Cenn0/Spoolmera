@@ -26,7 +26,6 @@
 | Existing API and proposed adapters | [Integration contracts](integrations.md) |
 | Dependency lockfiles, Docker base images and CI artifacts | [Build reproducibility](build-reproducibility.md) and [build inputs](build-inputs.json) |
 | Development contributions and vulnerability reports | [Contributing](../CONTRIBUTING.md) and [Security policy](../SECURITY.md) |
-| Public repository, branch rules and security administration | [Repository security](repository-security.md) |
 
 ## Terminology and support
 

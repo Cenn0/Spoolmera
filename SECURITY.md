@@ -19,9 +19,3 @@ The experimental Bambu Lab MQTT adapter is a **community/non-official integratio
 ## Deployment reminder
 
 A malicious STL, G-code or controller can damage equipment. Optional network controls and an isolated slicer reduce exposure but cannot guarantee machine safety. Review generated G-code and supervise physical operation.
-
-## Public repository controls
-
-The public repository has [CI](.github/workflows/ci.yml), [CodeQL analysis](.github/workflows/codeql.yml), [Dependabot update proposals](.github/dependabot.yml) and a [proposed branch ruleset](.github/rulesets/main.json). These files do not, by themselves, activate GitHub administrative protections. See the [public repository security checklist](docs/repository-security.md) for the administrator activation and verification steps, including native secret scanning, push protection and private vulnerability reporting.
-
-Never consider a clean scan proof that a published commit history or downloadable artifact contained no secrets. Rotate any exposed keys immediately and review affected git history and artifacts.
