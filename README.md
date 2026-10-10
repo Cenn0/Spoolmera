@@ -52,7 +52,7 @@ See [screenshot provenance and regeneration](docs/screenshots/README.md).
 | **Inventory UX** | Color-coded cards and table view, filters, storage board, label tray, drag-and-drop with keyboard/click alternatives, light/dark/system themes |
 | **Accounting** | Transactional movements, manual weighing, actual/partial/zero-use job review, traceable corrections and a searchable history |
 | **Labels and migration** | QR labels (60 × 40 / 50 × 30 mm), batch spool registration, validated CSV import/export and create-only Spoolman JSON snapshot import |
-| **Print jobs** | Job tracking, G-code/3MF metadata inspection, explicit multi-tool-to-spool mappings, readiness suggestions and advisory reservations |
+| **Print jobs** | Job tracking, G-code/3MF metadata inspection, explicit multi-tool-to-spool mappings, reservations, and optional Bambu task-correlated estimated consumption |
 | **Printer connections** | Local Moonraker/Klipper, OctoPrint and **experimental community Bambu Lab LAN MQTT** integration (capabilities differ; see below) |
 | **Optional operations** | Privileged printer commands, G-code file transfer for supported controllers, isolated PrusaSlicer STL slicing, signed cloud/scale event bridges, scoped read-only automation tokens and notification sidecar |
 | **Administration** | First-run administrator setup, viewer/editor/admin roles, diagnostics, SQLite backup and guarded offline restore |
@@ -119,7 +119,7 @@ Configure these components before starting them. See [operator procedures](docs/
 | --- | --- | --- |
 | **Moonraker / Klipper** | Status polling; opt-in file upload, start/pause/resume/cancel; constrained completion-based estimated accounting | Upstream HTTP interfaces documented; tested with simulated controllers. **No physical printer certified** |
 | **OctoPrint** | Status polling; opt-in G-code transfer and commands; completion remains manual review | Upstream HTTP interfaces documented; tested with simulated controllers. **No physical printer certified** |
-| **Bambu Lab LAN MQTT** | LAN status, temperature/progress and AMS observations; optional pause/resume/stop | **Community / non-official adapter**, requires firmware-compatible Developer Mode and pinned TLS certificate. No Bambu Cloud login, file upload, remote print start or certified device support |
+| **Bambu Lab LAN MQTT** | LAN status, temperature/progress, AMS observations; optional pause/resume/stop and **per-job opt-in estimated stock debit** after matching task ID + filename are observed from RUNNING to FINISH | **Community / non-official adapter**; firmware compatibility and telemetry correlation not guaranteed; pinned TLS certificate required. No native cloud, uploads, remote print start or hardware certification |
 | **Cloud event ingestion** | HMAC-authenticated events for an operator-provided bridge; untrusted job outcomes move to review | Vendor-neutral contract only; **no native vendor cloud connector** |
 | **PrusaSlicer CLI** | Operator-approved STL-to-G-code conversion inside an opt-in worker | Application-level integration; no guarantee that emitted G-code is safe for a real device |
 
@@ -133,7 +133,7 @@ Not implemented: native Bambu/Prusa cloud login and control, OIDC/SSO, automatic
 2. **Track material** by recording use, adjustments, measured weights and drying history. Review the history and reconcile ambiguous print outcomes explicitly.
 3. **Print labels** from *Spools*, optionally gathering up to 100 individual roll labels into a rearrangeable selection. Use the appropriate 60 × 40 mm or 50 × 30 mm print layout at 100% scale.
 4. **Import or export** a validated inventory CSV. Reimporting an existing UUID skips it; the importer does **not** overwrite existing products, update historical movements or act as a full backup. Spoolman import accepts a bounded JSON snapshot, not a live synchronization.
-5. **Register print jobs** and deliberately assign each material/tool to a physical spool. Imported G-code and sliced 3MF data are metadata inputs, not automatic printer instructions. Review estimates and remaining stock before printing.
+5. **Register print jobs** and deliberately assign each material/tool to a physical spool. Imported G-code and sliced 3MF data are metadata inputs, not automatic printer instructions. Review estimates and remaining stock before printing. Bambu jobs can explicitly opt into automatic debit of these **slicer-estimated** grams after an observed, correlated MQTT completion. Failed, uncertain or unidentifiable runs remain for manual review; no direct physical filament mass is measured.
 
 Read the [CSV specification](docs/csv-format.md), [UI interactions](docs/interface-ux.md), [language behavior](docs/interface-languages.md) and [detailed print operations](docs/operations.md).
 
