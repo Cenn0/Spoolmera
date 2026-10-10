@@ -45,7 +45,7 @@ class Review(BaseModel):
 def verify(source: str, request: Request, raw: bytes) -> int:
     if not SOURCE.fullmatch(source):
         raise HTTPException(404,"Unknown scale bridge.")
-    secret=os.environ.get("FILAMENT_SCALE_HMAC_"+source,"")
+    secret=os.environ.get("SPOOLMERA_SCALE_HMAC_"+source,"")
     if len(secret)<32:
         raise HTTPException(503,"Scale bridge not configured.")
     stamp=request.headers.get("X-Filament-Timestamp","")

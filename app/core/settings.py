@@ -58,25 +58,25 @@ class Settings:
     @classmethod
     def from_environment(cls, env: Mapping[str, str] | None = None) -> "Settings":
         values = os.environ if env is None else env
-        interval = _integer(values, "FILAMENT_PRINTER_POLL_SECONDS", 30, 10, 300)
-        timeout = _integer(values, "FILAMENT_BACKUP_TIMEOUT_SECONDS", 30, 1, 300)
-        reserve_mb = _integer(values, "FILAMENT_STORAGE_RESERVE_MIB", 64, 1, 4096)
-        for name in ("FILAMENT_COOKIE_SECURE", "FILAMENT_PRINTER_CONTROL_ENABLED", "FILAMENT_CATALOG_ENABLED"):
+        interval = _integer(values, "SPOOLMERA_PRINTER_POLL_SECONDS", 30, 10, 300)
+        timeout = _integer(values, "SPOOLMERA_BACKUP_TIMEOUT_SECONDS", 30, 1, 300)
+        reserve_mb = _integer(values, "SPOOLMERA_STORAGE_RESERVE_MIB", 64, 1, 4096)
+        for name in ("SPOOLMERA_COOKIE_SECURE", "SPOOLMERA_PRINTER_CONTROL_ENABLED", "SPOOLMERA_CATALOG_ENABLED"):
             _boolean(values, name)
-        slicer_enabled = _boolean(values, "FILAMENT_SLICER_ENABLED")
-        public_origin = values.get("FILAMENT_PUBLIC_BASE_URL", "")
+        slicer_enabled = _boolean(values, "SPOOLMERA_SLICER_ENABLED")
+        public_origin = values.get("SPOOLMERA_PUBLIC_BASE_URL", "")
         if public_origin:
             try:
                 parsed = urlsplit(public_origin)
                 parsed.port
             except ValueError:
-                raise ConfigurationError("FILAMENT_PUBLIC_BASE_URL must be an HTTP(S) origin.") from None
+                raise ConfigurationError("SPOOLMERA_PUBLIC_BASE_URL must be an HTTP(S) origin.") from None
             if (parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username
                     or parsed.password or parsed.path not in {"", "/"} or parsed.query or parsed.fragment):
-                raise ConfigurationError("FILAMENT_PUBLIC_BASE_URL must be an HTTP(S) origin.")
+                raise ConfigurationError("SPOOLMERA_PUBLIC_BASE_URL must be an HTTP(S) origin.")
         slicer_configured = (
-            values.get("FILAMENT_SLICER_WORKER_URL") == "http://slicer-worker:8767"
-            and len(values.get("FILAMENT_SLICER_WORKER_TOKEN", "")) >= 32
+            values.get("SPOOLMERA_SLICER_WORKER_URL") == "http://slicer-worker:8767"
+            and len(values.get("SPOOLMERA_SLICER_WORKER_TOKEN", "")) >= 32
         )
         if slicer_enabled and not slicer_configured:
             raise ConfigurationError("Enabled slicing requires its internal worker URL and a 32-character token.")

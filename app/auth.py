@@ -24,7 +24,7 @@ from app.core.policies import require_admin
 
 COOKIE = "filament_session"
 SESSION_SECONDS = 7 * 24 * 3600
-DUMMY_SALT = b"filament-manager-dummy"
+DUMMY_SALT = b"spoolmera-dummy"
 PASSWORD_HASHER = PasswordHasher(time_cost=2, memory_cost=19456, parallelism=1,
                                  hash_len=32, salt_len=16, type=Type.ID)
 DUMMY_HASH = PASSWORD_HASHER.hash("irrelevant-invalid-dummy-password")
@@ -108,8 +108,8 @@ def issue_session(db, user_id: int, response: JSONResponse) -> str:
     db.execute("INSERT INTO auth_sessions(token_hash,user_id,csrf_token,expires_at) VALUES(?,?,?,?)",
                (hashlib.sha256(token.encode()).hexdigest(), user_id, csrf, int(time.time()) + SESSION_SECONDS))
     # Never issue an insecure cookie for an HTTPS-configured public origin.
-    secure = (os.getenv("FILAMENT_COOKIE_SECURE", "0") == "1"
-              or os.getenv("FILAMENT_PUBLIC_BASE_URL", "").lower().startswith("https://"))
+    secure = (os.getenv("SPOOLMERA_COOKIE_SECURE", "0") == "1"
+              or os.getenv("SPOOLMERA_PUBLIC_BASE_URL", "").lower().startswith("https://"))
     response.set_cookie(
         COOKIE, token, max_age=SESSION_SECONDS, httponly=True, secure=secure,
         samesite="lax", path="/",
@@ -142,7 +142,7 @@ def protect(app: FastAPI, db_path: Path) -> None:
             origin = request.headers.get("origin")
             if origin:
                 from urllib.parse import urlsplit
-                expected = os.getenv("FILAMENT_PUBLIC_BASE_URL", "").rstrip("/")
+                expected = os.getenv("SPOOLMERA_PUBLIC_BASE_URL", "").rstrip("/")
                 self_origin = str(request.base_url).rstrip("/")
                 if origin not in (expected, self_origin):
                     return JSONResponse({"detail": "Origin not permitted."}, status_code=403)
@@ -180,7 +180,7 @@ def protect(app: FastAPI, db_path: Path) -> None:
 
     @router.post("/api/auth/setup")
     def setup(payload: SetupForm, request: Request):
-        secret = os.getenv("FILAMENT_BOOTSTRAP_TOKEN", "")
+        secret = os.getenv("SPOOLMERA_BOOTSTRAP_TOKEN", "")
         provided = request.headers.get("x-bootstrap-token", "")
         if len(secret) < 24 or not hmac.compare_digest(secret.encode("utf-8"), provided.encode("utf-8")):
             raise HTTPException(status_code=403, detail="A configured bootstrap token is required.")
