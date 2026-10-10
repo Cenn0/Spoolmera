@@ -24,6 +24,8 @@ from app.database import session, utc_now
 from app.auth import audit
 from app.services.command_service import reserve_command, finalize_command, clear_command
 from app.api.contracts import PrinterResponse
+from app.infrastructure.printers.bambu import read_bambu_status, send_bambu_control
+from app.core.settings import read_secret
 
 TOKEN_PATTERN = re.compile(r"^FILAMENT_PRINTER_TOKEN_[A-Z0-9_]{1,50}$")
 PRIVATE_NETWORKS = tuple(ipaddress.ip_network(value) for value in (
@@ -34,9 +36,10 @@ PRIVATE_NETWORKS = tuple(ipaddress.ip_network(value) for value in (
 class PrinterInput(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     name: str = Field(min_length=1, max_length=80)
-    kind: str = Field(pattern=r"^(moonraker|octoprint)$")
+    kind: str = Field(pattern=r"^(moonraker|octoprint|bambu)$")
     base_url: str = Field(min_length=10, max_length=160)
     token_env: str = ""
+    serial: str = Field(default="", max_length=32)
     enabled: bool = True
 
 
@@ -47,7 +50,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def normalize_printer_url(url: str) -> str:
     parsed = urlsplit(url)
-    if (parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or
+    if (parsed.scheme not in {"http", "https", "mqtts"} or not parsed.hostname or parsed.username or
         parsed.password or parsed.path not in ("", "/") or parsed.query or parsed.fragment or
         parsed.port is None):
         raise ValueError("Use an http(s) URL with an explicit port and IP address only.")
@@ -65,17 +68,31 @@ def normalize_printer_url(url: str) -> str:
 
 def validate_printer_input(payload: PrinterInput) -> str:
     base = normalize_printer_url(payload.base_url)
+    if payload.kind == 'bambu':
+        if not base.startswith('mqtts://') or not base.endswith(':8883'):
+            raise ValueError('Bambu LAN requires mqtts://<private-IP>:8883.')
+        if not re.fullmatch(r'[A-Za-z0-9]{8,32}', payload.serial):
+            raise ValueError('Bambu device serial must contain 8 to 32 ASCII letters or digits.')
+        if not payload.token_env:
+            raise ValueError('Bambu requires a LAN access-code environment variable.')
+    elif not base.startswith(('http://', 'https://')) or payload.serial:
+        raise ValueError('HTTP controllers require an http(s) URL and no serial.')
     if payload.token_env and not TOKEN_PATTERN.fullmatch(payload.token_env):
         raise ValueError("Token variable must match FILAMENT_PRINTER_TOKEN_<ALIAS>.")
-    if payload.token_env and not os.getenv(payload.token_env):
+    if payload.token_env and not read_secret(payload.token_env):
         raise ValueError("Configured printer token environment variable is missing.")
+    if payload.kind == 'bambu':
+        suffix = payload.token_env.removeprefix('FILAMENT_PRINTER_TOKEN_')
+        digest = os.getenv('FILAMENT_BAMBU_CERT_SHA256_' + suffix, '')
+        if not re.fullmatch(r'[a-fA-F0-9]{64}', digest):
+            raise ValueError('Configure the pinned Bambu TLS certificate SHA-256 fingerprint.')
     if payload.kind == "octoprint" and not payload.token_env:
         raise ValueError("OctoPrint requires a configured token environment variable.")
     return base
 
 
 def safe_printer(row) -> dict:
-    return {key: row[key] for key in ("id","name","kind","base_url","token_env","enabled","created_at")}
+    return {key: row[key] for key in ("id","name","kind","base_url","token_env","serial","enabled","created_at")}
 
 
 def fetch_json(printer, path: str) -> dict:
@@ -124,6 +141,8 @@ def response_status(state, filename) -> dict:
 
 
 def printer_status(printer) -> dict:
+    if printer['kind'] == 'bambu':
+        return read_bambu_status(printer, normalize_printer_url)
     if printer["kind"] == "moonraker":
         data = fetch_json(printer, "/printer/objects/query?print_stats")
         result = response_object(data.get("result"), "result")
@@ -234,6 +253,8 @@ def write_controller(printer, path: str, *, body: bytes = b"", content_type: str
 
 
 def issue_control(printer, action: str) -> int:
+    if printer['kind'] == 'bambu':
+        return send_bambu_control(printer, normalize_printer_url, action)
     if printer["kind"] == "moonraker":
         return write_controller(printer, "/printer/print/" + action)
     payload = {"command": "pause", "action": action} if action != "cancel" else {"command": "cancel"}
@@ -243,6 +264,8 @@ def issue_control(printer, action: str) -> int:
 
 def upload_controller_file(printer, filename: str, content: bytes) -> int:
     """Upload only to G-code storage, never select or auto-start a print."""
+    if printer['kind'] == 'bambu':
+        raise ValueError('Bambu LAN file transfer is not implemented; use Bambu Studio.')
     if not SAFE_UPLOAD_NAME.fullmatch(filename):
         raise ValueError("Use a simple ASCII G-code filename without folders.")
     boundary = "FilamentBoundary" + secrets.token_hex(18)
@@ -273,6 +296,7 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
             for row in rows:
                 row["base_url"] = ""
                 row["token_env"] = ""
+                row["serial"] = ""
         return rows
 
     @router.post("/api/printers", status_code=201, dependencies=[Depends(require_admin)])
@@ -285,8 +309,8 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
             if db.execute("SELECT 1 FROM printers WHERE name=?", (payload.name,)).fetchone():
                 raise HTTPException(status_code=409, detail="Printer name already exists.")
             printer_id = db.execute(
-                "INSERT INTO printers(name,kind,base_url,token_env,enabled,created_at) VALUES(?,?,?,?,?,?)",
-                (payload.name, payload.kind, base, payload.token_env, int(payload.enabled), utc_now()),
+                "INSERT INTO printers(name,kind,base_url,token_env,serial,enabled,created_at) VALUES(?,?,?,?,?,?,?)",
+                (payload.name, payload.kind, base, payload.token_env, payload.serial, int(payload.enabled), utc_now()),
             ).lastrowid
             audit(db, request.state.user["id"], "printer_create", "printer", printer_id)
         return {"id": printer_id}
@@ -304,7 +328,7 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
             if db.execute("SELECT 1 FROM printers WHERE name=? AND id<>?",
                           (payload.name, printer_id)).fetchone():
                 raise HTTPException(status_code=409, detail="Printer name already exists.")
-            if old["base_url"] != base or old["kind"] != payload.kind or old['token_env'] != payload.token_env:
+            if old["base_url"] != base or old["kind"] != payload.kind or old['token_env'] != payload.token_env or old['serial'] != payload.serial:
                 if db.execute('SELECT 1 FROM printer_operations WHERE printer_id=?', (printer_id,)).fetchone() or db.execute(
                     """SELECT 1 FROM printer_commands WHERE printer_id=? AND action='start'
                        AND (state IN ('sending','acknowledged','unknown') OR (state='confirmed' AND released_at IS NULL)) LIMIT 1""",
@@ -317,8 +341,8 @@ def register_printer_routes(app: FastAPI, db_path: Path) -> None:
                 ).fetchone():
                     raise HTTPException(status_code=409, detail="Finish or cancel active job mappings first.")
             db.execute(
-                "UPDATE printers SET name=?,kind=?,base_url=?,token_env=?,enabled=? WHERE id=?",
-                (payload.name,payload.kind,base,payload.token_env,int(payload.enabled),printer_id),
+                "UPDATE printers SET name=?,kind=?,base_url=?,token_env=?,serial=?,enabled=? WHERE id=?",
+                (payload.name,payload.kind,base,payload.token_env,payload.serial,int(payload.enabled),printer_id),
             )
             audit(db, request.state.user["id"], "printer_update", "printer", printer_id)
         return {"id": printer_id}

@@ -357,6 +357,8 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
             raise HTTPException(status_code=409, detail="Only pending jobs can receive a file.")
         if file_name != job["file_name"]:
             raise HTTPException(status_code=422, detail="Uploaded filename does not match the mapped job.")
+        if job["kind"] == "bambu":
+            raise HTTPException(status_code=422, detail="Bambu LAN upload is not supported; transfer via Bambu Studio.")
         if not SAFE_UPLOAD_NAME.fullmatch(job["file_name"]):
             raise HTTPException(status_code=422, detail="Upload requires a flat ASCII G-code filename.")
         chunks = []
@@ -411,6 +413,8 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
             raise HTTPException(status_code=404, detail="Enabled printer job not found.")
         if job["status"] != "pending":
             raise HTTPException(status_code=409, detail="Only pending jobs can be started.")
+        if job["kind"] == "bambu":
+            raise HTTPException(status_code=422, detail="Bambu LAN print start is not supported; start via Bambu Studio.")
         try:
             state = printer_status(job)["state"].lower()
         except ValueError as exc:

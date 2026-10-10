@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
 from app.infrastructure.database.migrations import (
-    CURRENT_SCHEMA_VERSION, migrate_v2_v4, migrate_v5, migrate_v6, migrate_v7, migrate_v8, migrate_v9, migrate_v10, recover_interrupted_commands,
+    CURRENT_SCHEMA_VERSION, migrate_v2_v4, migrate_v5, migrate_v6, migrate_v7, migrate_v8, migrate_v9, migrate_v10, migrate_v11, recover_interrupted_commands,
 )
 
 SCHEMA = """
@@ -67,9 +67,10 @@ CREATE INDEX IF NOT EXISTS idx_auth_failures ON auth_failures(subject, created_a
 CREATE TABLE IF NOT EXISTS printers (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
-    kind TEXT NOT NULL CHECK(kind IN ('moonraker','octoprint')),
+    kind TEXT NOT NULL CHECK(kind IN ('moonraker','octoprint','bambu')),
     base_url TEXT NOT NULL,
     token_env TEXT NOT NULL DEFAULT '',
+    serial TEXT NOT NULL DEFAULT '',
     enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0,1)),
     created_at TEXT NOT NULL
 );
@@ -176,6 +177,8 @@ def initialize_database(path: str | Path) -> None:
                 migrate_v9(connection)
             if version < 10:
                 migrate_v10(connection)
+            if version < 11:
+                migrate_v11(connection)
             recover_interrupted_commands(connection)
             connection.execute(f"PRAGMA user_version = {CURRENT_SCHEMA_VERSION}")
             connection.execute("COMMIT")

@@ -3,7 +3,7 @@ import sqlite3
 from uuid import uuid4
 from datetime import datetime, timezone
 
-CURRENT_SCHEMA_VERSION = 10
+CURRENT_SCHEMA_VERSION = 11
 
 def migrate_v2_v4(connection: sqlite3.Connection) -> None:
     """Preserve legacy IDs and write an idempotent material mapping upgrade."""
@@ -224,3 +224,8 @@ def migrate_v10(db: sqlite3.Connection) -> None:
     from app.infrastructure.database.workflow_migration import migrate_workflows
     migrate_accounting(db)
     migrate_workflows(db)
+
+
+def migrate_v11(db: sqlite3.Connection) -> None:
+    """Persist a device serial for LAN MQTT topics without storing credentials."""
+    _ensure_column(db, "printers", "serial", "TEXT NOT NULL DEFAULT ''")
