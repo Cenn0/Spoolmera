@@ -12,7 +12,7 @@ import { LanguagePickerComponent, TranslatePipe } from './core/i18n';
       <section class="login-card">
         <div class="login-language"><fm-theme-picker /><fm-language-picker /></div>
         <div class="login-brand"><img class="brand-mark" src="/spoolmera-mark.svg" alt="" aria-hidden="true">
-          <strong>SPOOLMERA <small>3D PRINTING WORKSPACE</small></strong></div>
+          <strong>{{'SPOOLMERA' | t}} <small>{{'3D PRINTING WORKSPACE' | t}}</small></strong></div>
         <span class="eyebrow">{{'SELF-HOSTED MATERIAL WORKSPACE' | t}}</span>
         <h1>{{(auth.needsSetup()?'Create the first administrator':'Welcome back.') | t}}</h1>
         <p class="helper">{{(auth.needsSetup()

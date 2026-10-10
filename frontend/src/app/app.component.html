@@ -11,7 +11,7 @@
     <button type="button" class="drawer-close" (click)="closeNav()" [attr.aria-label]="'Close navigation'|t">×</button>
     <a class="brand" routerLink="/" (click)="closeNav()" [attr.aria-label]="'Spoolmera home' | t">
       <img class="brand-mark" src="/spoolmera-mark.svg" alt="" aria-hidden="true">
-      <span class="brand-label"><strong>SPOOLMERA</strong><small>3D PRINTING <em>{{'/ WORKSPACE' | t}}</em></small></span>
+      <span class="brand-label"><strong>{{'SPOOLMERA' | t}}</strong><small>{{'3D PRINTING' | t}} <em>{{'/ WORKSPACE' | t}}</em></small></span>
     </a>
     <span class="section-caption">{{'WORKSPACE' | t}}</span>
     <nav class="side-nav" [attr.aria-label]="'Workspace' | t">
@@ -34,7 +34,7 @@
         <strong>{{'Your materials. Your server.' | t}}</strong>
         <span>{{'Your inventory remains under your control.' | t}}</span>
       </div>
-      <div class="sidebar-meta"><span>SPOOLMERA</span><span>© {{ year }}</span></div>
+      <div class="sidebar-meta"><span>{{'SPOOLMERA' | t}}</span><span>© {{ year }}</span></div>
     </div>
   </aside>
 

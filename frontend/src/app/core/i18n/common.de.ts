@@ -1,6 +1,10 @@
 import type { TranslationCatalog } from './types';
 
 export const COMMON_DE = {
+  'SPOOLMERA': 'SPOOLMERA',
+  'Spoolmera': 'Spoolmera',
+  '3D PRINTING': '3D-DRUCK',
+  '3D PRINTING WORKSPACE': '3D-DRUCK-ARBEITSBEREICH',
   'Language': 'Sprache',
   'Interface language': 'Sprache der Oberfläche',
   'Retry connection': 'Verbindung erneut versuchen',
