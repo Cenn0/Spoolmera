@@ -45,8 +45,8 @@ The **Filaments** view groups products by material, color and variant. Its cards
 **Requirements:** Docker Engine or Docker Desktop with Docker Compose; Git access to this repository. No cloud account, paid subscription or external database is needed. The default build compiles Angular and packages the resulting static frontend with the Python/FastAPI server.
 
 ```bash
-git clone https://github.com/Cenn0/FilamentManager.git
-cd FilamentManager
+git clone https://github.com/Cenn0/Spoolmera.git
+cd Spoolmera
 cp .env.example .env
 
 # Generate a unique secret; copy its output into SPOOLMERA_BOOTSTRAP_TOKEN in .env
@@ -147,7 +147,7 @@ The same responsive web interface works in a narrow mobile browser: key stock fi
 - **Move existing data:** Export or preview/import the versioned CSV format. Existing UUIDs are skipped rather than overwritten; CSV is **not** a complete backup. Spoolman JSON imports are snapshot-based, not live synchronization.
 - **Track printing:** Register a print job and deliberately map each extruder tool to a physical spool. Imported G-code/3MF provides metadata, not automatic printer instructions. Check estimates, actual stock and uncertain outcomes before authorizing physical actions or accounting.
 
-All images on this page come from the passing [Chromium CI browser run](https://github.com/Cenn0/FilamentManager/actions/runs/38047886348) with disposable sample data and no connected printer. [Image sources and regeneration instructions](docs/screenshots/README.md) · [CSV schema](docs/csv-format.md) · [UI controls](docs/interface-ux.md) · [language behavior](docs/interface-languages.md) · [print operations](docs/operations.md).
+All images on this page come from the passing [Chromium CI browser run](https://github.com/Cenn0/Spoolmera/actions/runs/38047886348) with disposable sample data and no connected printer. [Image sources and regeneration instructions](docs/screenshots/README.md) · [CSV schema](docs/csv-format.md) · [UI controls](docs/interface-ux.md) · [language behavior](docs/interface-languages.md) · [print operations](docs/operations.md).
 
 ## Architecture at a glance
 
