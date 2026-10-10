@@ -37,6 +37,6 @@ Regenerate API declarations with `python scripts/generate_api_types.py`; CI uses
 
 ## Test artifact provenance
 
-The Docker CI job produces `filament-manager-0.10.0-test-linux-amd64`. Its `release.json` identifies version, schema, tested checkout commit and Docker image ID. `SHA256SUMS` covers the archive and supporting files. `TESTING.md` explains the isolated test volume and launcher. Validate checksums before importing the image.
+The Docker CI job produces `spoolmera-0.10.0-test-linux-amd64`. Its `release.json` identifies version, schema, tested checkout commit and Docker image ID. `SHA256SUMS` covers the archive and supporting files. `TESTING.md` explains the isolated test volume and launcher. Validate checksums before importing the image.
 
 Artifacts are retained for the period configured in CI. They are downloadable test builds, not a published GitHub release or a declaration of production/hardware certification. Packaging does not change repository visibility.

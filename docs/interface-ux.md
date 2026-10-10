@@ -4,7 +4,7 @@ The interface keeps English and German in one self-hosted Angular application. N
 
 ## Appearance and navigation
 
-The appearance control is available before sign-in and throughout the authenticated application. Choose **System theme**, **Light theme** or **Dark theme**. The initial choice follows `prefers-color-scheme`; an explicit choice is kept in browser local storage under `filament-manager-theme`. System changes and changes from another tab are reflected without reloading. Restricted browser storage falls back to an in-memory setting. This is a browser preference, not an account-wide server setting.
+The appearance control is available before sign-in and throughout the authenticated application. Choose **System theme**, **Light theme** or **Dark theme**. The initial choice follows `prefers-color-scheme`; an explicit choice is kept in browser local storage under `spoolmera-theme`. System changes and changes from another tab are reflected without reloading. Restricted browser storage falls back to an in-memory setting. This is a browser preference, not an account-wide server setting.
 
 A same-origin, external `theme-init.js` sets the appearance before Angular starts, without relaxing the content security policy. Semantic surface, text, focus, border and status tokens cover forms, dialogs, tables, alerts, the login screen and feature pages. Filament swatches preserve their actual recorded colors; printed labels remain light and ink-friendly.
 
