@@ -27,7 +27,7 @@ from app.api.contracts import PrinterResponse
 from app.infrastructure.printers.bambu import read_bambu_status, send_bambu_control
 from app.core.settings import read_secret
 
-TOKEN_PATTERN = re.compile(r"^FILAMENT_PRINTER_TOKEN_[A-Z0-9_]{1,50}$")
+TOKEN_PATTERN = re.compile(r"^SPOOLMERA_PRINTER_TOKEN_[A-Z0-9_]{1,50}$")
 PRIVATE_NETWORKS = tuple(ipaddress.ip_network(value) for value in (
     "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"
 ))
@@ -60,9 +60,9 @@ def normalize_printer_url(url: str) -> str:
         raise ValueError("An exact private IP address is required; DNS hostnames are not supported.") from exc
     if not any(ip in network for network in PRIVATE_NETWORKS):
         raise ValueError("Only RFC1918 LAN or private IPv6 addresses are supported.")
-    allowed = {item.strip() for item in os.getenv("FILAMENT_PRINTER_ALLOWED_IPS", "").split(",") if item.strip()}
+    allowed = {item.strip() for item in os.getenv("SPOOLMERA_PRINTER_ALLOWED_IPS", "").split(",") if item.strip()}
     if str(ip) not in allowed:
-        raise ValueError("This printer IP is not included in FILAMENT_PRINTER_ALLOWED_IPS.")
+        raise ValueError("This printer IP is not included in SPOOLMERA_PRINTER_ALLOWED_IPS.")
     return parsed.scheme + "://" + ("[" + str(ip) + "]" if ip.version == 6 else str(ip)) + ":" + str(parsed.port)
 
 
@@ -78,12 +78,12 @@ def validate_printer_input(payload: PrinterInput) -> str:
     elif not base.startswith(('http://', 'https://')) or payload.serial:
         raise ValueError('HTTP controllers require an http(s) URL and no serial.')
     if payload.token_env and not TOKEN_PATTERN.fullmatch(payload.token_env):
-        raise ValueError("Token variable must match FILAMENT_PRINTER_TOKEN_<ALIAS>.")
+        raise ValueError("Token variable must match SPOOLMERA_PRINTER_TOKEN_<ALIAS>.")
     if payload.token_env and not read_secret(payload.token_env):
         raise ValueError("Configured printer token environment variable is missing.")
     if payload.kind == 'bambu':
-        suffix = payload.token_env.removeprefix('FILAMENT_PRINTER_TOKEN_')
-        digest = os.getenv('FILAMENT_BAMBU_CERT_SHA256_' + suffix, '')
+        suffix = payload.token_env.removeprefix('SPOOLMERA_PRINTER_TOKEN_')
+        digest = os.getenv('SPOOLMERA_BAMBU_CERT_SHA256_' + suffix, '')
         if not re.fullmatch(r'[a-fA-F0-9]{64}', digest):
             raise ValueError('Configure the pinned Bambu TLS certificate SHA-256 fingerprint.')
     if payload.kind == "octoprint" and not payload.token_env:
@@ -208,7 +208,7 @@ SAFE_UPLOAD_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,169}\.(?:gcode|gco|
 
 def control_enabled() -> bool:
     """Fail closed: sending data or physical commands requires explicit opt-in."""
-    return os.getenv("FILAMENT_PRINTER_CONTROL_ENABLED") == "1"
+    return os.getenv("SPOOLMERA_PRINTER_CONTROL_ENABLED") == "1"
 
 
 def require_control() -> None:

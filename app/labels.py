@@ -9,7 +9,7 @@ from qrcode.image.svg import SvgPathImage
 
 
 def public_base_url() -> str:
-    base = os.environ.get("FILAMENT_PUBLIC_BASE_URL", "http://127.0.0.1:8765").rstrip("/")
+    base = os.environ.get("SPOOLMERA_PUBLIC_BASE_URL", "http://127.0.0.1:8765").rstrip("/")
     parsed = urlsplit(base)
     if (
         parsed.scheme not in ("http", "https")
@@ -21,7 +21,7 @@ def public_base_url() -> str:
         or parsed.fragment
     ):
         raise ValueError(
-            "FILAMENT_PUBLIC_BASE_URL must be an HTTP(S) origin without credentials, path, query or fragment."
+            "SPOOLMERA_PUBLIC_BASE_URL must be an HTTP(S) origin without credentials, path, query or fragment."
         )
     return base
 
