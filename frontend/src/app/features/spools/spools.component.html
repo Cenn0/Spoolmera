@@ -118,7 +118,7 @@
           <article class="storage-spool" [attr.data-spool-uid]="spool.uid">
             <div class="storage-spool-main">
               @if(auth.canEdit()&&!spool.archived_at){<button type="button" class="drag-handle" draggable="true" (dragstart)="dragStart($event,spool)" (dragend)="dragEnd()" [attr.aria-label]="'Drag spool {id}'|t:{id:''+spool.id}" [attr.title]="'Drag spool to a location'|t">⠿</button>}
-              <fm-spool-visual [color]="spool.color_hex" [percentage]="percent(spool)" />
+              <sm-spool-visual [color]="spool.color_hex" [percentage]="percent(spool)" />
               <div><strong>{{spool.brand}} · {{spool.product_name}}</strong><small>{{spool.color_name}} · {{spool.material}}</small><span>{{'Spool #{id}'|t:{id:''+spool.id} }} · {{grams(spool.remaining_g)}}</span></div>
             </div>
             @if(auth.canEdit()&&!spool.archived_at){
@@ -156,7 +156,7 @@
         [attr.aria-label]="'Select label for spool {id}'|t:{id:''+spool.id}" [attr.aria-pressed]="selectedLabels().includes(spool.uid)" [attr.title]="'Drag to label tray or click to select'|t">⠿</button>
     </div>
     <div class="spool-card-identity">
-      <fm-spool-visual [color]="spool.color_hex" [percentage]="percent(spool)" />
+      <sm-spool-visual [color]="spool.color_hex" [percentage]="percent(spool)" />
       <div><span class="spool-brand">{{spool.brand}}</span><h2>{{spool.product_name}}</h2><span class="spool-color"><span class="swatch small" [style.background-color]="spool.color_hex"></span>{{spool.color_name}}</span><small>{{'Spool #{id}'|t:{id:''+spool.id} }}</small></div>
     </div>
     <div class="spool-card-stock"><strong>{{grams(spool.remaining_g)}}</strong><span>{{'of {weight}'|t:{weight:grams(spool.initial_g)} }}</span><b>{{i18n.number(percent(spool),{maximumFractionDigits:0})}} %</b></div>

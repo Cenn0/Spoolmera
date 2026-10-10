@@ -82,7 +82,7 @@
 .storage-spool {padding:10px;border:1px solid var(--line);background:var(--white);border-radius:10px;min-width:0}
 .storage-spool-main {display:flex;align-items:center;gap:9px;min-width:0}
 .storage-spool-main .reel {transform:scale(.54);transform-origin:center;flex-shrink:0}
-.storage-spool-main fm-spool-visual {display:grid;place-items:center;width:55px;height:60px;overflow:hidden;flex-shrink:0}
+.storage-spool-main sm-spool-visual {display:grid;place-items:center;width:55px;height:60px;overflow:hidden;flex-shrink:0}
 .storage-spool-main>div:last-child {display:grid;gap:4px;min-width:0}
 .storage-spool-main strong {font-size:12px;overflow-wrap:anywhere}
 .storage-spool-main small,.storage-spool-main span {font-size:10px;color:var(--muted)}

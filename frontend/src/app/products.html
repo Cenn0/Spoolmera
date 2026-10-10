@@ -25,7 +25,7 @@
   <div class="filament-grid" id="product-card-grid" [attr.aria-busy]="data.loading()">
     @for(product of filtered();track product.id){
       <article class="filament-card" [attr.data-product-id]="product.id">
-        <div class="filament-sample"><fm-spool-visual [color]="product.color_hex" /><span class="material-chip">{{product.material}}</span><span class="sample-code">{{product.color_hex}}</span></div>
+        <div class="filament-sample"><sm-spool-visual [color]="product.color_hex" /><span class="material-chip">{{product.material}}</span><span class="sample-code">{{product.color_hex}}</span></div>
         <div class="filament-card-body">
           <span class="spool-brand">{{product.brand}}</span><h2>{{product.name}}</h2><p class="spool-color"><span class="swatch small" [style.background-color]="product.color_hex"></span>{{product.color_name}}</p>
           <div class="filament-stock"><strong>{{grams(product.total_remaining_g)}}</strong><span>{{(product.spool_count===1?'1 active roll':'{count} active rolls')|t:{count:i18n.number(product.spool_count)} }}</span></div>

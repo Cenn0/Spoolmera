@@ -88,7 +88,7 @@ export class SpoolsComponent implements OnInit {
   }
   setSpoolOrder(value:string):void {
     const order=spoolSort(value);this.spoolOrder.set(order);
-    try{localStorage.setItem('filament-manager-spool-sort',order);}catch{/* Presentation preference. */}
+    try{localStorage.setItem('spoolmera-spool-sort',order);}catch{/* Presentation preference. */}
   }
   createLocationLane():void {
     const name=this.locationDraft().trim();
@@ -156,7 +156,7 @@ export class SpoolsComponent implements OnInit {
   readonly activeFilterCount=computed(()=>Number(this.archived()!=='active')+Number(!!this.material())+Number(!!this.status())+Number(this.lowOnly()));
   setDisplay(value:'cards'|'table'|'locations'):void {
     this.displayMode.set(value);
-    try { localStorage.setItem('filament-manager-spool-view',value); } catch { /* Preference only. */ }
+    try { localStorage.setItem('spoolmera-spool-view',value); } catch { /* Preference only. */ }
   }
   selectLoaded():void {
     this.labelFeedback.set(null);
@@ -229,7 +229,7 @@ export class SpoolsComponent implements OnInit {
 
   private searchTimer:ReturnType<typeof setTimeout>|undefined;
   constructor(){
-    try{const view=localStorage.getItem('filament-manager-spool-view');if(view==='table'||view==='locations')this.displayMode.set(view);this.spoolOrder.set(spoolSort(localStorage.getItem('filament-manager-spool-sort')));}catch{/* Preference only. */}
+    try{const view=localStorage.getItem('spoolmera-spool-view');if(view==='table'||view==='locations')this.displayMode.set(view);this.spoolOrder.set(spoolSort(localStorage.getItem('spoolmera-spool-sort')));}catch{/* Preference only. */}
     effect(()=>{this.data.changed();untracked(()=>{if(this.routeReady)void this.refresh();});});
   }
   ngOnInit():void {

@@ -13,13 +13,13 @@ describe('spool cards and ordered label tray',()=>{
   let params:BehaviorSubject<ReturnType<typeof convertToParamMap>>;
   const first=spool(),second=spool({id:2,uid:'22222222-2222-4222-8222-222222222222'});
   beforeEach(async()=>{
-    localStorage.removeItem('filament-manager-spool-view');data=inventoryMock();params=new BehaviorSubject(convertToParamMap({product:'1'}));
+    localStorage.removeItem('spoolmera-spool-view');data=inventoryMock();params=new BehaviorSubject(convertToParamMap({product:'1'}));
     TestBed.configureTestingModule({providers:[provideRouter([]),{provide:ActivatedRoute,useValue:{queryParamMap:params}},
       {provide:AuthService,useValue:authMock('viewer')},{provide:InventoryService,useValue:data}]});
     fixture=TestBed.createComponent(SpoolsComponent);component=fixture.componentInstance;fixture.detectChanges();await fixture.whenStable();
     component.items.set([first,second]);
   });
-  afterEach(()=>{localStorage.removeItem('filament-manager-spool-view');});
+  afterEach(()=>{localStorage.removeItem('spoolmera-spool-view');});
   it('uses cards by default and carries the exact product filter into requests',()=>{
     expect(component.displayMode()).toBe('cards');expect(data.spoolPage).toHaveBeenCalledWith('active',undefined,'','','',1,false);
   });
