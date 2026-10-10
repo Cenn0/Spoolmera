@@ -6,11 +6,11 @@ These instructions apply to the experimental **Spoolmera v0.10.0** single-contai
 
 ## Requirements and first installation
 
-Docker with Compose, a host with sufficient storage, and Git access to `https://github.com/Cenn0/FilamentManager`. The repository path is correct even though the app has been renamed; repository visibility remains private.
+Docker with Compose, a host with sufficient storage, and Git access to `https://github.com/Cenn0/Spoolmera`. The repository is currently private and requires access permission.
 
 ```bash
-git clone https://github.com/Cenn0/FilamentManager.git
-cd FilamentManager
+git clone https://github.com/Cenn0/Spoolmera.git
+cd Spoolmera
 cp .env.example .env
 python3 -c 'import secrets; print(secrets.token_urlsafe(32))'
 ```

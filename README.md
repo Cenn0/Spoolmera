@@ -13,35 +13,15 @@
 >
 > **Project status:** experimental v0.10.0, Apache-2.0 source code. The GitHub repository is currently private, despite the project's free/open-source licensing intent. Access to cloning and CI artifacts depends on repository permissions. This is not a hosted product or a published stable release.
 
-## See the interface
+## Filament products at a glance
 
-Real Chromium screenshots from the passing [CI browser run](https://github.com/Cenn0/FilamentManager/actions/runs/38047886348). They show **German UI with synthetic sample data** (no real printer connected); the application also supports English.
+The **Filaments** view groups products by material, color and variant. Its cards show how much stock is available **across the physical spools** belonging to each product, flag low stock and link directly to the matching rolls. This makes it useful for choosing a filament *before* checking which specific spool to use.
 
-[![Spoolmera: filament product gallery in dark mode](docs/screenshots/filaments-dark.png)](docs/screenshots/filaments-dark.png)
+<a href="docs/screenshots/filaments-dark.png">
+  <img src="docs/screenshots/filaments-dark.png" alt="Spoolmera filament catalog: six example filament products with color previews, available material and links to their physical spools" width="900">
+</a>
 
-<table>
-  <tr>
-    <td width="74%">
-      <a href="docs/screenshots/spools-light.png"><img src="docs/screenshots/spools-light.png" alt="Spool inventory in light mode, showing filter controls, color cards and material quantities" width="680"></a>
-      <sub>Physical spools · light theme</sub>
-    </td>
-    <td width="26%">
-      <a href="docs/screenshots/spools-mobile-dark.png"><img src="docs/screenshots/spools-mobile-dark.png" alt="Spool inventory in a narrow mobile viewport, dark mode" width="235"></a>
-      <sub>Responsive mobile layout · dark theme</sub>
-    </td>
-  </tr>
-</table>
-
-<details>
-<summary>More views: inventory and storage board in dark mode</summary>
-
-[![Physical spool cards in dark mode](docs/screenshots/spools-dark.png)](docs/screenshots/spools-dark.png)
-
-[![Spool storage locations board in dark mode](docs/screenshots/locations-dark.png)](docs/screenshots/locations-dark.png)
-
-</details>
-
-See [screenshot provenance and regeneration](docs/screenshots/README.md).
+*Filament catalog · dark mode. Screenshot from the real Angular app with synthetic German-language test data; [view at full resolution](docs/screenshots/filaments-dark.png).*
 
 ## What you can do
 
@@ -65,8 +45,8 @@ See [screenshot provenance and regeneration](docs/screenshots/README.md).
 **Requirements:** Docker Engine or Docker Desktop with Docker Compose; Git access to this repository. No cloud account, paid subscription or external database is needed. The default build compiles Angular and packages the resulting static frontend with the Python/FastAPI server.
 
 ```bash
-git clone https://github.com/Cenn0/FilamentManager.git
-cd FilamentManager
+git clone https://github.com/Cenn0/Spoolmera.git
+cd Spoolmera
 cp .env.example .env
 
 # Generate a unique secret; copy its output into SPOOLMERA_BOOTSTRAP_TOKEN in .env
@@ -127,15 +107,47 @@ Configure these components before starting them. See [operator procedures](docs/
 
 Not implemented: native Bambu/Prusa cloud login and control, OIDC/SSO, automatic AMS-to-physical-spool mapping, general USB load-cell drivers, universal OpenPrintTag payload decoding or complete Spoolman API compatibility. Browser NFC availability is device-dependent.
 
-## Everyday workflows
+## Working with physical spools
 
-1. **Add filament products** under *Filaments*, then register one or more physical rolls under *Spools*. Each roll has its own durable ID.
-2. **Track material** by recording use, adjustments, measured weights and drying history. Review the history and reconcile ambiguous print outcomes explicitly.
-3. **Print labels** from *Spools*, optionally gathering up to 100 individual roll labels into a rearrangeable selection. Use the appropriate 60 × 40 mm or 50 × 30 mm print layout at 100% scale.
-4. **Import or export** a validated inventory CSV. Reimporting an existing UUID skips it; the importer does **not** overwrite existing products, update historical movements or act as a full backup. Spoolman import accepts a bounded JSON snapshot, not a live synchronization.
-5. **Register print jobs** and deliberately assign each material/tool to a physical spool. Imported G-code and sliced 3MF data are metadata inputs, not automatic printer instructions. Review estimates and remaining stock before printing.
+### Each roll has its own identity
 
-Read the [CSV specification](docs/csv-format.md), [UI interactions](docs/interface-ux.md), [language behavior](docs/interface-languages.md) and [detailed print operations](docs/operations.md).
+A filament *product* can have multiple physical rolls. In **Spools**, you see each roll's material and color, remaining weight, condition and storage location. Search and filters help narrow down the inventory; a card or table view provides different levels of detail. Consumption, weighing and corrections are recorded against the **individual spool**, not an entire product group.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/spools-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/spools-light.png">
+  <img src="docs/screenshots/spools-light.png" alt="Physical spool inventory showing individual color-coded rolls, remaining weights, stock status and filters" width="900">
+</picture>
+
+*One inventory, two appearances: the screenshot switches between light and dark with your browser color-scheme preference. Open the [light screenshot](docs/screenshots/spools-light.png) or [dark screenshot](docs/screenshots/spools-dark.png) at full resolution.*
+
+### Locate spools without changing stock
+
+Switch the inventory to **Locations** to see physical rolls grouped by their recorded storage place. The horizontal board helps when stock is distributed across multiple shelves or boxes. Scrolling through the board does **not** move a spool; actual reassignment requires an explicit, confirmed action.
+
+<a href="docs/screenshots/locations-dark.png">
+  <img src="docs/screenshots/locations-dark.png" alt="Spoolmera Locations board grouping example filament rolls by storage area and showing their assigned locations" width="800">
+</a>
+
+*Storage location board · dark mode. [View the complete screenshot](docs/screenshots/locations-dark.png).*
+
+### Use the inventory next to your printer
+
+The same responsive web interface works in a narrow mobile browser: key stock figures, search, filters and spool cards remain accessible, while secondary navigation moves into a compact menu. There is no separate mobile app or additional service to install.
+
+<a href="docs/screenshots/spools-mobile-dark.png">
+  <img src="docs/screenshots/spools-mobile-dark.png" alt="Spoolmera mobile spool inventory at 390-pixel viewport width, with stock summary, filters, first spool card and bottom navigation" width="290">
+</a>
+
+*Mobile spool inventory · 390 × 844 browser viewport. [View the original screenshot](docs/screenshots/spools-mobile-dark.png).*
+
+### Continue from inventory to print preparation
+
+- **Identify each spool:** Print its own **60 × 40 mm** or **50 × 30 mm QR label**. The QR URL stays tied to that physical spool as its weight changes; printed weight is only a snapshot. The label tray lets you select and reorder up to 100 rolls.
+- **Move existing data:** Export or preview/import the versioned CSV format. Existing UUIDs are skipped rather than overwritten; CSV is **not** a complete backup. Spoolman JSON imports are snapshot-based, not live synchronization.
+- **Track printing:** Register a print job and deliberately map each extruder tool to a physical spool. Imported G-code/3MF provides metadata, not automatic printer instructions. Check estimates, actual stock and uncertain outcomes before authorizing physical actions or accounting.
+
+All images on this page come from the passing [Chromium CI browser run](https://github.com/Cenn0/Spoolmera/actions/runs/38047886348) with disposable sample data and no connected printer. [Image sources and regeneration instructions](docs/screenshots/README.md) · [CSV schema](docs/csv-format.md) · [UI controls](docs/interface-ux.md) · [language behavior](docs/interface-languages.md) · [print operations](docs/operations.md).
 
 ## Architecture at a glance
 

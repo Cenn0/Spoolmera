@@ -14,8 +14,8 @@ The screenshots committed here are **real headless-Chromium captures of the comp
 
 ## Verified origin
 
-- **Application revision:** [`ed706cc020df2f4871113d86271c7d9f0cc026ea`](https://github.com/Cenn0/FilamentManager/commit/ed706cc020df2f4871113d86271c7d9f0cc026ea) (Spoolmera v0.10.0).
-- **CI run:** [`38047886348`](https://github.com/Cenn0/FilamentManager/actions/runs/38047886348), completed successfully on **2026-10-10**.
+- **Application revision:** [`ed706cc020df2f4871113d86271c7d9f0cc026ea`](https://github.com/Cenn0/Spoolmera/commit/ed706cc020df2f4871113d86271c7d9f0cc026ea) (Spoolmera v0.10.0).
+- **CI run:** [`38047886348`](https://github.com/Cenn0/Spoolmera/actions/runs/38047886348), completed successfully on **2026-10-10**.
 - **Artifact:** `ui-ux-previews`, five original `ui-de-*.png` files.
 - **Test code:** [`scripts/ui_browser_smoke.py`](../../scripts/ui_browser_smoke.py), called from [`scripts/browser_smoke.py`](../../scripts/browser_smoke.py) in the [`browser-smoke` CI job](../../.github/workflows/ci.yml).
 - **Image handling:** original PNG binaries copied unmodified to stable filenames; no cropping, pixel alteration or compositing.
