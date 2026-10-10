@@ -65,7 +65,7 @@ def validate_database(db: sqlite3.Connection) -> int:
     tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     for table, columns in expected.items():
         if table not in tables or not columns <= {r[1] for r in db.execute(f"PRAGMA table_info({table})")}:
-            raise BackupError("File is not a recognized Filament Manager database.")
+            raise BackupError("File is not a recognized Spoolmera database.")
     return version
 
 
@@ -159,7 +159,7 @@ def create_snapshot(source: Path, destination: Path, *, max_bytes: int | None = 
                 digest.update(chunk)
         if time.monotonic() >= deadline:
             raise BackupError("Backup exceeded its time limit.", reason="timeout")
-        return {"application": "FilamentManager", "schema_version": version,
+        return {"application": "Spoolmera", "schema_version": version,
                 "created_at": now_iso(), "size_bytes": actual_size, "sha256": digest.hexdigest()}
     except sqlite3.OperationalError as exc:
         remove_snapshot(destination)

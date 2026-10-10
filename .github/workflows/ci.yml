@@ -35,7 +35,7 @@ jobs:
           npm test
           npm run build
       - name: Stage compiled frontend for backend tests
-        run: mkdir -p app/ui && cp -a frontend/dist/filament-manager/browser/. app/ui/
+        run: mkdir -p app/ui && cp -a frontend/dist/spoolmera/browser/. app/ui/
       - name: Run API tests
         run: python -m pytest -q --junitxml=test-results.xml
       - name: Publish test report
@@ -54,15 +54,15 @@ jobs:
       - name: Validate Compose configuration
         run: docker compose config --quiet
       - name: Build image
-        run: docker build --tag filament-manager:ci --tag filament-manager:test .
+        run: docker build --tag spoolmera:ci --tag spoolmera:test .
       - name: Start container and probe HTTP
         shell: bash
         run: |
           set -euo pipefail
           export FILAMENT_BOOTSTRAP_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
-          docker volume create filament-manager-ci >/dev/null
-          container="$(docker run --detach --read-only --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp:rw,nosuid --env FILAMENT_BOOTSTRAP_TOKEN --mount type=volume,source=filament-manager-ci,target=/data --publish 127.0.0.1:8765:8765 filament-manager:ci)"
-          trap 'docker rm -f "$container" >/dev/null 2>&1 || true; docker volume rm filament-manager-ci >/dev/null 2>&1 || true' EXIT
+          docker volume create spoolmera-ci >/dev/null
+          container="$(docker run --detach --read-only --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp:rw,nosuid --env FILAMENT_BOOTSTRAP_TOKEN --mount type=volume,source=spoolmera-ci,target=/data --publish 127.0.0.1:8765:8765 spoolmera:ci)"
+          trap 'docker rm -f "$container" >/dev/null 2>&1 || true; docker volume rm spoolmera-ci >/dev/null 2>&1 || true' EXIT
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:8765/api/health | grep -q '"status":"ok"'; then
               python3 scripts/http_smoke.py
@@ -89,20 +89,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          trap 'docker compose -p filament-manager-test -f compose.test.yaml down -v >/dev/null 2>&1 || true' EXIT
+          trap 'docker compose -p spoolmera-test -f compose.test.yaml down -v >/dev/null 2>&1 || true' EXIT
           python3 scripts/start_test.py --prebuilt
           export FILAMENT_BOOTSTRAP_TOKEN="$(python3 -c 'from pathlib import Path; print(Path(".env.test").read_text().strip().split("=", 1)[1])')"
           python3 scripts/http_smoke.py --base http://127.0.0.1:8766
       - name: Verify offline restore and runtime file ownership
-        run: python3 scripts/container_restore_smoke.py --image filament-manager:ci
+        run: python3 scripts/container_restore_smoke.py --image spoolmera:ci
       - name: Build and verify optional notifier isolation
         run: |
-          docker build -f Dockerfile.notifications --tag filament-manager:notifier-ci .
-          python3 scripts/notifier_container_smoke.py --image filament-manager:notifier-ci --api-image filament-manager:ci
+          docker build -f Dockerfile.notifications --tag spoolmera:notifier-ci .
+          python3 scripts/notifier_container_smoke.py --image spoolmera:notifier-ci --api-image spoolmera:ci
       - name: Package tested image
         run: |
           mkdir -p test-release/scripts
-          docker save filament-manager:test | gzip > test-release/filament-manager-image.tar.gz
+          docker save spoolmera:test | gzip > test-release/spoolmera-image.tar.gz
           cp compose.test.yaml test-release/
           cp scripts/start_test.py test-release/scripts/
           cp docs/testing.md test-release/TESTING.md
@@ -113,12 +113,12 @@ jobs:
           from app import __version__
           from app.infrastructure.database.migrations import CURRENT_SCHEMA_VERSION
           root = Path('test-release')
-          image_id = subprocess.check_output(['docker', 'image', 'inspect', '--format', '{{.Id}}', 'filament-manager:test'], text=True).strip()
+          image_id = subprocess.check_output(['docker', 'image', 'inspect', '--format', '{{.Id}}', 'spoolmera:test'], text=True).strip()
           (root / 'release.json').write_text(json.dumps({
               'version': __version__, 'schema_version': CURRENT_SCHEMA_VERSION,
               'commit': os.environ['GITHUB_SHA'], 'platform': 'linux/amd64',
-              'image_tag': 'filament-manager:test', 'image_id': image_id,
-              'image_archive': 'filament-manager-image.tar.gz',
+              'image_tag': 'spoolmera:test', 'image_id': image_id,
+              'image_archive': 'spoolmera-image.tar.gz',
               'status': 'tested CI artifact; no public release published',
           }, indent=2) + '\n')
           lines = []
@@ -134,7 +134,7 @@ jobs:
       - name: Publish downloadable test instance
         uses: actions/upload-artifact@v7
         with:
-          name: filament-manager-${{ env.RELEASE_VERSION }}-test-linux-amd64
+          name: spoolmera-${{ env.RELEASE_VERSION }}-test-linux-amd64
           path: test-release/
           compression-level: 0
           retention-days: 7
@@ -155,7 +155,7 @@ jobs:
         working-directory: frontend
         run: npm ci --no-audit --no-fund && npm run build
       - name: Stage Angular application
-        run: mkdir -p app/ui && cp -a frontend/dist/filament-manager/browser/. app/ui/
+        run: mkdir -p app/ui && cp -a frontend/dist/spoolmera/browser/. app/ui/
       - name: Install application and browser test dependencies
         run: python -m pip install --require-hashes -r requirements-e2e.txt
       - name: Install Chromium
@@ -216,11 +216,11 @@ jobs:
       - name: Validate optional slicer Compose overlay
         run: docker compose -f compose.yaml -f compose.slicer.yaml config --quiet
       - name: Build opt-in slicer image from distribution packages
-        run: docker build --target slicer-runtime --tag filament-manager:slicer-ci .
+        run: docker build --target slicer-runtime --tag spoolmera:slicer-ci .
       - name: Check installed PrusaSlicer CLI
         run: |
-          docker run --rm --entrypoint /usr/bin/test filament-manager:slicer-ci -x /usr/bin/prusa-slicer
-          docker run --rm --entrypoint /usr/bin/prusa-slicer filament-manager:slicer-ci --help >/dev/null
+          docker run --rm --entrypoint /usr/bin/test spoolmera:slicer-ci -x /usr/bin/prusa-slicer
+          docker run --rm --entrypoint /usr/bin/prusa-slicer spoolmera:slicer-ci --help >/dev/null
       - name: Smoke-test isolated slicer Compose networking and token
         shell: bash
         run: |
@@ -231,7 +231,7 @@ jobs:
           printf 'FILAMENT_BOOTSTRAP_TOKEN=%s\nFILAMENT_SLICER_WORKER_TOKEN=%s\n' "$FILAMENT_BOOTSTRAP_TOKEN" "$FILAMENT_SLICER_WORKER_TOKEN" > .env
           trap 'docker compose -f compose.yaml -f compose.slicer.yaml down -v >/dev/null 2>&1 || true; rm -f .env; rm -rf slicer-profiles' EXIT
           docker compose -f compose.yaml -f compose.slicer.yaml up -d --build --wait
-          docker compose -f compose.yaml -f compose.slicer.yaml exec -T filament-manager python -c 'import json,os,urllib.request; req=urllib.request.Request("http://slicer-worker:8767/profiles",headers={"X-Worker-Token":os.environ["FILAMENT_SLICER_WORKER_TOKEN"]}); assert json.load(urllib.request.urlopen(req,timeout=5))=={"profiles":["ci"]}'
+          docker compose -f compose.yaml -f compose.slicer.yaml exec -T spoolmera python -c 'import json,os,urllib.request; req=urllib.request.Request("http://slicer-worker:8767/profiles",headers={"X-Worker-Token":os.environ["FILAMENT_SLICER_WORKER_TOKEN"]}); assert json.load(urllib.request.urlopen(req,timeout=5))=={"profiles":["ci"]}'
           docker compose -f compose.yaml -f compose.slicer.yaml exec -T slicer-worker python -c 'import os; assert "FILAMENT_BOOTSTRAP_TOKEN" not in os.environ; assert not any(k.startswith("FILAMENT_PRINTER_TOKEN_") for k in os.environ)'
           python3 scripts/slicer_smoke.py
 

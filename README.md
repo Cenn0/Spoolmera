@@ -1,4 +1,8 @@
-# Filament Manager
+# Spoolmera
+
+<img src="frontend/public/spoolmera-wordmark.svg" alt="Spoolmera — Your 3D Printing Workspace" width="440">
+
+**Your 3D Printing Workspace.** Manage filaments, printers and print jobs.
 
 > **Fully AI-developed, human-engineered — an AI software development experiment.**
 >
@@ -6,7 +10,7 @@
 >
 > **Experimental software.** Automated tests establish only the behavior they cover. Neither AI generation nor a green CI pipeline guarantees production readiness, security, or absence of defects.
 
-**Filament Manager** is a **free, open-source, self-hosted** web application for managing 3D-printer filament products, physical spools, and remaining material. No subscription, hosted account, paid API or third-party cloud service is required. The code is licensed under Apache-2.0; third-party components keep their own licenses.
+**Spoolmera** is a **free, open-source, self-hosted** web application for managing 3D-printer filament products, physical spools, and remaining material. No subscription, hosted account, paid API or third-party cloud service is required. The code is licensed under Apache-2.0; third-party components keep their own licenses.
 
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
@@ -63,7 +67,7 @@ Select **English** or **Deutsch** in the language selector on the sign-in page o
 ## Quick start (Docker)
 
 For a separate test installation or a prebuilt CI image, see
-[Testing Filament Manager](docs/testing.md). Start it with
+[Testing Spoolmera](docs/testing.md). Start it with
 `python scripts/start_test.py`; it uses its own data volume on port 8766.
 The [follow-up review](docs/review-regressions-2026-10-08.md) records confirmed
 defects, fixes, executed tests and remaining limitations.
@@ -228,3 +232,10 @@ Licensed under the **Apache License, Version 2.0**. See [LICENSE](LICENSE) for t
 
 This license applies to the repository's original project files. Third-party dependencies retain their respective upstream licenses.
 
+
+
+## Name change and existing installations
+
+Spoolmera was previously published as Filament Manager. The public-facing UI, labels, API title, Angular build target, container service, documentation and graphics have been rebranded. Existing `FILAMENT_*` environment variables, SQLite database path, API routes and `filament_data` Docker volume deliberately stay unchanged to preserve compatibility. To avoid orphaning the existing default Docker Compose volume when renaming the source directory, `compose.yaml` retains the legacy default Compose project name `filamentmanager`. If you deployed with a custom `-p` project name, continue using that same name after upgrading. **Create a SQLite backup before updating.**
+
+The GitHub clone URL currently retains `Cenn0/FilamentManager` until the repository owner changes its GitHub repository name in Settings. That administrative rename is separate from the application rebrand; links in this README intentionally continue to use the working current URL.

@@ -21,12 +21,10 @@ a{color:inherit}
 .sidebar{background:var(--nav);color:#EAF1EE;display:flex;flex-direction:column;position:sticky;top:0;height:100dvh;min-height:0;padding:31px 18px 20px;z-index:10;overflow-x:hidden;overflow-y:auto;overscroll-behavior-y:contain;scroll-behavior:auto;scrollbar-width:thin;scrollbar-color:#799297 var(--nav)}
 .sidebar>*{flex-shrink:0}
 .brand{display:flex;align-items:center;gap:13px;text-decoration:none;padding:0 11px 52px}
-.brand-mark{width:40px;height:40px;display:grid;place-items:center;flex:none;border:5px solid #B8846E;border-radius:50%;position:relative;box-shadow:0 0 0 2px #B8846E33}
-.brand-mark span{width:12px;height:12px;border-radius:50%;background:#B8846E;box-shadow:0 0 0 4px var(--nav)}
-.brand-mark:after{content:"";position:absolute;right:5px;top:-8px;width:7px;height:10px;border-radius:2px;background:#B8846E;transform:rotate(25deg)}
+.brand-mark{width:42px;height:42px;display:block;flex:none;object-fit:contain;filter:drop-shadow(0 3px 7px #00000020)}
 .brand-label{display:flex;flex-direction:column;gap:2px;letter-spacing:.17em}
-.brand-label strong{font-size:15px;font-weight:800}
-.brand-label small{color:#D0DAD8;font-size:10px;font-weight:700;letter-spacing:.16em}
+.brand-label strong{font-size:17px;font-weight:800;letter-spacing:.105em}
+.brand-label small{color:#D0DAD8;font-size:9px;font-weight:700;letter-spacing:.11em}
 .brand-label em{font-size:8px;color:#7E989A;font-style:normal;letter-spacing:.07em}
 .section-caption,.eyebrow{font-weight:800;font-size:10px;letter-spacing:.17em}
 .section-caption{color:#829A9B;padding-left:18px;margin-bottom:13px}
@@ -299,7 +297,7 @@ h1 em{font-family:Georgia,Times,serif;font-size:1.035em;font-weight:400;color:#9
 .login-screen{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px;background:radial-gradient(circle at 30% 10%,#e5f0e9,transparent 55%),#f4f6f3}
 .login-card{max-width:440px;width:100%;background:#fff;border:1px solid #e2eae3;border-radius:17px;padding:34px;box-shadow:0 30px 70px #172b3214}
 .login-brand{display:flex;align-items:center;gap:15px;margin-bottom:38px;font-size:16px;letter-spacing:.08em}
-.login-brand .brand-mark{background:#172B32;border-color:#ad7d67}
+.login-brand .brand-mark{width:50px;height:50px}
 .login-brand small{font-size:12px;letter-spacing:.1em;color:#768a88}
 .login-card>.eyebrow{color:#277f73;font-size:10px}
 .login-card h1{font-size:30px;margin:12px 0}

@@ -1,6 +1,6 @@
 # Contributing
 
-Filament Manager is a **free, open-source, Apache-2.0** project and an explicit experiment in AI-led development with human engineering oversight. Contributions, tests, review, documentation and design suggestions are welcome. No paid APIs, SaaS account or paid plugin is required.
+Spoolmera is a **free, open-source, Apache-2.0** project and an explicit experiment in AI-led development with human engineering oversight. Contributions, tests, review, documentation and design suggestions are welcome. No paid APIs, SaaS account or paid plugin is required.
 
 ## Guidelines
 

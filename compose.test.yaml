@@ -1,7 +1,7 @@
-name: filament-manager-test
+name: spoolmera-test
 services:
-  filament-manager:
-    image: filament-manager:test
+  spoolmera:
+    image: spoolmera:test
     build: .
     ports:
       - "127.0.0.1:${FILAMENT_TEST_PORT:-8766}:8765"

@@ -1,4 +1,4 @@
-# Testing Filament Manager
+# Testing Spoolmera
 
 ## Start an isolated test instance
 
@@ -14,7 +14,7 @@ container health. Open **http://127.0.0.1:8766**, copy the bootstrap token from
 `.env.test` into the first administrator form and choose your own password
 (at least 14 characters). No default administrator credentials exist.
 
-This instance uses the Compose project `filament-manager-test` and its own
+This instance uses the Compose project `spoolmera-test` and its own
 `test_data` volume. Your normal instance's data is not used. Ports bind only to
 loopback; printer connections are disabled by the empty IP allowlist.
 Use `--port 8767` if 8766 is occupied. Avoid starting multiple test instances
@@ -23,13 +23,13 @@ against the same volume. Keep the selected port consistent for subsequent starts
 Stop while retaining test data:
 
 ```bash
-docker compose -p filament-manager-test -f compose.test.yaml down
+docker compose -p spoolmera-test -f compose.test.yaml down
 ```
 
 Only when you deliberately want to delete **all test inventory and accounts**:
 
 ```bash
-docker compose -p filament-manager-test -f compose.test.yaml down -v
+docker compose -p spoolmera-test -f compose.test.yaml down -v
 ```
 
 Existing `.env.test` is never overwritten. If it no longer contains the original
@@ -38,13 +38,13 @@ bootstrap token and setup is incomplete, repair that file before starting.
 ## Download a tested image from GitHub Actions
 
 Open a successful CI run for the review pull request or `main`, then download
-the versioned artifact **filament-manager-0.10.0-test-linux-amd64** (available for seven days).
+the versioned artifact **spoolmera-0.10.0-test-linux-amd64** (available for seven days).
 Extract it into a separate directory. It contains the same Docker image that
 passed real HTTP checks and a restart/persistence check, plus a launcher.
 The complete CI run must also have passed API/build and browser jobs.
 
 ```bash
-docker load -i filament-manager-image.tar.gz
+docker load -i spoolmera-image.tar.gz
 python scripts/start_test.py --prebuilt
 ```
 
@@ -143,11 +143,11 @@ Device tests are mocked: they are **not** evidence of physical NFC/ESP32 compati
 The following integration commands create their own disposable containers, volumes and internal test network. They never accept an existing installation's volume:
 
 ```bash
-docker build --tag filament-manager:ci .
-python scripts/container_restore_smoke.py --image filament-manager:ci
-docker build --file Dockerfile.notifications --tag filament-manager:notifier-ci .
+docker build --tag spoolmera:ci .
+python scripts/container_restore_smoke.py --image spoolmera:ci
+docker build --file Dockerfile.notifications --tag spoolmera:notifier-ci .
 python scripts/notifier_container_smoke.py \
-  --image filament-manager:notifier-ci --api-image filament-manager:ci
+  --image spoolmera:notifier-ci --api-image spoolmera:ci
 ```
 
 The recovery gate exercises a root-run offline restore onto a UID-10001 database, validates database and lock-file ownership, starts the normal non-root app, downloads another online backup and records new material movements. It also restores over corruption and a missing database, verifies the preserved prior bytes and rejects an unrelated SQLite file. Unit tests that require actual UID changes are skipped when the host does not map UID 10001; the Docker gate must still pass. The notifier gate resolves the actual Compose files against synthetic secret sentinels and sends one authenticated message to a disposable local HTTP stub across three separate container runs. A configured gate is not evidence that it passed; consult the CI run for the commit being installed.

@@ -1,6 +1,6 @@
-# Filament Manager architecture (v0.10.0)
+# Spoolmera architecture (v0.10.0)
 
-Filament Manager is a free, Apache-2.0-licensed, AI-developed and human-engineered self-hosted application. It remains a modular monolith: one FastAPI process owns a SQLite database and serves compiled Angular assets. No Node runtime, message broker, hosted account or external database is required in the default application container.
+Spoolmera is a free, Apache-2.0-licensed, AI-developed and human-engineered self-hosted application. It remains a modular monolith: one FastAPI process owns a SQLite database and serves compiled Angular assets. No Node runtime, message broker, hosted account or external database is required in the default application container.
 
 ## Deployment and boundaries
 

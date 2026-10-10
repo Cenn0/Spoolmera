@@ -7,10 +7,10 @@ services:
       dockerfile: Dockerfile.notifications
     restart: unless-stopped
     depends_on:
-      filament-manager:
+      spoolmera:
         condition: service_healthy
     environment:
-      FILAMENT_MANAGER_URL: http://filament-manager:8765
+      FILAMENT_MANAGER_URL: http://spoolmera:8765
       FILAMENT_AUTOMATION_TOKEN: ${FILAMENT_AUTOMATION_TOKEN:?Create an events_read automation token}
       FILAMENT_NTFY_URL: ${FILAMENT_NTFY_URL:?Set the private notification endpoint}
       FILAMENT_NTFY_TOKEN: ${FILAMENT_NTFY_TOKEN:-}

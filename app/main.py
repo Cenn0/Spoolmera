@@ -1,4 +1,4 @@
-"""Filament Manager REST API and local web frontend."""
+"""Spoolmera REST API and local web frontend."""
 import os
 import asyncio
 from contextlib import asynccontextmanager
@@ -81,7 +81,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
                 application_lock.release()
 
     app = FastAPI(
-        title="Filament Manager API",
+        title="Spoolmera API",
         version=__version__,
         description="Local management of filament products, physical spools and inventory movements.",
         lifespan=lifespan,
@@ -108,7 +108,7 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
     def index():
         if not (UI_DIR / "index.html").is_file():
             return HTMLResponse(
-                "<h1>Filament Manager</h1><p>Angular frontend not built. "
+                "<h1>Spoolmera</h1><p>Angular frontend not built. "
                 "Use npm start in frontend/ during development.</p>",
                 status_code=503,
             )
