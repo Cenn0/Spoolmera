@@ -19,7 +19,7 @@ def file_drop(page, selector, name, contents):
 
 
 def run_ui_workflows(browser, errors):
-    folder = Path(os.environ.get('FILAMENT_BROWSER_ARTIFACT_DIR', '/tmp/filament-ui-previews'))
+    folder = Path(os.environ.get('SPOOLMERA_BROWSER_ARTIFACT_DIR', '/tmp/filament-ui-previews'))
     folder.mkdir(parents=True, exist_ok=True)
     context = browser.new_context(locale='en-US', color_scheme='dark', viewport={'width': 1440, 'height': 1000})
     context.tracing.start(screenshots=True, snapshots=True, sources=True)

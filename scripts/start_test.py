@@ -17,7 +17,7 @@ def ensure_test_env(root: Path) -> Path:
     except FileExistsError:
         return path
     with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-        stream.write("FILAMENT_BOOTSTRAP_TOKEN=" + secrets.token_urlsafe(32) + "\n")
+        stream.write("SPOOLMERA_BOOTSTRAP_TOKEN=" + secrets.token_urlsafe(32) + "\n")
     return path
 
 
@@ -33,7 +33,7 @@ def main() -> int:
         return 1
     path = ensure_test_env(ROOT)
     # Keep operator credentials out of command arguments and console output.
-    env = {**os.environ, "FILAMENT_TEST_PORT": str(args.port)}
+    env = {**os.environ, "SPOOLMERA_TEST_PORT": str(args.port)}
     command = ["docker", "compose", "--project-name", "spoolmera-test",
                "--env-file", ".env.test", "-f", "compose.test.yaml"]
     subprocess.run([*command, "config", "--quiet"],
@@ -42,7 +42,7 @@ def main() -> int:
                     "--no-build" if args.prebuilt else "--build", "--wait", "--wait-timeout", "120"],
                    cwd=ROOT, env=env, check=True)
     print(f"Test instance ready: http://127.0.0.1:{args.port}")
-    print(f"First setup: copy FILAMENT_BOOTSTRAP_TOKEN from {path.name}; choose your own administrator password.")
+    print(f"First setup: copy SPOOLMERA_BOOTSTRAP_TOKEN from {path.name}; choose your own administrator password.")
     print("Stop: docker compose -p spoolmera-test -f compose.test.yaml down (test inventory is retained).")
     return 0
 
