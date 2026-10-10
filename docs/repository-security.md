@@ -36,7 +36,7 @@ Configure and verify these controls in the repository web settings:
 2. [Settings → Actions → General](https://github.com/Cenn0/Spoolmera/settings/actions): keep default `GITHUB_TOKEN` permissions **read-only**, require approval for untrusted outside contributions where supported, and prohibit unrestricted access to secrets in forked pull-request workflows.
 3. Do **not** add `pull_request_target` or a privileged `workflow_run` flow that executes code or artifacts from untrusted forks. CI uses a read-only token and does not supply production credentials.
 4. Consider enabling automatic deletion of merged feature branches under [Settings → General](https://github.com/Cenn0/Spoolmera/settings), but do not delete branches with unmerged work.
-5. [Security](https://github.com/Cenn0/Spoolmera/security): examine Dependabot/CodeQL findings. The separate CodeQL workflow scans Python and JavaScript/TypeScript; first verify it succeeds before making its dynamically named check(s) mandatory.
+5. [Security](https://github.com/Cenn0/Spoolmera/security): examine Dependabot/CodeQL findings. The separate CodeQL workflow scans Python and JavaScript/TypeScript; first verify it succeeds before making its dynamically named check(s) mandatory. Do not activate GitHub's alternative CodeQL default setup on top of this advanced workflow without a deliberate reason, because that can duplicate scans.
 
 ## After changing a private repository to public
 
