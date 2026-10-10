@@ -22,6 +22,7 @@ export class JobsComponent implements OnInit, OnDestroy {
   readonly auth = inject(AuthService); readonly notice = inject(NoticeService);
   readonly printers = signal<Printer[]>([]); readonly jobs = signal<PrintJob[]>([]);
   readonly visibleJobs=computed(()=>this.jobs().filter(job=>!this.focusedJob()||job.id===this.focusedJob()));
+  supportsJobDispatch(printerId:number):boolean{return this.printers().find(p=>p.id===printerId)?.kind!=='bambu';}
   readonly operations=signal<Record<number,PrinterOperation[]>>({});
   readonly busy = signal(false); readonly loading = signal(true); private readonly errorValue=signal<string|LocalizedMessage>('');readonly error=computed(()=>this.i18n.t(this.errorValue())); readonly grams=(value:number)=>this.i18n.grams(value);
   readonly readiness = signal<Record<number, JobReadiness>>({});

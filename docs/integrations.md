@@ -76,7 +76,7 @@ Before enabling write integration, add a persistent unique constraint on `(sourc
 
 ## Integration candidates to evaluate later
 
-OctoPrint and Moonraker/Klipper adapters now include optional physical control, G-code transfer, and tracked-job start, tested against mock transport only (not live hardware certification). Bambu Lab and Prusa Connect **native cloud APIs are not implemented**; approved operator cloud bridges can send signed status receipts to the generic webhook. Full vendor compatibility remains unverified. Check each product's current official documentation, authentication model, licensing, and supported API versions when choosing an adapter.
+OctoPrint and Moonraker/Klipper adapters now include optional physical control, G-code transfer, and tracked-job start, tested against mock transport only (not live hardware certification). Bambu Lab LAN-only MQTT (read-only observations and opt-in pause/resume/stop) is implemented with strict TLS certificate pinning; Bambu Lab and Prusa Connect **native cloud APIs are not implemented**; approved operator cloud bridges can send signed status receipts to the generic webhook. Full vendor compatibility remains unverified. Check each product's current official documentation, authentication model, licensing, and supported API versions when choosing an adapter.
 
 ## Future delivery order
 

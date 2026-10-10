@@ -113,7 +113,7 @@
             @if(job.status!=='needs_review'&&(job.status!=='pending'||!!job.observed_printing||!!job.start_command_state)){<button class="btn ghost" type="button" [disabled]="busy()" (click)="accountingJob.set(job)">{{'Review consumption'|t}}</button>}
             @if(job.status==='pending'||job.status==='printing'){
               <button type="button" class="btn ghost" [disabled]="busy()" (click)="poll(job.printer_id)">{{'Poll'|t}}</button>
-              @if(auth.isAdmin() && capabilities().write_enabled && job.status==='pending'){
+              @if(auth.isAdmin() && capabilities().write_enabled && job.status==='pending' && supportsJobDispatch(job.printer_id)){
                 <label class="btn ghost">{{'Upload G-code'|t}}
                   <input type="file" accept=".gcode,.gco,.gc" [disabled]="busy()||uncertainUploads().includes(job.printer_id)||!!(operations()[job.printer_id]||[]).length" (change)="uploadPending(job,$event)" hidden>
                 </label>

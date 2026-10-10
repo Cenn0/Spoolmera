@@ -5,6 +5,7 @@ explicit operator allowlisting and a certificate fingerprint from a trusted LAN.
 """
 import hashlib
 import hmac
+import time
 import json
 import os
 import re
@@ -103,7 +104,7 @@ def _connect(printer, validate_url):
                 tls.close()
                 raise ValueError('Bambu LAN MQTT authentication failed.')
             return tls, serial
-    except (OSError, ssl.SSLError, TimeoutError) as exc:
+    except (OSError, TimeoutError) as exc:
         raise ValueError('Bambu LAN MQTT connection failed.') from exc
 
 
@@ -169,7 +170,9 @@ def read_bambu_status(printer, validate_url):
             raise ValueError('Bambu LAN MQTT subscription failed.')
         _publish(stream, f'device/{serial}/request',
                  {'pushing': {'command': 'pushall', 'sequence_id': '0'}})
-        for _ in range(24):
+        deadline = time.monotonic() + 7
+        while time.monotonic() < deadline:
+            stream.settimeout(max(0.1, deadline - time.monotonic()))
             kind, body = _read_packet(stream)
             if kind >> 4 != 3:
                 continue
