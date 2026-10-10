@@ -1,5 +1,6 @@
 // English source text is the stable message key; API values and user content stay unchanged.
 export const WORKFLOWS_DE: Record<string, string> = {
+  "Print job filename on Bambu (e.g. .3mf)": "Druckauftrags-Dateiname auf Bambu (z. B. .3mf)",
   "(required for this correction)": "(für diese Korrektur erforderlich)",
   "3D printers": "3D-Drucker",
   "ADMINISTRATION": "VERWALTUNG",
@@ -68,7 +69,7 @@ export const WORKFLOWS_DE: Record<string, string> = {
   "Import from": "Import aus",
   "Import from Spoolman": "Aus Spoolman importieren",
   "Import job metadata": "Auftragsmetadaten importieren",
-  "Importing a G-code file here registers metadata only. Uploading to a printer is a separate administrator action; it never starts automatically. Moonraker history-confirmed jobs may debit automatically; OctoPrint always requires review.": "Hier werden nur die Metadaten einer G-Code-Datei erfasst. Der Upload zum Drucker ist ein separater Administratorschritt und startet niemals automatisch. Durch die Moonraker-Historie bestätigte Aufträge können automatisch Verbrauch buchen; bei OctoPrint ist immer eine Prüfung erforderlich.",
+  "Importing a G-code file here registers metadata only. Uploading to a printer is a separate administrator action; it never starts automatically. Moonraker history-confirmed jobs may debit automatically; OctoPrint and Bambu LAN always require review.": "Hier werden nur die Metadaten einer G-Code-Datei erfasst. Der Upload zum Drucker ist ein separater Administratorschritt und startet niemals automatisch. Durch die Moonraker-Historie bestätigte Aufträge können automatisch Verbrauch buchen; bei OctoPrint und Bambu LAN ist immer eine Prüfung erforderlich.",
   "Include a current scale measurement": "Aktuelle Wägung einbeziehen",
   "Inspect G-code or sliced 3MF metadata (optional)": "G-Code- oder geslicte 3MF-Metadaten prüfen (optional)",
   "Inspect file": "Datei prüfen",

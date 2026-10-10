@@ -4,19 +4,20 @@ import { RouterLink } from '@angular/router';
 import { AuthService } from '../../auth.service';
 import { InventoryService, apiError } from '../../inventory.service';
 import { NoticeService } from '../../dialog.service';
-import { Printer, PrinterInput, PrinterCapabilities, WorkspaceService, PrinterSlot, PrinterOperation } from '../../workspace.service';
+import { Printer, PrinterInput, PrinterCapabilities, WorkspaceService, PrinterSlot, PrinterOperation, PrinterProbe } from '../../workspace.service';
 import { RequestOwner } from '../../core/request-owner';
 import { I18nService, LocalizedMessage, TranslatePipe } from '../../core/i18n';
 
 import { Spool } from '../../models';
 import { SpoolVisualComponent } from '../../core/ui/spool-visual.component';
 
-const blankPrinter=():PrinterInput=>({name:'',kind:'moonraker',base_url:'',token_env:'',enabled:true});
+const blankPrinter=():PrinterInput=>({name:'',kind:'moonraker',base_url:'',token_env:'',serial:'',enabled:true});
 @Component({standalone:true,imports:[FormsModule,RouterLink,TranslatePipe,SpoolVisualComponent],templateUrl:'./printers.component.html'})
 export class PrintersComponent implements OnInit, OnDestroy {
   readonly i18n=inject(I18nService);
   readonly api=inject(WorkspaceService);readonly auth=inject(AuthService);readonly notice=inject(NoticeService);readonly data=inject(InventoryService);
   readonly printers=signal<Printer[]>([]);private readonly errorValue=signal<string|LocalizedMessage>('');readonly error=computed(()=>this.i18n.t(this.errorValue()));readonly busy=signal(false);readonly loading=signal(false);
+  readonly observations=signal<Record<number,PrinterProbe>>({});
   readonly slots=signal<Record<number,PrinterSlot[]>>({});readonly operations=signal<Record<number,PrinterOperation[]>>({});
   readonly capabilities=signal<PrinterCapabilities>({write_enabled:false,max_upload_bytes:0});
   readonly grams=(value:number)=>this.i18n.grams(value);readonly dateText=(value:string|null|undefined)=>this.i18n.dateText(value);private readonly requests=new RequestOwner();
@@ -67,7 +68,7 @@ export class PrintersComponent implements OnInit, OnDestroy {
     finally{if(this.requests.owns(owner))this.loading.set(false);}
   }
   edit(printer:Printer):void{
-    this.editingId=printer.id;this.model={name:printer.name,kind:printer.kind,base_url:printer.base_url,token_env:printer.token_env,enabled:!!printer.enabled};
+    this.editingId=printer.id;this.model={name:printer.name,kind:printer.kind,base_url:printer.base_url,token_env:printer.token_env,serial:printer.serial,enabled:!!printer.enabled};
   }
   cancelEdit():void{this.editingId=null;this.model=blankPrinter();}
   async create():Promise<void>{
@@ -81,7 +82,7 @@ export class PrintersComponent implements OnInit, OnDestroy {
   async probe(printer:Printer):Promise<void>{
     if(this.busy()||!this.auth.isAdmin())return;
     this.busy.set(true);this.errorValue.set('');
-    try{const result=await this.api.probe(printer.id);this.notice.show(this.i18n.message('{printer} reports {state}{file}',{printer:printer.name,state:this.i18n.message(result.state),file:result.filename?' · '+result.filename:''}));}
+    try{const result=await this.api.probe(printer.id);this.observations.update(old=>({...old,[printer.id]:result}));this.notice.show(this.i18n.message('{printer} reports {state}{file}',{printer:printer.name,state:this.i18n.message(result.state),file:result.filename?' · '+result.filename:''}));}
     catch(error){this.errorValue.set(apiError(error));}finally{this.busy.set(false);}
   }
   async control(printer:Printer,action:'pause'|'resume'|'cancel'):Promise<void>{
@@ -115,7 +116,7 @@ export class PrintersComponent implements OnInit, OnDestroy {
   async toggle(printer:Printer):Promise<void>{
     if(this.busy()||!this.auth.isAdmin())return;
     this.busy.set(true);this.errorValue.set('');
-    try{await this.api.updatePrinter(printer.id,{name:printer.name,kind:printer.kind,base_url:printer.base_url,token_env:printer.token_env,enabled:!printer.enabled});await this.refresh();this.notice.show('Printer configuration updated.');}
+    try{await this.api.updatePrinter(printer.id,{name:printer.name,kind:printer.kind,base_url:printer.base_url,token_env:printer.token_env,serial:printer.serial,enabled:!printer.enabled});await this.refresh();this.notice.show('Printer configuration updated.');}
     catch(error){this.errorValue.set(apiError(error));}finally{this.busy.set(false);}
   }
 }

@@ -1,5 +1,5 @@
 <section class="page-head"><div><span class="eyebrow">{{'DEVICE CONNECTIONS'|t}}</span><h1>{{'Connected'|t}} <em>{{'printers.'|t}}</em></h1>
-  <p>{{'Local OctoPrint and Moonraker integrations. Record the physical roll loaded in each tool and check connection and operation status.'|t}}</p></div><button class="btn ghost" type="button" [disabled]="loading()||busy()" (click)="refresh()">{{'Refresh printers'|t}}</button></section>
+  <p>{{'Local OctoPrint, Moonraker and Bambu Lab LAN integrations. Record the physical roll loaded in each tool and check connection and operation status.'|t}}</p></div><button class="btn ghost" type="button" [disabled]="loading()||busy()" (click)="refresh()">{{'Refresh printers'|t}}</button></section>
 @if(error()){<p class="form-error" role="alert">{{error()|t}}</p>}
 @if(auth.isAdmin()){
 <section class="panel workflow-panel">
@@ -7,11 +7,12 @@
   <form class="workflow-form" #printerForm="ngForm" (ngSubmit)="create()">
     <div class="form-grid">
       <label>{{'Friendly name'|t}}<input name="name" [(ngModel)]="model.name" required maxlength="80" [placeholder]="'Workshop MK4'|t"></label>
-      <label>{{'Controller'|t}}<select name="kind" [(ngModel)]="model.kind"><option value="moonraker">Moonraker / Klipper</option><option value="octoprint">OctoPrint</option></select></label>
-      <label>{{'API URL (private IP + port)'|t}}<input name="base_url" [(ngModel)]="model.base_url" required placeholder="http://192.168.1.20:7125"></label>
-      <label>{{'Token environment variable'|t}}<input name="token_env" [(ngModel)]="model.token_env" placeholder="FILAMENT_PRINTER_TOKEN_WORKSHOP"></label>
+      <label>{{'Controller'|t}}<select name="kind" [(ngModel)]="model.kind"><option value="moonraker">Moonraker / Klipper</option><option value="octoprint">OctoPrint</option><option value="bambu">{{'Bambu Lab (LAN MQTT)'|t}}</option></select></label>
+      <label>{{(model.kind==='bambu'?'Bambu LAN MQTT URL (private IP + 8883)':'API URL (private IP + port)')|t}}<input name="base_url" [(ngModel)]="model.base_url" required [placeholder]="model.kind==='bambu'?i18n.t('mqtts://192.168.1.20:8883'):'http://192.168.1.20:7125'"></label>
+      @if(model.kind==='bambu'){<label>{{'Bambu device serial number'|t}}<input name="serial" [(ngModel)]="model.serial" required minlength="8" maxlength="32" pattern="[A-Za-z0-9]{8,32}" [placeholder]="i18n.t('01P00A123456789')"></label>}
+      <label>{{(model.kind==='bambu'?'LAN access-code environment variable':'Token environment variable')|t}}<input name="token_env" [(ngModel)]="model.token_env" [required]="model.kind==='bambu'" placeholder="FILAMENT_PRINTER_TOKEN_WORKSHOP"></label>
     </div>
-    <p class="helper">{{'Ask the server operator to allow this private printer address and configure its API token before testing the connection. Use a friendly name that identifies the physical printer.'|t}}</p>
+    <p class="helper">{{(model.kind==='bambu'?'Bambu LAN: enable Developer Mode if required, allowlist the printer IP, store its LAN access code in the named token variable and pin FILAMENT_BAMBU_CERT_SHA256_BAMBU1 to the printer TLS certificate. Only LAN status, AMS and opt-in pause/resume/cancel are available; use Bambu Studio for uploads and starting jobs.':'Ask the server operator to allow this private printer address and configure its API token before testing the connection. Use a friendly name that identifies the physical printer.')|t}}</p>
     <button class="btn primary" type="submit" [disabled]="busy()||printerForm.invalid">{{(editingId?'Save printer':'Add printer')|t}}</button>@if(editingId){<button class="btn ghost" type="button" (click)="cancelEdit()">{{'Cancel editing'|t}}</button>}
   </form>
 </section>
@@ -21,7 +22,7 @@
     @for(p of printers();track p.id){
       <article class="workflow-row"><div class="workflow-main"><strong>{{p.name}}</strong>
         <span>{{p.kind}} · {{auth.isAdmin() ? p.base_url : ('Connection details restricted'|t)}}</span>
-        @if(auth.isAdmin()){<small>{{p.token_env||('No API key configured'|t)}}</small>}</div>
+        @if(auth.isAdmin()){<small>{{p.token_env||('No API key configured'|t)}} @if(p.kind==='bambu'){· {{'Serial'|t}}: {{p.serial}}}</small>}</div>
         <span class="status" [class.opened]="p.enabled">{{(p.enabled?'Enabled':'Disabled')|t}}</span>
         @if(auth.isAdmin()){
           <div class="workflow-buttons"><button type="button" class="btn ghost" [disabled]="busy()||!p.enabled" (click)="probe(p)">{{'Test connection'|t}}</button>
@@ -33,6 +34,20 @@
             <button type="button" class="btn ghost" [disabled]="busy()" (click)="edit(p)">{{'Edit connection'|t}}</button><button type="button" class="btn ghost" [disabled]="busy()" (click)="toggle(p)">{{(p.enabled?'Disable':'Enable')|t}}</button></div>
         }
       </article>
+      @if(p.kind==='bambu' && observations()[p.id]; as snapshot){<div class="printer-detail" aria-live="polite">
+        <h3>{{'Bambu LAN status'|t}} · {{p.name}}</h3>
+        <p><strong>{{snapshot.state}}</strong> @if(snapshot.filename){· {{snapshot.filename}}}</p>
+        <div class="detail-movement">
+          @if(snapshot.progress_percent != null){<span>{{'Progress'|t}}: {{snapshot.progress_percent}}%</span>}
+          @if(snapshot.remaining_minutes != null){<span>{{'Remaining minutes'|t}}: {{snapshot.remaining_minutes}}</span>}
+          @if(snapshot.nozzle_c != null){<span>{{'Nozzle'|t}}: {{snapshot.nozzle_c}} °C</span>}
+          @if(snapshot.bed_c != null){<span>{{'Bed'|t}}: {{snapshot.bed_c}} °C</span>}
+        </div>
+        @for(tray of snapshot.ams||[]; track tray.unit+':'+tray.tray){<div class="detail-movement">
+          <strong>{{'AMS unit'|t}} {{tray.unit}} · {{'Tray'|t}} {{tray.tray}}</strong><span>{{tray.material}} @if(tray.remaining_percent != null){· {{tray.remaining_percent}}%}</span>
+        </div>}
+        <p class="helper">{{'AMS telemetry does not change physical spool assignments or inventory.'|t}}</p>
+      </div>}
       <div class="printer-detail">
         <h3>{{'Recorded loaded rolls'|t}} · {{p.name}}</h3>
         @for(slot of slots()[p.id] || [];track slot.tool){<div class="detail-movement"><strong>{{'Tool {tool}'|t:{tool:''+slot.tool} }}</strong><a [href]="'/?spool='+slot.spool_uid">#{{slot.spool_id}} · {{slot.brand}} · {{slot.product_name}}</a>@if(auth.canEdit()){<button type="button" class="btn ghost" [disabled]="busy()" (click)="unloadSlot(slot.tool,p.id)">{{'Remove assignment'|t}}</button>}</div>}

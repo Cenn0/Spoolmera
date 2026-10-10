@@ -69,9 +69,10 @@ class SpoolPageResponse(BaseModel):
 class PrinterResponse(BaseModel):
     id: int
     name: str
-    kind: Literal['moonraker','octoprint']
+    kind: Literal['moonraker','octoprint','bambu']
     base_url: str
     token_env: str
+    serial: str
     enabled: int
     created_at: str
 

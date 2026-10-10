@@ -26,7 +26,9 @@ export interface AutomationToken {id:number;label:string;scope:'inventory_read'|
   created_at:string;revoked_at:string|null;}
 export interface IssuedToken {id:number;label:string;scope:'inventory_read'|'events_read';token:string;warning:string;}
 export type ScaleMeasurement=ApiScaleMeasurement;
-export interface PrinterInput {name:string;kind:string;base_url:string;token_env:string;enabled:boolean;}
+export interface PrinterInput {name:string;kind:'moonraker'|'octoprint'|'bambu';base_url:string;token_env:string;serial:string;enabled:boolean;}
+export interface BambuTray {unit:string;tray:string;material:string;color:string;remaining_percent:number|null;}
+export interface PrinterProbe {state:string;filename:string;progress_percent?:number|null;remaining_minutes?:number|null;nozzle_c?:number|null;bed_c?:number|null;ams?:BambuTray[];}
 @Injectable({providedIn:'root'})
 export class WorkspaceService {
   private readonly http=inject(HttpClient);
@@ -118,8 +120,8 @@ export class WorkspaceService {
   updatePrinter(id:number,body:PrinterInput):Promise<{id:number}>{
     return firstValueFrom(this.http.put<{id:number}>('/api/printers/'+id,body));
   }
-  probe(id:number):Promise<{state:string;filename:string}> {
-    return firstValueFrom(this.http.post<{state:string;filename:string}>('/api/printers/'+id+'/probe',{}));
+  probe(id:number):Promise<PrinterProbe> {
+    return firstValueFrom(this.http.post<PrinterProbe>('/api/printers/'+id+'/probe',{}));
   }
   poll(id:number):Promise<{state:string;filename:string;updated_jobs:number}>{
     return firstValueFrom(this.http.post<{state:string;filename:string;updated_jobs:number}>('/api/printers/'+id+'/poll',{}));
