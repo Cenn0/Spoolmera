@@ -58,7 +58,7 @@ export class I18nService {
 
   private updateDocument(): void {
     this.document.documentElement.lang = this.language();
-    this.document.title = this.t('Filament Manager · Material inventory');
+    this.document.title = this.t('Spoolmera · Material inventory');
   }
 
   message(key: string, params?: MessageParams): LocalizedMessage {

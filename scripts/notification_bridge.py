@@ -47,7 +47,7 @@ def selected_categories() -> set[str]:
 
 
 def required_environment() -> tuple[str, str, str]:
-    server = os.getenv("FILAMENT_MANAGER_URL", "http://filament-manager:8765").rstrip("/")
+    server = os.getenv("FILAMENT_MANAGER_URL", "http://spoolmera:8765").rstrip("/")
     topic = os.getenv("FILAMENT_NTFY_URL", "")
     token = _secret("FILAMENT_AUTOMATION_TOKEN")
     for name, url in (("FILAMENT_MANAGER_URL", server), ("FILAMENT_NTFY_URL", topic)):
@@ -91,7 +91,7 @@ def notify(topic: str, alert: dict) -> None:
     payload = (alert["title"] + "\n" + alert["message"]).encode("utf-8")
     if len(payload) > 4096:
         raise RuntimeError("Notification payload is too large.")
-    headers = {"Content-Type": "text/plain; charset=utf-8", "Title": "Filament Manager"}
+    headers = {"Content-Type": "text/plain; charset=utf-8", "Title": "Spoolmera"}
     token = _secret("FILAMENT_NTFY_TOKEN")
     if token:
         headers["Authorization"] = "Bearer " + token
@@ -151,7 +151,7 @@ def run_once(state: Path, server: str, topic: str, token: str) -> int:
     if epoch != old["instance_epoch"]:
         # A restore can reuse numeric row IDs. Do not silently keep an old cursor.
         notify(topic, {"title": "Database recovery detected",
-                       "message": "The notification baseline was reset. Review current stock and pending print jobs in Filament Manager."})
+                       "message": "The notification baseline was reset. Review current stock and pending print jobs in Spoolmera."})
         save_state(state, epoch, current_ids)
         return 1
     delivered = set(old["delivered_ids"]) & current_ids

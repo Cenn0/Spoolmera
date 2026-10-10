@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="172" viewBox="0 0 860 172" role="img" aria-labelledby="title desc">
+<title id="title">Spoolmera</title><desc id="desc">Your 3D Printing Workspace</desc>
+<rect width="860" height="172" rx="20" fill="#17323B"/>
+<g transform="translate(27 25) scale(1.9)">
+<circle cx="32" cy="32" r="23" fill="none" stroke="#D7A97C" stroke-width="6"/>
+<circle cx="32" cy="32" r="15" fill="#203F46"/>
+<path d="M40.5 23.5C37.5 18 27 18.5 24 24.5c-5 10 19 4.5 16 15.5-2 7-14 8.5-18 2.5" fill="none" stroke="#8CE0CC" stroke-width="5" stroke-linecap="round"/>
+<circle cx="32" cy="32" r="3" fill="#F7E8D8"/><path d="M49 46l5 6" stroke="#D7A97C" stroke-width="4.5" stroke-linecap="round"/></g>
+<text x="179" y="83" font-family="Arial,Helvetica,sans-serif" font-size="69" font-weight="750" letter-spacing="1" fill="#F6FAF8">Spoolmera</text>
+<text x="182" y="121" font-family="Arial,Helvetica,sans-serif" font-size="22" letter-spacing="2" fill="#A6CFC5">YOUR 3D PRINTING WORKSPACE</text></svg>

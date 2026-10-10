@@ -34,7 +34,7 @@ def main() -> int:
     path = ensure_test_env(ROOT)
     # Keep operator credentials out of command arguments and console output.
     env = {**os.environ, "FILAMENT_TEST_PORT": str(args.port)}
-    command = ["docker", "compose", "--project-name", "filament-manager-test",
+    command = ["docker", "compose", "--project-name", "spoolmera-test",
                "--env-file", ".env.test", "-f", "compose.test.yaml"]
     subprocess.run([*command, "config", "--quiet"],
                    cwd=ROOT, env=env, check=True)
@@ -43,7 +43,7 @@ def main() -> int:
                    cwd=ROOT, env=env, check=True)
     print(f"Test instance ready: http://127.0.0.1:{args.port}")
     print(f"First setup: copy FILAMENT_BOOTSTRAP_TOKEN from {path.name}; choose your own administrator password.")
-    print("Stop: docker compose -p filament-manager-test -f compose.test.yaml down (test inventory is retained).")
+    print("Stop: docker compose -p spoolmera-test -f compose.test.yaml down (test inventory is retained).")
     return 0
 
 

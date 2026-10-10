@@ -1,6 +1,6 @@
 # Security policy
 
-Filament Manager is experimental, self-hosted open-source software. It manages credentials and can optionally send physical printer commands; successful automated tests do not establish a safety certification or penetration test.
+Spoolmera is experimental, self-hosted open-source software. It manages credentials and can optionally send physical printer commands; successful automated tests do not establish a safety certification or penetration test.
 
 ## Supported baseline
 

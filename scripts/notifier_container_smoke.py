@@ -117,7 +117,7 @@ def run(image: str, api_image: str) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--image", default="filament-manager:notifier-ci")
-    parser.add_argument("--api-image", default="filament-manager:ci")
+    parser.add_argument("--image", default="spoolmera:notifier-ci")
+    parser.add_argument("--api-image", default="spoolmera:ci")
     options = parser.parse_args()
     run(options.image, options.api_image)

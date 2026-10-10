@@ -200,7 +200,7 @@ export const ERRORS_DE = {
   'Database belongs to a different application.': 'Die Datenbank gehört zu einer anderen Anwendung.',
   'Backup destination must differ from the source database.': 'Das Sicherungsziel muss sich von der Quelldatenbank unterscheiden.',
   'Invalid backup resource limits.': 'Ungültige Ressourcenlimits für die Sicherung.',
-  'File is not a recognized Filament Manager database.': 'Die Datei ist keine erkannte Filament-Manager-Datenbank.',
+  'File is not a recognized Spoolmera database.': 'Die Datei ist keine erkannte Spoolmera-Datenbank.',
   'Snapshot exceeds the online backup size limit.': 'Die Sicherung überschreitet das Größenlimit für Onlinebackups.',
   'Backup exceeded its time limit.': 'Die Sicherung hat ihr Zeitlimit überschritten.',
   'Database exceeds the online backup size limit; use the offline CLI.': 'Die Datenbank überschreitet das Größenlimit für Onlinebackups. Verwende die Offline-Kommandozeile.',

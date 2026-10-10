@@ -2,7 +2,7 @@
 
 **Status: the v1 inventory API remains read-only; separate authenticated Moonraker and OctoPrint connectors support optional commands and file upload, approved-profile PrusaSlicer CLI slicing, explicit tool mappings and an HMAC-signed cloud event bridge.** All write/physical operations are opt-in and documented in [Operations](operations.md).
 
-The goal is to make Filament Manager useful for a variety of printer ecosystems without binding the inventory schema to any single vendor or requiring remote printer access from the inventory service.
+The goal is to make Spoolmera useful for a variety of printer ecosystems without binding the inventory schema to any single vendor or requiring remote printer access from the inventory service.
 
 ## Implemented read-only API v1
 

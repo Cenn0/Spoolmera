@@ -1,12 +1,16 @@
 import type { TranslationCatalog } from './types';
 
 export const COMMON_DE = {
+  'SPOOLMERA': 'SPOOLMERA',
+  'Spoolmera': 'Spoolmera',
+  '3D PRINTING': '3D-DRUCK',
+  '3D PRINTING WORKSPACE': '3D-DRUCK-ARBEITSBEREICH',
   'Language': 'Sprache',
   'Interface language': 'Sprache der Oberfläche',
   'Retry connection': 'Verbindung erneut versuchen',
   'Loading secure workspace…': 'Geschützter Arbeitsbereich wird geladen…',
   'Main navigation': 'Hauptnavigation',
-  'Filament Manager home': 'Filament-Manager-Startseite',
+  'Spoolmera home': 'Spoolmera-Startseite',
   'WORKSPACE': 'ARBEITSBEREICH',
   'Workspace': 'Arbeitsbereich',
   '/ WORKSPACE': '/ ARBEITSBEREICH',
@@ -27,7 +31,7 @@ export const COMMON_DE = {
   'Your inventory remains under your control.': 'Dein Bestand bleibt unter deiner Kontrolle.',
   'Toggle navigation': 'Navigation ein- oder ausblenden',
   'Material inventory': 'Materialbestand',
-  'Filament Manager · Material inventory': 'Filament Manager · Materialbestand',
+  'Spoolmera · Material inventory': 'Spoolmera · Materialbestand',
   'Inventory refreshed: {date}': 'Bestand aktualisiert: {date}',
   'Inventory has not loaded': 'Der Bestand wurde noch nicht geladen',
   'Unavailable': 'Nicht verfügbar',

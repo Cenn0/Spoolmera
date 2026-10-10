@@ -158,7 +158,7 @@ def initialize_database(path: str | Path) -> None:
         connection.execute("PRAGMA journal_mode = WAL")
         version = connection.execute("PRAGMA user_version").fetchone()[0]
         if version > CURRENT_SCHEMA_VERSION:
-            raise RuntimeError("Database schema is newer than this Filament Manager version.")
+            raise RuntimeError("Database schema is newer than this Spoolmera version.")
         connection.executescript(SCHEMA)
         # Suspend FK triggers only for the v11 printer-table rebuild.
         if version < 11:

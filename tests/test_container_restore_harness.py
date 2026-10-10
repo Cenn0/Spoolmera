@@ -101,7 +101,7 @@ class DisposableDocker:
 
 def test_recovery_smoke_refreshes_dynamic_port_on_every_restart(monkeypatch):
     docker = DisposableDocker(monkeypatch)
-    smoke.run("filament-manager:synthetic-ci")
+    smoke.run("spoolmera:synthetic-ci")
     assert docker.targets == [f"http://127.0.0.1:{port}" for port in range(43001, 43005)]
     assert len(docker.clients) == 1
     assert any("st_uid" in command[-1] for command in docker.commands)
@@ -111,7 +111,7 @@ def test_recovery_smoke_refreshes_dynamic_port_on_every_restart(monkeypatch):
 def test_recovery_failure_reports_current_state_and_redacted_logs_before_cleanup(monkeypatch, capsys):
     docker = DisposableDocker(monkeypatch, fail_after_restart=True)
     with pytest.raises(RuntimeError, match="Synthetic readiness failure"):
-        smoke.run("filament-manager:synthetic-ci")
+        smoke.run("spoolmera:synthetic-ci")
     output = capsys.readouterr().err
     assert "http://127.0.0.1:43002" in output
     assert "Current port binding" in output and '"Status":"running"' in output

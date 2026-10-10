@@ -1,5 +1,8 @@
+# Retain default Compose project name to keep the existing filament_data Docker volume
+# across a source-folder rename; -p continues to override this setting.
+name: filamentmanager
 services:
-  filament-manager:
+  spoolmera:
     build: .
     restart: unless-stopped
     ports:
