@@ -28,7 +28,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == '/health': return self.reply(200, {'status': 'ok'})
         if self.path == '/stats': return self.reply(200, {'reads': Handler.reads, 'notices': Handler.notices})
         if self.path != '/api/automation/v1/alerts': return self.reply(404, {})
-        if self.headers.get('Authorization') != 'Bearer '+os.environ['FILAMENT_AUTOMATION_TOKEN']:
+        if self.headers.get('Authorization') != 'Bearer '+os.environ['SPOOLMERA_AUTOMATION_TOKEN']:
             return self.reply(401, {})
         Handler.reads += 1
         alerts = [] if Handler.reads == 1 else [{'id':'low_stock:ci','category':'low_stock',
@@ -38,10 +38,10 @@ class Handler(BaseHTTPRequestHandler):
                          'truncated':False,'alerts':alerts})
     def do_POST(self):
         if self.path != '/topic': return self.reply(404, {})
-        if self.headers.get('Authorization') != 'Bearer '+os.environ['FILAMENT_NTFY_TOKEN']:
+        if self.headers.get('Authorization') != 'Bearer '+os.environ['SPOOLMERA_NTFY_TOKEN']:
             return self.reply(401, {})
         body = self.rfile.read(int(self.headers['Content-Length']))
-        if os.environ['FILAMENT_AUTOMATION_TOKEN'].encode() in body: return self.reply(400,{})
+        if os.environ['SPOOLMERA_AUTOMATION_TOKEN'].encode() in body: return self.reply(400,{})
         Handler.notices += 1
         self.reply(200, {'id':'test-notification'})
 HTTPServer(('0.0.0.0',8768),Handler).serve_forever()
@@ -50,14 +50,14 @@ HTTPServer(('0.0.0.0',8768),Handler).serve_forever()
 
 def run(image: str, api_image: str) -> None:
     suffix = uuid4().hex[:12]
-    network, stub, state = ("filament-notify-net-" + suffix, "filament-notify-stub-" + suffix,
-                            "filament-notify-state-" + suffix)
-    notifier = "filament-notify-test-" + suffix
-    test_env = dict(os.environ, FILAMENT_AUTOMATION_TOKEN="fmm_" + secrets.token_urlsafe(40),
-                    FILAMENT_NTFY_TOKEN="ntfy-" + secrets.token_urlsafe(20),
-                    FILAMENT_NTFY_URL="http://" + stub + ":8768/topic",
-                    FILAMENT_MANAGER_URL="http://" + stub + ":8768",
-                    FILAMENT_NOTIFICATION_CATEGORIES="low_stock,job_review,printer_offline")
+    network, stub, state = ("spoolmera-notify-net-" + suffix, "spoolmera-notify-stub-" + suffix,
+                            "spoolmera-notify-state-" + suffix)
+    notifier = "spoolmera-notify-test-" + suffix
+    test_env = dict(os.environ, SPOOLMERA_AUTOMATION_TOKEN="spm_" + secrets.token_urlsafe(40),
+                    SPOOLMERA_NTFY_TOKEN="ntfy-" + secrets.token_urlsafe(20),
+                    SPOOLMERA_NTFY_URL="http://" + stub + ":8768/topic",
+                    SPOOLMERA_URL="http://" + stub + ":8768",
+                    SPOOLMERA_NOTIFICATION_CATEGORIES="low_stock,job_review,printer_offline")
 
     def docker(*args, check=True):
         result = subprocess.run(["docker", *args], env=test_env, text=True, capture_output=True, timeout=180)
@@ -67,28 +67,28 @@ def run(image: str, api_image: str) -> None:
 
     # Resolve the actual Compose files using a disposable .env, never the user's.
     root = Path(__file__).resolve().parents[1]
-    with tempfile.TemporaryDirectory(prefix="filament-notify-compose-") as folder:
+    with tempfile.TemporaryDirectory(prefix="spoolmera-notify-compose-") as folder:
         folder = Path(folder)
         for filename in ("compose.yaml", "compose.notifications.yaml"):
             (folder / filename).write_text((root / filename).read_text(encoding="utf-8"), encoding="utf-8")
         (folder / ".env").write_text(
-            "FILAMENT_BOOTSTRAP_TOKEN=sentinel-bootstrap-not-for-notifier\n"
-            "FILAMENT_PRINTER_TOKEN_CI=sentinel-printer-not-for-notifier\n"
-            "FILAMENT_CLOUD_HMAC_CI=sentinel-cloud-not-for-notifier\n"
-            "FILAMENT_SCALE_HMAC_CI=sentinel-scale-not-for-notifier\n"
-            "FILAMENT_SLICER_WORKER_TOKEN=sentinel-slicer-not-for-notifier\n", encoding="utf-8")
+            "SPOOLMERA_BOOTSTRAP_TOKEN=sentinel-bootstrap-not-for-notifier\n"
+            "SPOOLMERA_PRINTER_TOKEN_CI=sentinel-printer-not-for-notifier\n"
+            "SPOOLMERA_CLOUD_HMAC_CI=sentinel-cloud-not-for-notifier\n"
+            "SPOOLMERA_SCALE_HMAC_CI=sentinel-scale-not-for-notifier\n"
+            "SPOOLMERA_SLICER_WORKER_TOKEN=sentinel-slicer-not-for-notifier\n", encoding="utf-8")
         config = docker("compose", "--project-directory", str(folder), "-f", str(folder / "compose.yaml"),
                         "-f", str(folder / "compose.notifications.yaml"), "config", "--format", "json")
-        values = json.loads(config.stdout)["services"]["filament-notifications"]["environment"]
-        assert set(values) == {"FILAMENT_MANAGER_URL", "FILAMENT_AUTOMATION_TOKEN", "FILAMENT_NTFY_URL",
-                               "FILAMENT_NTFY_TOKEN", "FILAMENT_NOTIFICATION_CATEGORIES"}
+        values = json.loads(config.stdout)["services"]["spoolmera-notifications"]["environment"]
+        assert set(values) == {"SPOOLMERA_URL", "SPOOLMERA_AUTOMATION_TOKEN", "SPOOLMERA_NTFY_URL",
+                               "SPOOLMERA_NTFY_TOKEN", "SPOOLMERA_NOTIFICATION_CATEGORIES"}
         assert not any("sentinel-" in str(value) for value in values.values())
 
     try:
         docker("network", "create", "--internal", network)
         docker("volume", "create", state)
         docker("run", "--detach", "--name", stub, "--network", network, "--read-only", "--cap-drop", "ALL",
-               "--security-opt", "no-new-privileges", "--env", "FILAMENT_AUTOMATION_TOKEN", "--env", "FILAMENT_NTFY_TOKEN",
+               "--security-opt", "no-new-privileges", "--env", "SPOOLMERA_AUTOMATION_TOKEN", "--env", "SPOOLMERA_NTFY_TOKEN",
                api_image, "python", "-u", "-c", STUB)
         deadline = time.monotonic() + 30
         while time.monotonic() < deadline:
@@ -102,8 +102,8 @@ def run(image: str, api_image: str) -> None:
             docker("run", "--rm", "--name", notifier, "--network", network, "--read-only", "--cap-drop", "ALL",
                    "--security-opt", "no-new-privileges", "--memory", "128m", "--pids-limit", "32", "--cpus", "0.5",
                    "--tmpfs", "/tmp:rw,nosuid,size=8m", "--mount", f"type=volume,source={state},target=/state",
-                   "--env", "FILAMENT_MANAGER_URL", "--env", "FILAMENT_AUTOMATION_TOKEN", "--env", "FILAMENT_NTFY_URL",
-                   "--env", "FILAMENT_NTFY_TOKEN", "--env", "FILAMENT_NOTIFICATION_CATEGORIES",
+                   "--env", "SPOOLMERA_URL", "--env", "SPOOLMERA_AUTOMATION_TOKEN", "--env", "SPOOLMERA_NTFY_URL",
+                   "--env", "SPOOLMERA_NTFY_TOKEN", "--env", "SPOOLMERA_NOTIFICATION_CATEGORIES",
                    image, "python", "-u", "notification_bridge.py")
         result = docker("exec", stub, "python", "-c", "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8768/stats').read().decode())")
         assert json.loads(result.stdout) == {"reads": 3, "notices": 1}

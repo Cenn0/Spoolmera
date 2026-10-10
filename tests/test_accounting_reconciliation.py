@@ -93,7 +93,7 @@ def remote_run(workshop, monkeypatch, filename="part.gcode"):
 def scale_receipt(workshop, monkeypatch, gross, *, name=None, tare=None, measured_at=None,
                   expected_status=200):
     secret = "scale-review-secret-with-more-than-thirty-two-bytes"
-    monkeypatch.setenv("FILAMENT_SCALE_HMAC_WORKSHOP", secret)
+    monkeypatch.setenv("SPOOLMERA_SCALE_HMAC_WORKSHOP", secret)
     payload = {"event_id": name or "measurement-" + str(uuid4()),
                "spool_uid": spool_state(workshop)["uid"], "gross_g": gross, "tare_g": tare}
     if measured_at is not None:
@@ -102,7 +102,7 @@ def scale_receipt(workshop, monkeypatch, gross, *, name=None, tare=None, measure
     stamp = str(int(time.time()))
     signature = hmac.new(secret.encode(), stamp.encode() + b"." + raw, hashlib.sha256).hexdigest()
     result = workshop[0].post("/api/scales/hooks/WORKSHOP", content=raw,
-                             headers={"X-Filament-Timestamp": stamp, "X-Filament-Signature": signature})
+                             headers={"X-Spoolmera-Timestamp": stamp, "X-Spoolmera-Signature": signature})
     assert result.status_code == expected_status, result.text
     return result.json()["id"] if expected_status == 200 else result
 

@@ -18,11 +18,11 @@ from ci_http import DisposableClient
 def run(image: str) -> None:
     suffix = uuid4().hex[:12]
     volume, container = "filament-recovery-" + suffix, "filament-recovery-app-" + suffix
-    test_env = dict(os.environ, FILAMENT_BOOTSTRAP_TOKEN=secrets.token_urlsafe(32))
+    test_env = dict(os.environ, SPOOLMERA_BOOTSTRAP_TOKEN=secrets.token_urlsafe(32))
     client = None
 
     def redact(value: str) -> str:
-        sensitive = [test_env["FILAMENT_BOOTSTRAP_TOKEN"]]
+        sensitive = [test_env["SPOOLMERA_BOOTSTRAP_TOKEN"]]
         if client is not None:
             sensitive.extend([client.password, client.csrf])
         for secret in sensitive:
@@ -80,20 +80,20 @@ def run(image: str) -> None:
         docker("volume", "create", volume)
         docker("run", "--detach", "--name", container, "--read-only", "--cap-drop", "ALL",
                "--security-opt", "no-new-privileges", "--tmpfs", "/tmp:rw,nosuid,size=64m",
-               "--env", "FILAMENT_BOOTSTRAP_TOKEN", "--mount", f"type=volume,source={volume},target=/data",
+               "--env", "SPOOLMERA_BOOTSTRAP_TOKEN", "--mount", f"type=volume,source={volume},target=/data",
                "--publish", "127.0.0.1::8765", image)
         client = DisposableClient(published_base())
         print("Recovery initial HTTP target: " + client.base, flush=True)
         client.wait_ready()
-        client.setup(test_env["FILAMENT_BOOTSTRAP_TOKEN"])
+        client.setup(test_env["SPOOLMERA_BOOTSTRAP_TOKEN"])
         product = client.call("/api/products", "POST", {"brand": "Recovery", "name": "PLA", "material": "PLA", "color_name": "Blue"}, expected=201)["id"]
         spool = client.call("/api/spools", "POST", {"product_id": product, "initial_g": 1000}, expected=201)["id"]
         client.call(f"/api/spools/{spool}/movements", "POST", {"kind": "consume", "grams": 100}, expected=201)
-        docker("exec", container, "python", "scripts/backup.py", "/data/ci-backup.sqlite3", "--database", "/data/filaments.sqlite3")
+        docker("exec", container, "python", "scripts/backup.py", "/data/ci-backup.sqlite3", "--database", "/data/spoolmera.sqlite3")
         client.call(f"/api/spools/{spool}/movements", "POST", {"kind": "consume", "grams": 50}, expected=201)
         docker("stop", "--time", "10", container)
-        offline("scripts/restore.py", "/data/ci-backup.sqlite3", "/data/filaments.sqlite3", "--confirm")
-        owner = offline("-c", "import os,json; from pathlib import Path; files=[Path('/data/filaments.sqlite3'),*Path('/data').glob('.filaments.sqlite3.*.lock')]; print(json.dumps([[p.stat().st_uid,p.stat().st_gid] for p in files]))").stdout
+        offline("scripts/restore.py", "/data/ci-backup.sqlite3", "/data/spoolmera.sqlite3", "--confirm")
+        owner = offline("-c", "import os,json; from pathlib import Path; files=[Path('/data/spoolmera.sqlite3'),*Path('/data').glob('.spoolmera.sqlite3.*.lock')]; print(json.dumps([[p.stat().st_uid,p.stat().st_gid] for p in files]))").stdout
         assert all(pair == [10001, 10001] for pair in json.loads(owner)), "Root-run restore changed database or operation-lock ownership"
         restart()
         client.call("/api/auth/me", expected=401)
@@ -103,19 +103,19 @@ def run(image: str) -> None:
         assert client.call("/api/spools")[0]["remaining_g"] == 875
         assert client.call("/api/admin/backup.sqlite3").startswith(b"SQLite format 3"), "Restored lock ownership prevents online backup"
         docker("stop", "--time", "10", container)
-        offline("-c", "from pathlib import Path; Path('/data/filaments.sqlite3').write_bytes(b'corrupt-recovery-fixture')")
-        offline("scripts/restore.py", "/data/ci-backup.sqlite3", "/data/filaments.sqlite3", "--confirm")
-        offline("-c", "from pathlib import Path; assert any(p.read_bytes()==b'corrupt-recovery-fixture' for p in Path('/data').glob('filaments.sqlite3.pre-restore-*') if not p.name.endswith('.json'))")
+        offline("-c", "from pathlib import Path; Path('/data/spoolmera.sqlite3').write_bytes(b'corrupt-recovery-fixture')")
+        offline("scripts/restore.py", "/data/ci-backup.sqlite3", "/data/spoolmera.sqlite3", "--confirm")
+        offline("-c", "from pathlib import Path; assert any(p.read_bytes()==b'corrupt-recovery-fixture' for p in Path('/data').glob('spoolmera.sqlite3.pre-restore-*') if not p.name.endswith('.json'))")
         offline("-c", "import sqlite3; c=sqlite3.connect('/data/unrelated.sqlite3'); c.execute('CREATE TABLE unrelated(value TEXT)'); c.close()")
-        result = offline("scripts/restore.py", "/data/unrelated.sqlite3", "/data/filaments.sqlite3", "--confirm", check=False)
+        result = offline("scripts/restore.py", "/data/unrelated.sqlite3", "/data/spoolmera.sqlite3", "--confirm", check=False)
         assert result.returncode != 0, "Restore accepted an unrelated SQLite file"
         restart()
         client.login()
         assert client.call("/api/spools")[0]["remaining_g"] == 900
         client.call(f"/api/spools/{spool}/movements", "POST", {"kind": "consume", "grams": 1}, expected=201)
         docker("stop", "--time", "10", container)
-        offline("-c", "from pathlib import Path; Path('/data/filaments.sqlite3').unlink()")
-        offline("scripts/restore.py", "/data/ci-backup.sqlite3", "/data/filaments.sqlite3", "--confirm")
+        offline("-c", "from pathlib import Path; Path('/data/spoolmera.sqlite3').unlink()")
+        offline("scripts/restore.py", "/data/ci-backup.sqlite3", "/data/spoolmera.sqlite3", "--confirm")
         restart()
         client.login()
         assert client.call("/api/spools")[0]["remaining_g"] == 900

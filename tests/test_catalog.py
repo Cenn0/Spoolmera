@@ -5,7 +5,7 @@ from tests.support import authenticate
 
 
 def test_catalog_requires_opt_in(tmp_path, monkeypatch):
-    monkeypatch.delenv("FILAMENT_CATALOG_ENABLED", raising=False)
+    monkeypatch.delenv("SPOOLMERA_CATALOG_ENABLED", raising=False)
     with TestClient(create_app(tmp_path / "catalog.sqlite3")) as client:
         authenticate(client)
         assert client.get("/api/catalog/brands").status_code == 503
@@ -13,7 +13,7 @@ def test_catalog_requires_opt_in(tmp_path, monkeypatch):
 
 def test_catalog_brand_validation_and_read_only_preview(tmp_path, monkeypatch):
     from app.api import catalog
-    monkeypatch.setenv("FILAMENT_CATALOG_ENABLED", "1")
+    monkeypatch.setenv("SPOOLMERA_CATALOG_ENABLED", "1")
     paths = []
     def fake(path):
         paths.append(path)
@@ -31,7 +31,7 @@ def test_catalog_brand_validation_and_read_only_preview(tmp_path, monkeypatch):
 
 def test_catalog_navigation_validates_every_path_segment(tmp_path, monkeypatch):
     from app.api import catalog
-    monkeypatch.setenv("FILAMENT_CATALOG_ENABLED", "1")
+    monkeypatch.setenv("SPOOLMERA_CATALOG_ENABLED", "1")
     paths=[]
     monkeypatch.setattr(catalog, "fetch_catalog_json", lambda path: paths.append(path) or {"ok":True})
     with TestClient(create_app(tmp_path / "catalog.sqlite3")) as client:

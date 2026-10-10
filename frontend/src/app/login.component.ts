@@ -6,11 +6,11 @@ import { apiError } from './inventory.service';
 import { LanguagePickerComponent, TranslatePipe } from './core/i18n';
 
 @Component({
-  selector:'fm-login', standalone:true, imports:[FormsModule,LanguagePickerComponent,ThemePickerComponent,TranslatePipe],
+  selector:'sm-login', standalone:true, imports:[FormsModule,LanguagePickerComponent,ThemePickerComponent,TranslatePipe],
   template: `
     <main class="login-screen">
       <section class="login-card">
-        <div class="login-language"><fm-theme-picker /><fm-language-picker /></div>
+        <div class="login-language"><sm-theme-picker /><sm-language-picker /></div>
         <div class="login-brand"><img class="brand-mark" src="/spoolmera-mark.svg" alt="" aria-hidden="true">
           <strong>{{'SPOOLMERA' | t}} <small>{{'3D PRINTING WORKSPACE' | t}}</small></strong></div>
         <span class="eyebrow">{{'SELF-HOSTED MATERIAL WORKSPACE' | t}}</span>
@@ -25,7 +25,7 @@ import { LanguagePickerComponent, TranslatePipe } from './core/i18n';
             [minlength]="auth.needsSetup()?14:1" maxlength="128" [autocomplete]="auth.needsSetup()?'new-password':'current-password'"></label>
           @if(auth.needsSetup()){
             <label>{{'Bootstrap token' | t}}<input type="password" name="token" [(ngModel)]="bootstrapToken" required
-              autocomplete="off" [placeholder]="'From FILAMENT_BOOTSTRAP_TOKEN' | t"></label>
+              autocomplete="off" [placeholder]="'From SPOOLMERA_BOOTSTRAP_TOKEN' | t"></label>
           }
           <button class="btn primary" type="submit" [disabled]="busy()||loginForm.invalid">
             {{(busy()?'Working…':auth.needsSetup()?'Create administrator':'Sign in') | t}}

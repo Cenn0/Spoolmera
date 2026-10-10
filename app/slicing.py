@@ -25,11 +25,11 @@ SLICER_LOCK = threading.BoundedSemaphore(1)
 
 
 def slicer_enabled() -> bool:
-    return os.getenv("FILAMENT_SLICER_ENABLED") == "1"
+    return os.getenv("SPOOLMERA_SLICER_ENABLED") == "1"
 
 
 def profile_root() -> Path:
-    return Path(os.getenv("FILAMENT_SLICER_PROFILES_DIR", "/config/slicer-profiles"))
+    return Path(os.getenv("SPOOLMERA_SLICER_PROFILES_DIR", "/config/slicer-profiles"))
 
 
 def list_profiles() -> list[str]:
@@ -55,7 +55,7 @@ def slice_stl(data: bytes, name: str) -> tuple[bytes, int | None]:
     profile_text = profile_file.read_text(encoding="utf-8", errors="replace")
     if re.search(r"(?im)^\s*post_process\s*=\s*\S", profile_text):
         raise HTTPException(status_code=422, detail="Slicer post-processing commands are not allowed.")
-    binary = Path(os.getenv("FILAMENT_SLICER_EXECUTABLE", "/usr/bin/prusa-slicer"))
+    binary = Path(os.getenv("SPOOLMERA_SLICER_EXECUTABLE", "/usr/bin/prusa-slicer"))
     if not binary.is_absolute() or not binary.is_file() or not os.access(binary, os.X_OK):
         raise HTTPException(status_code=503, detail="PrusaSlicer CLI is not installed.")
     if not SLICER_LOCK.acquire(blocking=False):
@@ -93,8 +93,8 @@ def slice_stl(data: bytes, name: str) -> tuple[bytes, int | None]:
 
 def worker_url() -> str:
     # The worker is only reachable via the Compose-internal slicer network.
-    url = os.getenv("FILAMENT_SLICER_WORKER_URL", "")
-    secret = os.getenv("FILAMENT_SLICER_WORKER_TOKEN", "")
+    url = os.getenv("SPOOLMERA_SLICER_WORKER_URL", "")
+    secret = os.getenv("SPOOLMERA_SLICER_WORKER_TOKEN", "")
     if url != "http://slicer-worker:8767" or len(secret) < 32:
         raise HTTPException(status_code=503, detail="Isolated slicer worker is not configured.")
     return url
@@ -102,7 +102,7 @@ def worker_url() -> str:
 
 def request_worker(path: str, data: bytes | None = None) -> tuple[bytes, dict]:
     url = worker_url()
-    token = os.environ["FILAMENT_SLICER_WORKER_TOKEN"]
+    token = os.environ["SPOOLMERA_SLICER_WORKER_TOKEN"]
     headers = {"X-Worker-Token": token}
     if data is not None:
         headers["Content-Type"] = "application/octet-stream"

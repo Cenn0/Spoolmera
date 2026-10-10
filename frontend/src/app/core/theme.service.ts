@@ -2,7 +2,7 @@ import { DOCUMENT } from '@angular/common';
 import { DestroyRef, Injectable, inject, signal } from '@angular/core';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
-export const THEME_KEY = 'filament-manager-theme';
+export const THEME_KEY = 'spoolmera-theme';
 export function themePreference(value: unknown): ThemePreference {
   return value === 'light' || value === 'dark' ? value : 'system';
 }

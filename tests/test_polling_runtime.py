@@ -19,8 +19,8 @@ from app.services.process_lock import ProcessLock, operation_lock_path
 
 
 @pytest.mark.parametrize("setting,value", [
-    ("FILAMENT_PRINTER_POLL_SECONDS", "abc"), ("FILAMENT_PRINTER_POLL_SECONDS", "301"),
-    ("FILAMENT_COOKIE_SECURE", "yes"), ("FILAMENT_PUBLIC_BASE_URL", "https://host/path"),
+    ("SPOOLMERA_PRINTER_POLL_SECONDS", "abc"), ("SPOOLMERA_PRINTER_POLL_SECONDS", "301"),
+    ("SPOOLMERA_COOKIE_SECURE", "yes"), ("SPOOLMERA_PUBLIC_BASE_URL", "https://host/path"),
 ])
 def test_invalid_configuration_fails_before_serving(tmp_path, monkeypatch, setting, value):
     monkeypatch.setenv(setting, value)

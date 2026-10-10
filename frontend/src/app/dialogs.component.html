@@ -154,7 +154,7 @@
   @if (active.kind==='csv') {
     <div class="modal-body">
       <p class="helper">{{'Import the versioned UTF-8 inventory snapshot. Existing product and spool UUIDs are skipped without overwrite. This is not a full history backup.'|t}}</p>
-      <fm-file-drop label="Select CSV file" accept=".csv" [maxBytes]="2*1024*1024" [disabled]="busy()" (selected)="selectCsv($event)" (rejected)="rejectCsv($event)" />
+      <sm-file-drop label="Select CSV file" accept=".csv" [maxBytes]="2*1024*1024" [disabled]="busy()" (selected)="selectCsv($event)" (rejected)="rejectCsv($event)" />
       @if (readingCsv()) {<p class="helper" role="status">{{'Validating inventory file…'|t}}</p>}
       @if (csvPreview(); as preview) {
         <div class="csv-preview" id="csv-preview"><h3>{{'Import preview'|t}}</h3><p>{{'{products} new filament products · {spools} new spools'|t:{products:i18n.number(preview.products_created),spools:i18n.number(preview.spools_created)} }}</p><p>{{'Skipped: {products} known products and {spools} known spools.'|t:{products:i18n.number(preview.products_skipped),spools:i18n.number(preview.spools_skipped)} }}</p><small>{{'Existing inventory is not overwritten. Import creates new entries only.'|t}}</small></div>

@@ -1,2 +1,2 @@
-"""Filament Manager release identity."""
+"""Spoolmera release identity."""
 __version__ = "0.10.0"

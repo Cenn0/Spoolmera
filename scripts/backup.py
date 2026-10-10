@@ -21,7 +21,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("destination", type=Path, help="New .sqlite3 backup path")
     parser.add_argument("--database", type=Path,
-                        default=Path(os.getenv("FILAMENT_DB_PATH", ".data/filaments.sqlite3")))
+                        default=Path(os.getenv("SPOOLMERA_DB_PATH", ".data/spoolmera.sqlite3")))
     parser.add_argument("--timeout-seconds", type=int, default=300)
     args = parser.parse_args()
     if not 1 <= args.timeout_seconds <= 3600:

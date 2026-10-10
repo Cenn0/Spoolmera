@@ -1,5 +1,5 @@
 
-# Feature expansion: FilamentManager v0.10.0 (experimental)
+# Feature expansion: Spoolmera v0.10.0 (experimental)
 
 This release remains fully free, Apache-2.0-licensed, Docker-self-hosted and based on Angular, Python/FastAPI and SQLite. The default installation is a single application container. No cloud account, paid service or vendor API is required.
 

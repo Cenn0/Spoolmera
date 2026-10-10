@@ -40,24 +40,24 @@ def _secret(name: str) -> str:
 
 
 def selected_categories() -> set[str]:
-    result = {value.strip() for value in os.getenv("FILAMENT_NOTIFICATION_CATEGORIES", ",".join(sorted(CATEGORIES))).split(",")}
+    result = {value.strip() for value in os.getenv("SPOOLMERA_NOTIFICATION_CATEGORIES", ",".join(sorted(CATEGORIES))).split(",")}
     if not result or not result <= CATEGORIES:
         raise RuntimeError("Notification categories must be low_stock, job_review or printer_offline.")
     return result
 
 
 def required_environment() -> tuple[str, str, str]:
-    server = os.getenv("FILAMENT_MANAGER_URL", "http://spoolmera:8765").rstrip("/")
-    topic = os.getenv("FILAMENT_NTFY_URL", "")
-    token = _secret("FILAMENT_AUTOMATION_TOKEN")
-    for name, url in (("FILAMENT_MANAGER_URL", server), ("FILAMENT_NTFY_URL", topic)):
+    server = os.getenv("SPOOLMERA_URL", "http://spoolmera:8765").rstrip("/")
+    topic = os.getenv("SPOOLMERA_NTFY_URL", "")
+    token = _secret("SPOOLMERA_AUTOMATION_TOKEN")
+    for name, url in (("SPOOLMERA_URL", server), ("SPOOLMERA_NTFY_URL", topic)):
         parsed = urlsplit(url)
         if (parsed.scheme not in {"http", "https"} or not parsed.hostname
                 or parsed.username or parsed.password or parsed.query or parsed.fragment):
             raise RuntimeError(name + " must be an HTTP(S) URL without credentials, query or fragment.")
-    if not token.startswith("fmm_") or not 45 <= len(token) <= 68:
-        raise RuntimeError("FILAMENT_AUTOMATION_TOKEN must be a scoped events_read token.")
-    _secret("FILAMENT_NTFY_TOKEN")
+    if not token.startswith("spm_") or not 45 <= len(token) <= 68:
+        raise RuntimeError("SPOOLMERA_AUTOMATION_TOKEN must be a scoped events_read token.")
+    _secret("SPOOLMERA_NTFY_TOKEN")
     selected_categories()
     return server, topic, token
 
@@ -92,7 +92,7 @@ def notify(topic: str, alert: dict) -> None:
     if len(payload) > 4096:
         raise RuntimeError("Notification payload is too large.")
     headers = {"Content-Type": "text/plain; charset=utf-8", "Title": "Spoolmera"}
-    token = _secret("FILAMENT_NTFY_TOKEN")
+    token = _secret("SPOOLMERA_NTFY_TOKEN")
     if token:
         headers["Authorization"] = "Bearer " + token
     request = urllib.request.Request(topic, data=payload, headers=headers, method="POST")

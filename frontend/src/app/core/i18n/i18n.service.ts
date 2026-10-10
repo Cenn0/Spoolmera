@@ -37,8 +37,8 @@ export class I18nService {
       if (stored) return stored;
     } catch { /* Storage can be blocked; browser preferences still work. */ }
     try {
-      const cookie = this.document.cookie.split(';').map(value => value.trim()).find(value => value.startsWith('fm_language='));
-      const saved = supportedLanguage(cookie?.slice('fm_language='.length));
+      const cookie = this.document.cookie.split(';').map(value => value.trim()).find(value => value.startsWith('spoolmera_language='));
+      const saved = supportedLanguage(cookie?.slice('spoolmera_language='.length));
       if (saved) return saved;
     } catch { /* A blocked cookie jar must not block application startup. */ }
     return this.detectBrowserLanguage();
@@ -52,7 +52,7 @@ export class I18nService {
     try { this.window?.localStorage.setItem(LANGUAGE_STORAGE_KEY, language); } catch { /* Selection still works for this page. */ }
     try {
       const secure = this.window?.location.protocol === 'https:' ? '; Secure' : '';
-      this.document.cookie = `fm_language=${language}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
+      this.document.cookie = `spoolmera_language=${language}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
     } catch { /* Label pages can fall back to Accept-Language. */ }
   }
 

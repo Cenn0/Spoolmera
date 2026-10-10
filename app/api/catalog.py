@@ -50,7 +50,7 @@ def _validate(path: str) -> None:
 
 
 def _cache_path(path: str) -> Path:
-    db_path = Path(os.environ.get("FILAMENT_DB_PATH", ".data/filaments.sqlite3"))
+    db_path = Path(os.environ.get("SPOOLMERA_DB_PATH", ".data/spoolmera.sqlite3"))
     return db_path.parent / "catalog-cache" / path
 
 
@@ -65,8 +65,8 @@ def _read_cache(cache: Path) -> dict | None:
 
 
 def fetch_catalog_json(path: str) -> dict:
-    if os.getenv("FILAMENT_CATALOG_ENABLED", "0") != "1":
-        raise HTTPException(503, "Online catalog is disabled; enable FILAMENT_CATALOG_ENABLED=1.")
+    if os.getenv("SPOOLMERA_CATALOG_ENABLED", "0") != "1":
+        raise HTTPException(503, "Online catalog is disabled; enable SPOOLMERA_CATALOG_ENABLED=1.")
     _validate(path)
     cache = _cache_path(path)
     saved = _read_cache(cache)

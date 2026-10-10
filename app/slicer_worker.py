@@ -13,7 +13,7 @@ def create_worker_app() -> FastAPI:
     async def require_worker_token(request: Request, call_next):
         if request.url.path == "/health":
             return await call_next(request)
-        secret = os.getenv("FILAMENT_SLICER_WORKER_TOKEN", "")
+        secret = os.getenv("SPOOLMERA_SLICER_WORKER_TOKEN", "")
         provided = request.headers.get("x-worker-token", "")
         if len(secret) < 32 or not hmac.compare_digest(
                 secret.encode("utf-8"), provided.encode("utf-8")):

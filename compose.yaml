@@ -1,6 +1,4 @@
-# Retain default Compose project name to keep the existing filament_data Docker volume
-# across a source-folder rename; -p continues to override this setting.
-name: filamentmanager
+name: spoolmera
 services:
   spoolmera:
     build: .
@@ -11,9 +9,9 @@ services:
       - path: .env
         required: false
     environment:
-      FILAMENT_DB_PATH: /data/filaments.sqlite3
+      SPOOLMERA_DB_PATH: /data/spoolmera.sqlite3
     volumes:
-      - filament_data:/data
+      - spoolmera_data:/data
     read_only: true
     tmpfs:
       - /tmp:rw,nosuid,size=64m
@@ -29,4 +27,4 @@ services:
       start_period: 10s
 
 volumes:
-  filament_data:
+  spoolmera_data:

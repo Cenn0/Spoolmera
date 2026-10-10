@@ -70,10 +70,10 @@ def _identity(printer, validate_url):
     token_env = printer['token_env']
     if not isinstance(serial, str) or not re.fullmatch(r'[A-Za-z0-9]{8,32}', serial):
         raise ValueError('Invalid Bambu serial.')
-    if not isinstance(token_env, str) or not re.fullmatch(r'FILAMENT_PRINTER_TOKEN_[A-Z0-9_]{1,50}', token_env):
+    if not isinstance(token_env, str) or not re.fullmatch(r'SPOOLMERA_PRINTER_TOKEN_[A-Z0-9_]{1,50}', token_env):
         raise ValueError('Invalid Bambu credential reference.')
     code = read_secret(token_env)
-    fingerprint = os.getenv('FILAMENT_BAMBU_CERT_SHA256_' + token_env.removeprefix('FILAMENT_PRINTER_TOKEN_'), '')
+    fingerprint = os.getenv('SPOOLMERA_BAMBU_CERT_SHA256_' + token_env.removeprefix('SPOOLMERA_PRINTER_TOKEN_'), '')
     if not code or not re.fullmatch('[0-9a-fA-F]{64}', fingerprint):
         raise ValueError('Bambu LAN credentials or pinned TLS fingerprint are missing.')
     return parsed.hostname, serial, code, fingerprint.lower()
@@ -95,7 +95,7 @@ def _connect(printer, validate_url):
             if not certificate or not hmac.compare_digest(hashlib.sha256(certificate).hexdigest(), fingerprint):
                 tls.close()
                 raise ValueError('Bambu TLS fingerprint mismatch. Stop and verify the printer certificate.')
-            client_id = 'fm-' + secrets.token_hex(8)
+            client_id = 'sm-' + secrets.token_hex(8)
             payload = (_text('MQTT') + b'\x04\xc2\x00\x1e' + _text(client_id)
                        + _text('bblp') + _text(code))
             tls.sendall(_frame(0x10, payload))

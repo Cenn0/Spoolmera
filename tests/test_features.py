@@ -83,7 +83,7 @@ def test_new_products_and_spools_get_stable_uuids(client):
 
 
 def test_label_qr_and_deep_link(client, monkeypatch):
-    monkeypatch.setenv("FILAMENT_PUBLIC_BASE_URL", "http://filament.example.test:8765")
+    monkeypatch.setenv("SPOOLMERA_PUBLIC_BASE_URL", "http://spoolmera.example.test:8765")
     result = spool(client)
     uid = result["uid"]
     svg_response = client.get(f"/api/spools/{uid}/qr.svg")
@@ -111,10 +111,10 @@ def test_unknown_label_and_invalid_public_url(client, monkeypatch):
     assert client.get(f"/labels/{missing}").status_code == 404
     assert client.get(f"/api/spools/{missing}/qr.svg").status_code == 404
     assert client.get(f"/s/{missing}", follow_redirects=False).status_code == 404
-    monkeypatch.setenv("FILAMENT_PUBLIC_BASE_URL", "https://username:password@example.com")
-    with pytest.raises(ValueError, match="FILAMENT_PUBLIC_BASE_URL"):
+    monkeypatch.setenv("SPOOLMERA_PUBLIC_BASE_URL", "https://username:password@example.com")
+    with pytest.raises(ValueError, match="SPOOLMERA_PUBLIC_BASE_URL"):
         public_base_url()
-    monkeypatch.setenv("FILAMENT_PUBLIC_BASE_URL", "https://example.test/insecure/path")
+    monkeypatch.setenv("SPOOLMERA_PUBLIC_BASE_URL", "https://example.test/insecure/path")
     with pytest.raises(ValueError):
         public_base_url()
 
@@ -329,7 +329,7 @@ def test_web_page_and_user_language_are_english(client):
     else:
         assert response.status_code == 200
         assert '<html lang="en"' in response.text
-        assert "<fm-root>" in response.text
+        assert "<sm-root>" in response.text
         assert "Spoolmera" in response.text
         assert client.get("/spools").status_code == 200
         assert client.get("/integrations").status_code == 200

@@ -35,11 +35,11 @@ class CloudEvent(BaseModel):
 def verify_cloud_request(source: str, request: Request, body: bytes) -> None:
     if not SOURCE.fullmatch(source):
         raise HTTPException(status_code=404, detail="Unknown cloud adapter.")
-    secret = os.getenv("FILAMENT_CLOUD_HMAC_" + source, "")
+    secret = os.getenv("SPOOLMERA_CLOUD_HMAC_" + source, "")
     if len(secret) < 32:
         raise HTTPException(status_code=503, detail="Cloud adapter is not configured.")
-    stamp = request.headers.get("x-filament-timestamp", "")
-    signature = request.headers.get("x-filament-signature", "").removeprefix("sha256=")
+    stamp = request.headers.get("x-spoolmera-timestamp", "")
+    signature = request.headers.get("x-spoolmera-signature", "").removeprefix("sha256=")
     if not stamp.isascii() or not stamp.isdecimal() or len(stamp) > 12 or not SIGNATURE.fullmatch(signature):
         raise HTTPException(status_code=401, detail="Invalid cloud signature.")
     if abs(int(time.time()) - int(stamp)) > MAX_AGE_SECONDS:
@@ -83,7 +83,7 @@ def register_cloud_routes(app: FastAPI, db_path: Path) -> None:
                 raise HTTPException(status_code=404, detail="Tracked job not found.")
             # A valid relay signature only authorizes the printer explicitly
             # bound to that relay; do not let one relay change another's jobs.
-            bound_printer = os.getenv("FILAMENT_CLOUD_PRINTER_" + source, "")
+            bound_printer = os.getenv("SPOOLMERA_CLOUD_PRINTER_" + source, "")
             if not bound_printer.isascii() or not bound_printer.isdecimal():
                 raise HTTPException(status_code=503, detail="Cloud relay has no configured printer binding.")
             if int(bound_printer) != job["printer_id"]:

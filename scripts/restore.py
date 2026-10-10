@@ -30,7 +30,7 @@ def _verify_manifest(source: Path) -> None:
         info = json.loads(manifest.read_text(encoding="utf-8"))
     except (ValueError, UnicodeError):
         raise RuntimeError("Backup manifest is invalid.") from None
-    if not isinstance(info, dict) or info.get("application") not in ("FilamentManager", "Spoolmera") or info.get("size_bytes") != source.stat().st_size:
+    if not isinstance(info, dict) or info.get("application") != "Spoolmera" or info.get("size_bytes") != source.stat().st_size:
         raise RuntimeError("Backup manifest does not match this database.")
     digest = hashlib.sha256()
     with source.open("rb") as handle:
@@ -70,7 +70,7 @@ def restore(source: Path, destination: Path, *, confirm: bool = False,
              for name in ("application", "recovery", "poll", "backup")]
     acquired = []
     scope = hashlib.sha256(str(destination).encode()).hexdigest()[:16]
-    stage_prefix = ".filament-restore-" + scope + "-"
+    stage_prefix = ".spoolmera-restore-" + scope + "-"
     stage = destination.parent / (stage_prefix + str(uuid4()) + ".sqlite3")
     previous = None
     try:
