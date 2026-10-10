@@ -86,7 +86,7 @@ LABEL_TEXT = {
         "aria": "{size} millimeter spool label",
         "remaining": "Remaining",
         "spool": "SPOOL",
-        "qr": "QR code opening this spool in Filament Manager",
+        "qr": "QR code opening this spool in Spoolmera",
         "title": "Spool labels",
         "single": "spool label",
         "multiple": "spool labels",
@@ -97,7 +97,7 @@ LABEL_TEXT = {
         "aria": "Spulenetikett, {size} Millimeter",
         "remaining": "Restmenge",
         "spool": "SPULE",
-        "qr": "QR-Code zum Öffnen dieser Spule in Filament Manager",
+        "qr": "QR-Code zum Öffnen dieser Spule in Spoolmera",
         "title": "Spulenetiketten",
         "single": "Spulenetikett",
         "multiple": "Spulenetiketten",
@@ -119,7 +119,7 @@ def _label_markup(spool: dict, size: str, language: str) -> str:
     remaining = str(spool["remaining_g"]) if language == "en" else format(spool["remaining_g"], ",").replace(",", ".")
     return f"""<article class="label" aria-label="{aria}">
   <section class="label-info">
-    <div class="label-brand">FILAMENT MANAGER</div>
+    <div class="label-brand">SPOOLMERA</div>
     <div class="label-product">{brand}<br><strong>{name}</strong></div>
     <div class="label-material">{material} · {color}</div>
     <div class="label-weight">{text["remaining"]}: {remaining} g</div>

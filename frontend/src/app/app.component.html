@@ -9,9 +9,9 @@
   @if(navOpen()){<button type="button" class="nav-backdrop" tabindex="-1" (click)="closeNav()" [attr.aria-label]="'Close navigation'|t"></button>}
   <aside [attr.role]="navOpen()?'dialog':null" [attr.aria-modal]="navOpen()?'true':null" id="workspace-navigation" class="sidebar" [class.nav-open]="navOpen()" [attr.aria-label]="'Main navigation' | t">
     <button type="button" class="drawer-close" (click)="closeNav()" [attr.aria-label]="'Close navigation'|t">×</button>
-    <a class="brand" routerLink="/" (click)="closeNav()" [attr.aria-label]="'Filament Manager home' | t">
-      <span class="brand-mark" aria-hidden="true"><span></span></span>
-      <span class="brand-label"><strong>FILAMENT</strong><small>MANAGER <em>{{'/ WORKSPACE' | t}}</em></small></span>
+    <a class="brand" routerLink="/" (click)="closeNav()" [attr.aria-label]="'Spoolmera home' | t">
+      <img class="brand-mark" src="/spoolmera-mark.svg" alt="" aria-hidden="true">
+      <span class="brand-label"><strong>SPOOLMERA</strong><small>3D PRINTING <em>{{'/ WORKSPACE' | t}}</em></small></span>
     </a>
     <span class="section-caption">{{'WORKSPACE' | t}}</span>
     <nav class="side-nav" [attr.aria-label]="'Workspace' | t">
@@ -34,7 +34,7 @@
         <strong>{{'Your materials. Your server.' | t}}</strong>
         <span>{{'Your inventory remains under your control.' | t}}</span>
       </div>
-      <div class="sidebar-meta"><span>FILAMENT MANAGER</span><span>© {{ year }}</span></div>
+      <div class="sidebar-meta"><span>SPOOLMERA</span><span>© {{ year }}</span></div>
     </div>
   </aside>
 

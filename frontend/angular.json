@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "filament-manager": {
+    "spoolmera": {
       "projectType": "application",
       "root": "",
       "sourceRoot": "src",
@@ -12,7 +12,7 @@
         "build": {
           "builder": "@angular/build:application",
           "options": {
-            "outputPath": "dist/filament-manager",
+            "outputPath": "dist/spoolmera",
             "index": "src/index.html",
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
@@ -20,13 +20,7 @@
               "src/styles.css",
               "src/ui.css"
             ],
-            "assets": [
-              {
-                "glob": "theme-init.js",
-                "input": "public",
-                "output": "/"
-              }
-            ]
+            "assets": [{"glob":"**/*","input":"public","output":"/"}]
           },
           "configurations": {
             "production": {
@@ -61,7 +55,7 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "development": {
-              "buildTarget": "filament-manager:build:development"
+              "buildTarget": "spoolmera:build:development"
             }
           },
           "defaultConfiguration": "development"
