@@ -197,7 +197,7 @@ def test_cloud_signature_replay_and_conservative_review(workspace, monkeypatch):
     stamp = str(int(time.time()))
     route = "/api/cloud/hooks/FARM"
     assert client.post(route, content=body).status_code == 401
-    headers = {"X-Filament-Timestamp": stamp, "X-Filament-Signature": signature(
+    headers = {"X-Spoolmera-Timestamp": stamp, "X-Spoolmera-Signature": signature(
         "cloud-test-key-with-at-least-thirty-two-characters", stamp, body)}
     assert client.post(route, content=body, headers=headers).json()["disposition"] == "needs_review"
     assert client.post(route, content=body, headers=headers).json()["duplicate"] is True
@@ -205,8 +205,8 @@ def test_cloud_signature_replay_and_conservative_review(workspace, monkeypatch):
     assert client.post(route, content=altered, headers=headers).status_code == 401
     stale = str(int(time.time())-3600)
     assert client.post(route, content=body, headers={
-        "X-Filament-Timestamp": stale,
-        "X-Filament-Signature": signature("cloud-test-key-with-at-least-thirty-two-characters", stale, body)
+        "X-Spoolmera-Timestamp": stale,
+        "X-Spoolmera-Signature": signature("cloud-test-key-with-at-least-thirty-two-characters", stale, body)
     }).status_code == 401
     assert client.get("/api/jobs").json()[0]["status"] == "needs_review"
     assert {r["id"]: r["remaining_g"] for r in client.get("/api/spools").json()}[s0] == 1000
@@ -218,8 +218,8 @@ def test_cloud_signature_replay_and_conservative_review(workspace, monkeypatch):
         "printer_id":second,"spool_id":s1,"file_name":"other.gcode","estimated_g":40
     }).json()["id"]
     foreign_body = json.dumps({"event_id":"remote-run-0002","job_id":other_job,"status":"completed"}).encode()
-    foreign_headers = {"X-Filament-Timestamp":stamp,
-        "X-Filament-Signature":signature("cloud-test-key-with-at-least-thirty-two-characters",stamp,foreign_body)}
+    foreign_headers = {"X-Spoolmera-Timestamp":stamp,
+        "X-Spoolmera-Signature":signature("cloud-test-key-with-at-least-thirty-two-characters",stamp,foreign_body)}
     assert client.post(route, content=foreign_body, headers=foreign_headers).status_code == 403
     assert next(j for j in client.get("/api/jobs").json() if j["id"]==other_job)["status"] == "pending"
 
@@ -306,6 +306,6 @@ def test_cloud_event_does_not_require_web_session_but_requires_hmac(workspace, m
         event = json.dumps({"event_id":"cloud-run-1234","job_id":job_id,"status":"completed"}).encode()
         stamp = str(int(time.time()))
         assert anonymous.post("/api/cloud/hooks/RELAY", content=event).status_code == 401
-        headers = {"X-Filament-Timestamp":stamp,"X-Filament-Signature":signature(
+        headers = {"X-Spoolmera-Timestamp":stamp,"X-Spoolmera-Signature":signature(
             "unique-cloud-signing-secret-at-least-32-characters",stamp,event)}
         assert anonymous.post("/api/cloud/hooks/RELAY",content=event,headers=headers).status_code == 200

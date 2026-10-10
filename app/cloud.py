@@ -38,8 +38,8 @@ def verify_cloud_request(source: str, request: Request, body: bytes) -> None:
     secret = os.getenv("SPOOLMERA_CLOUD_HMAC_" + source, "")
     if len(secret) < 32:
         raise HTTPException(status_code=503, detail="Cloud adapter is not configured.")
-    stamp = request.headers.get("x-filament-timestamp", "")
-    signature = request.headers.get("x-filament-signature", "").removeprefix("sha256=")
+    stamp = request.headers.get("x-spoolmera-timestamp", "")
+    signature = request.headers.get("x-spoolmera-signature", "").removeprefix("sha256=")
     if not stamp.isascii() or not stamp.isdecimal() or len(stamp) > 12 or not SIGNATURE.fullmatch(signature):
         raise HTTPException(status_code=401, detail="Invalid cloud signature.")
     if abs(int(time.time()) - int(stamp)) > MAX_AGE_SECONDS:

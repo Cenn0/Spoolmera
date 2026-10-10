@@ -102,7 +102,7 @@ def scale_receipt(workshop, monkeypatch, gross, *, name=None, tare=None, measure
     stamp = str(int(time.time()))
     signature = hmac.new(secret.encode(), stamp.encode() + b"." + raw, hashlib.sha256).hexdigest()
     result = workshop[0].post("/api/scales/hooks/WORKSHOP", content=raw,
-                             headers={"X-Filament-Timestamp": stamp, "X-Filament-Signature": signature})
+                             headers={"X-Spoolmera-Timestamp": stamp, "X-Spoolmera-Signature": signature})
     assert result.status_code == expected_status, result.text
     return result.json()["id"] if expected_status == 200 else result
 

@@ -19,6 +19,7 @@ LEGACY = (
     "fmm" + "_",
     "fm" + "-",
     "X-" + "Filament-",
+    "x-" + "filament-",
     "filament-" + "browser-",
     "filament-" + "ui-previews",
     "filament-" + "language-",

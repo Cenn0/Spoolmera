@@ -48,8 +48,8 @@ def verify(source: str, request: Request, raw: bytes) -> int:
     secret=os.environ.get("SPOOLMERA_SCALE_HMAC_"+source,"")
     if len(secret)<32:
         raise HTTPException(503,"Scale bridge not configured.")
-    stamp=request.headers.get("X-Filament-Timestamp","")
-    sig=request.headers.get("X-Filament-Signature","").removeprefix("sha256=")
+    stamp=request.headers.get("X-Spoolmera-Timestamp","")
+    sig=request.headers.get("X-Spoolmera-Signature","").removeprefix("sha256=")
     if not stamp.isascii() or not stamp.isdecimal() or len(stamp)>12 or not DIGEST.fullmatch(sig):
         raise HTTPException(401,"Invalid signature.")
     if abs(int(time.time())-int(stamp))>300:

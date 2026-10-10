@@ -22,7 +22,7 @@ def test_scale_event_requires_approval_and_is_idempotent(tmp_path,monkeypatch):
         raw=json.dumps(event,separators=(",",":")).encode()
         stamp=str(int(time.time()))
         sign=hmac.new(key.encode(),stamp.encode()+b"."+raw,hashlib.sha256).hexdigest()
-        headers={"X-Filament-Timestamp":stamp,"X-Filament-Signature":"sha256="+sign,
+        headers={"X-Spoolmera-Timestamp":stamp,"X-Spoolmera-Signature":"sha256="+sign,
                  "Content-Type":"application/json"}
         url="/api/scales/hooks/SHOP"
         assert c.post(url,content=raw).status_code==401
@@ -57,7 +57,7 @@ def test_scale_event_rejects_modified_body_with_reused_id(tmp_path,monkeypatch):
             stamp=str(int(time.time()))
             sig=hmac.new(key.encode(),stamp.encode()+b"."+raw,hashlib.sha256).hexdigest()
             return c.post("/api/scales/hooks/SHOP",content=raw,headers={
-                "Content-Type":"application/json","X-Filament-Timestamp":stamp,
-                "X-Filament-Signature":"sha256="+sig})
+                "Content-Type":"application/json","X-Spoolmera-Timestamp":stamp,
+                "X-Spoolmera-Signature":"sha256="+sig})
         assert send(900).status_code==200
         assert send(700).status_code==409

@@ -197,7 +197,7 @@ export class SpoolsComponent implements OnInit {
     // Also suspend responses requested before the pointer started dragging.
     if(this.loading()){this.requests.invalidate();this.refreshAfterDrag=true;this.loading.set(false);}
     this.dragged.set(spool);this.labelFeedback.set(null);
-    if(event.dataTransfer) { event.dataTransfer.effectAllowed='copyMove';event.dataTransfer.setData('application/x-filament-spool',spool.uid); }
+    if(event.dataTransfer) { event.dataTransfer.effectAllowed='copyMove';event.dataTransfer.setData('application/x-spoolmera-spool',spool.uid); }
   }
   dragEnd():void {
     this.dragged.set(null);this.overTray.set(false);this.dropTarget.set(null);this.hoverLocation.set(null);

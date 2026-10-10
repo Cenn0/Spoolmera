@@ -95,7 +95,7 @@ def _connect(printer, validate_url):
             if not certificate or not hmac.compare_digest(hashlib.sha256(certificate).hexdigest(), fingerprint):
                 tls.close()
                 raise ValueError('Bambu TLS fingerprint mismatch. Stop and verify the printer certificate.')
-            client_id = 'fm-' + secrets.token_hex(8)
+            client_id = 'sm-' + secrets.token_hex(8)
             payload = (_text('MQTT') + b'\x04\xc2\x00\x1e' + _text(client_id)
                        + _text('bblp') + _text(code))
             tls.sendall(_frame(0x10, payload))

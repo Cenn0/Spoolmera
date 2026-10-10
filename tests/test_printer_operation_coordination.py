@@ -410,7 +410,7 @@ def test_later_failure_signal_preserves_already_reviewed_actual_consumption(work
         stamp = str(int(time.time()))
         signature = hmac.new(secret.encode(), stamp.encode() + b"." + raw, hashlib.sha256).hexdigest()
         result = client.post("/api/cloud/hooks/TEST", content=raw,
-            headers={"X-Filament-Timestamp": stamp, "X-Filament-Signature": signature})
+            headers={"X-Spoolmera-Timestamp": stamp, "X-Spoolmera-Signature": signature})
     assert result.status_code == 200, result.text
     snapshot = client.get(f"/api/jobs/{job_id}/consumption").json()
     assert snapshot["status"] == "needs_review"
