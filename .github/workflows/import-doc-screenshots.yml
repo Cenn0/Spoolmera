@@ -1,0 +1,48 @@
+name: Import verified UI screenshots (temporary)
+
+on:
+  push:
+    branches: [docs/spoolmera-readme-refresh]
+    paths: [.github/workflows/import-doc-screenshots.yml]
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  import:
+    if: github.repository == 'Cenn0/FilamentManager'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Download screenshots from verified main CI run
+        uses: actions/download-artifact@v7
+        with:
+          name: ui-ux-previews
+          run-id: 38047886348
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/ui-captures
+      - name: Check and stage real browser captures
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p docs/screenshots
+          for name in ui-de-dark-filaments ui-de-dark-locations ui-de-dark-spools ui-de-light-spools ui-de-mobile-dark; do
+            test -s "${RUNNER_TEMP}/ui-captures/${name}.png"
+          done
+          cp "${RUNNER_TEMP}/ui-captures/ui-de-dark-filaments.png" docs/screenshots/filaments-dark.png
+          cp "${RUNNER_TEMP}/ui-captures/ui-de-dark-locations.png" docs/screenshots/locations-dark.png
+          cp "${RUNNER_TEMP}/ui-captures/ui-de-dark-spools.png" docs/screenshots/spools-dark.png
+          cp "${RUNNER_TEMP}/ui-captures/ui-de-light-spools.png" docs/screenshots/spools-light.png
+          cp "${RUNNER_TEMP}/ui-captures/ui-de-mobile-dark.png" docs/screenshots/spools-mobile-dark.png
+      - name: Commit exact screenshot binaries to branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/screenshots/*.png
+          git diff --cached --quiet || (git commit -m 'docs: include real UI captures from successful CI' && git push)
