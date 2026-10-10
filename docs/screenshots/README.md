@@ -14,9 +14,9 @@ The screenshots committed here are **real headless-Chromium captures of the comp
 
 ## Verified origin
 
-- **Application revision:** [`ed706cc020df2f4871113d86271c7d9f0cc026ea`](https://github.com/Cenn0/Spoolmera/commit/ed706cc020df2f4871113d86271c7d9f0cc026ea) (Spoolmera v0.10.0).
-- **CI run:** [`38047886348`](https://github.com/Cenn0/Spoolmera/actions/runs/38047886348), completed successfully on **2026-10-10**.
-- **Artifact:** `ui-ux-previews`, five original `ui-de-*.png` files.
+- **Application revision:** [`47996e48f38fedd766cbb9441b3b1646b4739ae2`](https://github.com/Cenn0/Spoolmera/commit/47996e48f38fedd766cbb9441b3b1646b4739ae2) (Spoolmera v0.10.0).
+- **CI run:** [`38064112965`](https://github.com/Cenn0/Spoolmera/actions/runs/38064112965), completed successfully on **2026-10-10**.
+- **Artifact:** `ui-ux-previews`, five original `ui-de-*.png` files. The same run also publishes the complete `ui-all-views-audit` gallery with 296 German states across desktop/mobile and light/dark layouts.
 - **Test code:** [`scripts/ui_browser_smoke.py`](../../scripts/ui_browser_smoke.py), called from [`scripts/browser_smoke.py`](../../scripts/browser_smoke.py) in the [`browser-smoke` CI job](../../.github/workflows/ci.yml).
 - **Image handling:** original PNG binaries copied unmodified to stable filenames; no cropping, pixel alteration or compositing.
 

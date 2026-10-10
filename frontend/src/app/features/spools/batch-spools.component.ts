@@ -8,7 +8,7 @@ import { NoticeService } from '../../dialog.service';
 import { ApiSpoolBatch } from '../../core/api/generated-contracts';
 import { SpoolInput } from '../../models';
 
-@Component({standalone:true,imports:[TranslatePipe,FormsModule,RouterLink],templateUrl:'./batch-spools.component.html'})
+@Component({standalone:true,imports:[TranslatePipe,FormsModule,RouterLink],templateUrl:'./batch-spools.component.html',styleUrl:'./batch-spools.component.css'})
 export class BatchSpoolsComponent {
   readonly i18n=inject(I18nService);
   readonly data=inject(InventoryService);readonly auth=inject(AuthService);readonly notice=inject(NoticeService);

@@ -7,7 +7,7 @@ import { InventoryService, MovementFilters, apiError } from '../../inventory.ser
 import { Movement } from '../../models';
 import { RequestOwner } from '../../core/request-owner';
 
-@Component({standalone:true,imports:[TranslatePipe,FormsModule,RouterLink],templateUrl:'./history.component.html'})
+@Component({standalone:true,imports:[TranslatePipe,FormsModule,RouterLink],templateUrl:'./history.component.html',styleUrl:'./history.component.css'})
 export class HistoryComponent implements OnInit, OnDestroy {
   readonly i18n=inject(I18nService);
   readonly data=inject(InventoryService);readonly route=inject(ActivatedRoute);private readonly destroy=inject(DestroyRef);

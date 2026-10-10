@@ -43,48 +43,21 @@ export class SpoolsComponent implements OnInit {
     ...this.extraLocations()
   ])]);
   readonly storageBoard=computed(()=>storageLanes(this.filtered(),this.knownLocations(),this.i18n.locale()));
-  readonly canScrollStorageBack=signal(false);
-  readonly canScrollStorageForward=signal(false);
-  private storageElement:HTMLElement|null=null;
-  private storageResizeObserver:ResizeObserver|null=null;
-  private storageMutationObserver:MutationObserver|null=null;
-
-  // The board is rendered conditionally. Observe both container size and lane
-  // changes so scroll controls stay accurate after pagination or resizing.
-  @ViewChild('storageBoardEl') set storageBoardRef(ref:ElementRef<HTMLElement>|undefined) {
-    this.storageResizeObserver?.disconnect();
-    this.storageMutationObserver?.disconnect();
-    const board=ref?.nativeElement??null;
-    this.storageElement=board;
-    if(!board){
-      this.canScrollStorageBack.set(false);
-      this.canScrollStorageForward.set(false);
-      return;
-    }
-    if(typeof ResizeObserver!=='undefined'){
-      this.storageResizeObserver=new ResizeObserver(()=>this.updateStorageScrollState(board));
-      this.storageResizeObserver.observe(board);
-    }
-    if(typeof MutationObserver!=='undefined'){
-      this.storageMutationObserver=new MutationObserver(()=>this.updateStorageScrollState(board));
-      this.storageMutationObserver.observe(board,{childList:true});
-    }
-    queueMicrotask(()=>{if(this.storageElement===board&&!this.destroy.destroyed)this.updateStorageScrollState(board);});
+  private locationConfirmationPanel?:HTMLElement;
+  // A destination can be selected far down a long board. Bring its unsaved
+  // confirmation into view so the next step is reachable by keyboard or touch.
+  @ViewChild('locationConfirmation') set locationConfirmation(ref:ElementRef<HTMLElement>|undefined) {
+    this.locationConfirmationPanel=ref?.nativeElement;
+    this.focusLocationConfirmation();
   }
-  updateStorageScrollState(board:HTMLElement):void {
-    if(board!==this.storageElement)return;
-    const max=Math.max(0,board.scrollWidth-board.clientWidth);
-    this.canScrollStorageBack.set(board.scrollLeft>2);
-    this.canScrollStorageForward.set(board.scrollLeft<max-2);
-  }
-  scrollStorage(direction:-1|1):void {
-    const board=this.storageElement;
-    // Scrolling never stages a move; keep the native drag source stable.
-    if(!board||this.dragged())return;
-    const lane=board.querySelector<HTMLElement>('.storage-lane');
-    const step=Math.max((lane?.getBoundingClientRect().width??280)+14,Math.floor(board.clientWidth*0.7));
-    const reduceMotion=typeof window.matchMedia==='function'&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    board.scrollBy({left:direction*step,behavior:reduceMotion?'instant':'smooth'});
+  private focusLocationConfirmation():void {
+    const panel=this.locationConfirmationPanel;
+    if(!panel)return;
+    queueMicrotask(()=>{
+      if(this.destroy.destroyed||!this.pendingLocation()||panel!==this.locationConfirmationPanel||!panel.isConnected)return;
+      panel.focus({preventScroll:true});
+      panel.scrollIntoView?.({block:'nearest',behavior:'instant'});
+    });
   }
   setSpoolOrder(value:string):void {
     const order=spoolSort(value);this.spoolOrder.set(order);
@@ -104,6 +77,7 @@ export class SpoolsComponent implements OnInit {
     this.pendingLocation.set({uid:spool.uid,id:spool.id,name:spool.brand+' · '+spool.product_name,
       original:spool.location||'',target:location});
     this.locationConfirmed.set(false);this.locationError.set('');
+    this.focusLocationConfirmation();
   }
   chooseLocation(event:Event,spool:Spool):void {
     const select=event.target as HTMLSelectElement;
@@ -354,7 +328,7 @@ export class SpoolsComponent implements OnInit {
   stopNfc():void{
     this.nfcController?.abort();this.nfcController=null;this.nfcActive.set(false);
   }
-  ngOnDestroy():void{this.storageResizeObserver?.disconnect();this.storageMutationObserver?.disconnect();this.storageElement=null;this.stopNfc();this.requests.invalidate();clearTimeout(this.searchTimer);}
+  ngOnDestroy():void{this.stopNfc();this.requests.invalidate();clearTimeout(this.searchTimer);}
 
   async findTag():Promise<void>{
     if(this.scanning()||!this.tagSearch.trim())return;

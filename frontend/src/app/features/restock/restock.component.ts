@@ -8,7 +8,7 @@ import { InventoryService, apiError } from '../../inventory.service';
 import { ApiRestockItem } from '../../core/api/generated-contracts';
 import { RequestOwner } from '../../core/request-owner';
 
-@Component({standalone:true,imports:[TranslatePipe,FormsModule,RouterLink],templateUrl:'./restock.component.html'})
+@Component({standalone:true,imports:[TranslatePipe,FormsModule,RouterLink],templateUrl:'./restock.component.html',styleUrl:'./restock.component.css'})
 export class RestockComponent implements OnDestroy {
   readonly i18n=inject(I18nService);
   readonly data=inject(InventoryService);readonly dialogs=inject(DialogService);readonly auth=inject(AuthService);

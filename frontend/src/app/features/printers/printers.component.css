@@ -1,0 +1,3 @@
+/* Loaded-roll links need enough reading width before the action wraps below. */
+.printer-detail .detail-movement { align-items: flex-start; }
+.printer-detail .detail-movement > a { flex: 1 1 200px; min-width: 0; }

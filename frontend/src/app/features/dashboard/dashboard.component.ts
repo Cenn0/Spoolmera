@@ -13,7 +13,8 @@ import { Capabilities, stockPercent } from '../../models';
 @Component({
   standalone: true,
   imports:[TranslatePipe,RouterLink],
-  templateUrl:'./dashboard.component.html'
+  templateUrl:'./dashboard.component.html',
+  styleUrl:'./dashboard.component.css'
 })
 export class DashboardComponent implements OnDestroy {
   readonly i18n=inject(I18nService);

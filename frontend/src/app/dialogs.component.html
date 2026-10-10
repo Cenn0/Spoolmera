@@ -79,7 +79,7 @@
               </select></label>
               <label>{{'Tag ID'|t}}<input name="tagValue" [(ngModel)]="tagValue" maxlength="128" [placeholder]="'Reader-scanned identifier'|t"></label>
             </div>
-            <button class="btn ghost" type="button" [disabled]="busy()||tagValue.trim().length<8" (click)="addTag()">{{'Link tag'|t}}</button>
+            <div class="inline-form-actions"><button class="btn ghost" type="button" [disabled]="busy()||tagValue.trim().length<8" (click)="addTag()">{{'Link tag'|t}}</button></div>
           }
           <h3 class="modal-section-title">{{'Material care'|t}}</h3>
           <p class="helper">{{'Tare: {weight} · Batch: {batch}'|t:{weight:grams(item.tare_g),batch:item.batch || '—'} }}</p>

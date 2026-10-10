@@ -55,9 +55,11 @@
         }
       </div>
     }
-    <button class="btn ghost" type="button" [disabled]="extraMaterials().length>=7||!!upload" (click)="addMaterial()">{{'Add another material/tool'|t}}</button>
+    <div class="workflow-buttons">
+      <button class="btn ghost" type="button" [disabled]="extraMaterials().length>=7||!!upload" (click)="addMaterial()">{{'Add another material/tool'|t}}</button>
+      @if(!upload){<button class="btn ghost" type="button" [disabled]="busy()||!printerId||!estimatedG" (click)="suggestLoadedSpools()">{{'Suggest rolls from recorded printer slots'|t}}</button>}
+    </div>
     @if(!upload){
-      <button class="btn ghost" type="button" [disabled]="busy()||!printerId||!estimatedG" (click)="suggestLoadedSpools()">{{'Suggest rolls from recorded printer slots'|t}}</button>
       @if(slotSuggestions().length){
         <div class="detail-summary">
           <div><strong>{{'Suggested physical roll mappings — review before accepting'|t}}</strong>
@@ -82,7 +84,7 @@
   <div class="panel-heading"><div><span class="eyebrow">{{'JOB MONITOR'|t}}</span><h2>{{'Recent jobs'|t}}</h2></div></div>
   <div class="workflow-list">
     @for(job of visibleJobs();track job.id){
-      <article class="workflow-row">
+      <article class="workflow-row job-row">
         <div class="workflow-main"><strong>#{{job.id}} · {{job.file_name}}</strong>
           <span>{{job.printer_name}} · {{'{amount} total'|t:{amount:grams(job.estimated_g)} }}</span>
           @for(m of job.materials;track m.tool){
@@ -133,15 +135,17 @@
             @if(auth.isAdmin()&&(job.start_command_state==='unknown'||job.start_command_state==='acknowledged'||job.start_command_state==='confirmed')){
               <button type="button" class="btn ghost" [disabled]="busy()" (click)="clearFor.set(clearFor()===job.id?null:job.id);clearReason=''">{{'Review start operation'|t}}</button>
             }
-            @if(auth.isAdmin()&&clearFor()===job.id){
-              <label class="full">{{'Physical verification (required)'|t}}<input type="text" [(ngModel)]="clearReason" minlength="10" maxlength="500" [placeholder]="'What confirms the printer is idle and this operation has ended?'|t"></label>
-              <button type="button" class="btn danger" [disabled]="busy()||clearReason.trim().length<10" (click)="clearStart(job)">{{'Release verified operation'|t}}</button>
-            }
             @if(job.status==='needs_review'){
               <button type="button" class="btn primary" [disabled]="busy()" (click)="accountingJob.set(job)">{{'Review consumption'|t}}</button>
 
             }
           </div>
+          @if(auth.isAdmin()&&clearFor()===job.id){
+            <div class="form-grid full">
+              <label class="full">{{'Physical verification (required)'|t}}<input type="text" [(ngModel)]="clearReason" minlength="10" maxlength="500" [placeholder]="'What confirms the printer is idle and this operation has ended?'|t"></label>
+              <div class="workflow-buttons full"><button type="button" class="btn danger" [disabled]="busy()||clearReason.trim().length<10" (click)="clearStart(job)">{{'Release verified operation'|t}}</button></div>
+            </div>
+          }
         }
       </article>
     } @empty {<div class="placeholder">{{(loading()?'Loading print jobs…':focusedJob()?'The linked job is not available in the current job list.':'No linked print jobs. Register a G-code filename and spool first.')|t}}</div>}
@@ -163,7 +167,7 @@
       <p class="helper">{{'Slicing uses the exact operator-managed PrusaSlicer profile. Inspect printer dimensions, tool assignments, temperature, supports and generated G-code before upload or starting a print.'|t}}</p>
     </div>
   }@else{
-    <p class="helper">{{'Slicing is disabled or no operator-approved profiles are mounted. See the integration documentation to enable it.'|t}}</p>
+    <div class="workflow-form"><p class="helper">{{'Slicing is disabled or no operator-approved profiles are mounted. See the integration documentation to enable it.'|t}}</p></div>
   }
 </section>
 }

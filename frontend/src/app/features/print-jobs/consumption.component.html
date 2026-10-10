@@ -20,7 +20,7 @@
           </label>
           @for(material of state.materials;track material.spool_id;let index=$index){
             <section class="reconciliation-material">
-              <h3>{{material.brand}} · {{material.product_name}} · {{'Spool #{id}'|t:{id:''+material.spool_id} }} @if(material.archived){<span class="badge">{{'Archived'|t}}</span>}</h3>
+              <h3>{{material.brand}} · {{material.product_name}} · {{'Spool #{id}'|t:{id:''+material.spool_id} }} @if(material.archived){<span class="status archived">{{'Archived'|t}}</span>}</h3>
               <p class="helper">{{'Estimated {estimated} · Already accounted {accounted} · Current stock {stock}'|t:{estimated:grams(material.estimated_g),accounted:grams(material.accounted_g),stock:grams(material.remaining_g)} }}</p>
               @if(material.measurement_reconciliation_required){<p class="helper">{{'This roll was weighed after an earlier job booking: {weight} at {date}. Changing this job’s total requires a current measurement.'|t:{weight:grams(material.last_measured_g ?? material.remaining_g),date:dateText(material.last_measured_at)} }}</p>}
               <div class="form-grid">

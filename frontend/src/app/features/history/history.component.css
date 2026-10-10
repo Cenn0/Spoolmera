@@ -1,0 +1,6 @@
+/* These panels have no heading to supply their top inset. */
+.history-filters { padding-top: 22px; }
+.history-results .result-count { padding-top: 18px; }
+.mobile-spool-head > a { min-width: 0; overflow-wrap: anywhere; }
+.mobile-spool-head > strong { flex: none; white-space: nowrap; }
+.mobile-spool-head + p { margin-top: 12px; }

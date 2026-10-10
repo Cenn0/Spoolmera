@@ -16,11 +16,11 @@
     @if(auth.canEdit()){
       <button class="btn ghost" type="button" (click)="previewImport()" [disabled]="busy()||!selected||!source.trim()">{{'Validate and preview'|t}}</button>
       @if(preview();as result){
-        <div class="detail-summary">
+        <div class="detail-summary import-preview">
           <div><strong>{{'{spools} spools to import · {products} new products'|t:{spools:i18n.number(result.spools_created),products:i18n.number(result.products_created)} }}</strong>
             <p>{{'{spools} spools already imported · {archived} archived spools skipped'|t:{spools:i18n.number(result.spools_skipped),archived:i18n.number(result.archived_skipped)} }}</p></div>
         </div>
-        <label><input type="checkbox" [(ngModel)]="confirmed"> {{'I reviewed the import summary and want to add these rolls to my local inventory.'|t}}</label>
+        <label class="checkbox-row"><input type="checkbox" [(ngModel)]="confirmed"> {{'I reviewed the import summary and want to add these rolls to my local inventory.'|t}}</label>
         <button class="btn primary" type="button" (click)="commit()" [disabled]="busy()||!confirmed">{{'Confirm snapshot import'|t}}</button>
       }
     }@else{<p class="helper">{{'Editor access is required to import data.'|t}}</p>}

@@ -22,7 +22,7 @@ interface CatalogVariant {name:string;color_hex:string;sizes:CatalogSize[];}
 interface CatalogSize {diameter:number;filament_weight:number;empty_spool_weight?:number;
   gtin?:string|number;article_number?:string;}
 
-@Component({standalone:true,imports:[TranslatePipe,FormsModule],templateUrl:'./catalog.component.html'})
+@Component({standalone:true,imports:[TranslatePipe,FormsModule],templateUrl:'./catalog.component.html',styleUrl:'./catalog.component.css'})
 export class CatalogComponent implements OnInit, OnDestroy {
   readonly i18n=inject(I18nService);
   readonly http=inject(HttpClient);readonly dialogs=inject(DialogService);

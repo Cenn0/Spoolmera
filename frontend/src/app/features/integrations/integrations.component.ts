@@ -12,7 +12,8 @@ import { Capabilities } from '../../models';
 @Component({
   standalone: true,
   imports:[FormsModule,RouterLink,TranslatePipe],
-  templateUrl:'./integrations.component.html'
+  templateUrl:'./integrations.component.html',
+  styleUrl:'./integrations.component.css'
 })
 export class IntegrationsComponent implements OnInit, OnDestroy {
   readonly i18n=inject(I18nService);

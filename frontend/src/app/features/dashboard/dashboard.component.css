@@ -1,0 +1,6 @@
+/* Cost summaries use the same inset as the panel heading in every state. */
+.cost-summary > :first-child { margin-top: 0; }
+.cost-summary .material-entry { margin: 0 0 22px; }
+.cost-summary .material-entry:last-child { margin-bottom: 0; }
+.cost-summary .placeholder { padding: 0; }
+.cost-summary .form-error { margin: 0 0 18px; }
