@@ -69,7 +69,11 @@
       }
     }
     <p class="helper">{{'The first spool is tool {tool}. All additional tools must have unique numbers and explicit weights. Imported estimates preserve their tool numbers. You must assign every physical roll explicitly. The combined amount is deducted atomically after verified completion or manual approval.'|t:{tool:''+firstTool} }}</p>
-    <p class="helper">{{'Importing a G-code file here registers metadata only. Uploading to a printer is a separate administrator action; it never starts automatically. Moonraker history-confirmed jobs may debit automatically; OctoPrint and Bambu LAN always require review.'|t}}</p>
+    @if(selectedPrinterIsBambu()){
+      <label class="checkbox-row full"><input type="checkbox" name="autoAccountBambu" [(ngModel)]="autoAccountBambu"> {{'Auto-debit slicer estimates after a correlated Bambu print completes'|t}}</label>
+      <p class="helper">{{'Opt-in: this works only when the printer reports a stable nonzero task ID, the exact filename was observed printing and the same task finishes successfully. Missing IDs, failed prints and ambiguous results require manual review. AMS slots are not verified against physical spools.'|t}}</p>
+    }
+    <p class="helper">{{'Importing G-code or 3MF here reads slicer metadata only; files are not transferred to Bambu. Moonraker history-confirmed jobs may debit automatically; OctoPrint always requires review.'|t}}</p>
     <button class="btn primary" type="submit" [disabled]="busy()||jobForm.invalid||!printerId||!spoolId||!!upload">{{'Register print job'|t}}</button>
   </form>
 </section>
@@ -85,6 +89,8 @@
             <small>{{'Tool {tool}'|t:{tool:''+m.tool} }} · <a [href]="'/?spool='+m.spool_uid">{{'Spool #{id}'|t:{id:''+m.spool_id} }} · {{m.brand}} {{m.product_name}}</a> · {{grams(m.estimated_g)}}</small>
           }
           @if(job.note){<small>{{job.note}}</small>}
+          @if(job.auto_account_bambu){<small>{{'Bambu automatic estimated consumption enabled'|t}}</small>}
+          @if(job.status==='needs_review' && job.last_layer_num!==null && job.total_layer_num){<small>{{'Last observed {layers} of {total} layers'|t:{layers:''+job.last_layer_num,total:''+job.total_layer_num} }}</small>}
           @if(job.start_command_state){<small>{{'Start command:'|t}} {{job.start_command_state|t}}</small>}
         </div>
         <span class="status" [class.opened]="job.status==='completed'" [class.sealed]="job.status==='printing'">{{job.status.replace('_',' ')|t}}</span>

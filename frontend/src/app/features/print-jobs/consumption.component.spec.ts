@@ -13,6 +13,16 @@ describe('explicit actual consumption and revisions',()=>{
   let component:ConsumptionComponent,fixture:ComponentFixture<ConsumptionComponent>,api:ReturnType<typeof workspaceMock>;
   beforeEach(async()=>{api=workspaceMock();TestBed.configureTestingModule({providers:[provideRouter([]),{provide:InventoryService,useValue:inventoryMock()},{provide:AuthService,useValue:authMock('editor')},{provide:WorkspaceService,useValue:api}]});
     fixture=TestBed.createComponent(ConsumptionComponent);fixture.componentRef.setInput('job',job({status:'needs_review'}));component=fixture.componentInstance;await component.reload();component.reason='Failed print after the first layer';component.confirmed=true;});
+  it('offers only a manually confirmed rough partial-print estimate',async()=>{
+    fixture.componentRef.setInput('job',job({status:'needs_review',last_layer_num:30,total_layer_num:100}));
+    fixture.detectChanges();
+    expect(component.canSuggestPartial()).toBe(true);
+    component.suggestPartial();
+    expect(component.mode).toBe('actual');expect(component.rows[0].actual_g).toBe(30);
+    expect(component.reason).toContain('not weighed');
+    expect(component.confirmed).toBe(false);
+    expect(api.reconcileConsumption).not.toHaveBeenCalled();
+  });
   it('requires each physical roll to have an explicit actual amount, including zero',async()=>{
     await component.submit();expect(api.reconcileConsumption).not.toHaveBeenCalled();expect(component.error()).toContain('including zero');
     component.rows[0].actual_g=0;await component.submit();expect(api.reconcileConsumption.mock.calls[0][1].materials).toEqual([{spool_id:1,actual_g:0}]);

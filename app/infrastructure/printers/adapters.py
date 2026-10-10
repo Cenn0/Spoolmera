@@ -88,17 +88,37 @@ class OctoPrintAdapter:
         return Observation(None)
 
 class BambuAdapter(OctoPrintAdapter):
-    """A current MQTT snapshot is not immutable history: completion needs approval."""
+    """Opt-in completion inference only for a durable, observed MQTT task ID.
+
+    This is not firmware-signed proof or immutable print history. Missing IDs,
+    mid-job reconnects and conflicting filenames always require manual review.
+    """
     capabilities = PrinterCapabilities(supports_history=False, supports_verified_completion=False,
                                         supports_file_transfer=False, supports_control=True)
 
     def observe(self, printer, job, history, status, claimed_ids):
         state = status["state"].lower()
-        filename = status["filename"]
-        if state in ("printing", "paused") and filename and filename == job["file_name"]:
-            return Observation("printing")
-        if job["observed_printing"] and state not in ("printing", "paused"):
-            return Observation("needs_review", remote_state=state)
+        same_file = bool(status["filename"]) and status["filename"] == job["file_name"]
+        task_id = status.get("task_id")
+        run_id = "bambu:" + task_id if isinstance(task_id, str) and task_id else None
+        previously_seen = job["external_job_id"]
+        if state in ("printing", "paused") and same_file:
+            if run_id and run_id in claimed_ids and run_id != previously_seen:
+                return Observation(None)  # an earlier registered print owns this task
+            if previously_seen and previously_seen != run_id:
+                return Observation("needs_review", previously_seen, state)
+            if job["observed_printing"] and not previously_seen and run_id:
+                # A task ID appearing only mid-run is not evidence that the
+                # earlier unidentified print was the same run.
+                return Observation("needs_review", None, state)
+            if not job["observed_printing"] and state != "printing":
+                return Observation(None)  # paused-only snapshots prove no active run
+            return Observation("printing", run_id, state)
+        if job["observed_printing"]:
+            if (state == "complete" and same_file and run_id
+                    and run_id == previously_seen and job.get("auto_account_bambu")):
+                return Observation("completed", run_id, "completed")
+            return Observation("needs_review", previously_seen, state)
         return Observation(None)
 
 

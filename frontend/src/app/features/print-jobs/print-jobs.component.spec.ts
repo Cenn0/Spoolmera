@@ -23,7 +23,18 @@ describe('print-job intent and uncertain operations',()=>{
     await component.inspect();component.applyInspection();
     expect(component.firstTool).toBe(3);expect(component.spoolId).toBe(0);
     component.spoolId=1;component.printerId=1;await component.submit();
-    expect(api.createMultiJob).toHaveBeenCalledWith({printer_id:1,file_name:'part.gcode',note:'',materials:[{tool:3,spool_id:1,estimated_g:37}]});
+    expect(api.createMultiJob).toHaveBeenCalledWith({printer_id:1,file_name:'part.gcode',note:'',auto_account_bambu:false,materials:[{tool:3,spool_id:1,estimated_g:37}]});
+  });
+  it('persists Bambu automatic estimated usage only when explicitly enabled',async()=>{
+    component.printers.set([{id:7,name:'Bambu',kind:'bambu',base_url:'',token_env:'',serial:'',enabled:1,created_at:''}]);
+    component.printerId=7;component.fileName='part.3mf';component.spoolId=1;component.estimatedG=45;
+    component.autoAccountBambu=true;await component.submit();
+    expect(api.createMultiJob).toHaveBeenCalledWith(expect.objectContaining({
+      printer_id:7,auto_account_bambu:true,materials:[{tool:0,spool_id:1,estimated_g:45}]
+    }));
+    component.printerId=1;component.fileName='part.gcode';component.estimatedG=55;
+    await component.submit();
+    expect(api.createMultiJob.mock.calls[1][0].auto_account_bambu).toBe(false);
   });
   it('allows explicit T0 after a nonzero primary tool without renumbering either tool',async()=>{
     component.firstTool=3;component.estimatedG=37;component.spoolId=1;component.printerId=1;component.fileName='two.gcode';

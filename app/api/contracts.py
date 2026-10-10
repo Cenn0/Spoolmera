@@ -95,6 +95,10 @@ class JobResponse(BaseModel):
     product_name: str
     file_name: str
     estimated_g: int
+    auto_account_bambu: bool
+    last_progress_percent: int | None
+    last_layer_num: int | None
+    total_layer_num: int | None
     status: Literal['pending','printing','completed','needs_review','cancelled']
     accounting_status: Literal['pending','needs_review','debited','discarded']
     accounting_revision: int

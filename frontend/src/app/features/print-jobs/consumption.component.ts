@@ -42,6 +42,20 @@ export class ConsumptionComponent implements OnInit, OnDestroy {
     }catch(error){if(this.requests.owns(owner))this.errorValue.set(apiError(error));}
     finally{if(this.requests.owns(owner))this.loading.set(false);}
   }
+  canSuggestPartial():boolean{
+    const job=this.job();
+    return job.status==='needs_review' && job.last_layer_num!==null && job.total_layer_num!==null
+      && job.total_layer_num>0 && job.last_layer_num>0 && job.last_layer_num<job.total_layer_num;
+  }
+  suggestPartial():void{
+    if(!this.canSuggestPartial()||!this.snapshot())return;
+    const job=this.job(),fraction=job.last_layer_num!/job.total_layer_num!;
+    this.mode='actual';
+    this.rows=this.rows.map((row,index)=>({...row,
+      actual_g:Math.round(this.snapshot()!.materials[index].estimated_g*fraction)}));
+    this.reason=this.i18n.t('Proportional layer estimate (not weighed); verify against physical spools.');
+    this.changed();
+  }
   newTotal(index:number):number|null{
     const material=this.snapshot()?.materials[index];if(!material)return null;
     return this.mode==='actual'?this.rows[index]?.actual_g??null:this.mode==='estimated'?material.estimated_g:0;

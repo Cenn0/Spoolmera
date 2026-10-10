@@ -100,6 +100,10 @@ export interface ApiJob {
   product_name: string;
   file_name: string;
   estimated_g: number;
+  auto_account_bambu: boolean;
+  last_progress_percent: number | null;
+  last_layer_num: number | null;
+  total_layer_num: number | null;
   status: "pending" | "printing" | "completed" | "needs_review" | "cancelled";
   accounting_status: "pending" | "needs_review" | "debited" | "discarded";
   accounting_revision: number;
@@ -315,6 +319,7 @@ export interface ApiJobInput {
   spool_id: number;
   file_name: string;
   estimated_g: number;
+  auto_account_bambu?: boolean;
   note?: string;
 }
 
@@ -328,6 +333,7 @@ export interface ApiMultiJobInput {
   printer_id: number;
   file_name: string;
   materials: ApiMaterialMapping[];
+  auto_account_bambu?: boolean;
   note?: string;
 }
 
