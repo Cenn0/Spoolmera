@@ -75,17 +75,17 @@ defects, fixes, executed tests and remaining limitations.
 Requires Docker with Compose. The default image builds Angular using Node.js and serves it with FastAPI in a **single runtime container**. An optional PrusaSlicer worker uses a second, isolated container only when explicitly enabled.
 
 ```bash
-git clone https://github.com/Cenn0/FilamentManager.git
-cd FilamentManager
+git clone https://github.com/Cenn0/Spoolmera.git
+cd Spoolmera
 cp .env.example .env
 # Generate a random bootstrap secret (32+ characters), then set it in .env:
 python -c 'import secrets; print(secrets.token_urlsafe(32))'
 docker compose up -d --build
 ```
 
-Open **http://127.0.0.1:8765** on the machine hosting Docker. First use requires creating the administrator with the server's `FILAMENT_BOOTSTRAP_TOKEN` and a password of at least 14 characters. A missing token intentionally prevents account setup.
+Open **http://127.0.0.1:8765** on the machine hosting Docker. First use requires creating the administrator with the server's `SPOOLMERA_BOOTSTRAP_TOKEN` and a password of at least 14 characters. A missing token intentionally prevents account setup.
 
-The database is stored persistently in the Docker volume `filament_data`. To stop the app without removing its data:
+The database is stored persistently in the Docker volume `spoolmera_data`. To stop the app without removing its data:
 
 ```bash
 docker compose down
@@ -97,16 +97,16 @@ Do **not** run `docker compose down -v` unless you intend to remove your saved i
 
 By default, QR codes contain `http://127.0.0.1:8765/s/<spool-uuid>`. This works only on the host itself: **127.0.0.1 on a phone is the phone, not your server**.
 
-Set `FILAMENT_PUBLIC_BASE_URL` to an origin accessible from the device that scans the label, for example `http://filament.home.example:8765` or `https://filament.example.com`. It must be an HTTP(S) origin without credentials, path, query, or fragment.
+Set `SPOOLMERA_PUBLIC_BASE_URL` to an origin accessible from the device that scans the label, for example `http://filament.home.example:8765` or `https://filament.example.com`. It must be an HTTP(S) origin without credentials, path, query, or fragment.
 
 Example on a trusted private LAN, after deliberately changing the Compose port binding and ensuring the network is protected:
 
 ```yaml
 environment:
-  FILAMENT_PUBLIC_BASE_URL: "http://192.168.1.10:8765"
+  SPOOLMERA_PUBLIC_BASE_URL: "http://192.168.1.10:8765"
 ```
 
-**Security warning:** Application login is implemented, but the Compose service still binds to localhost by default. For access from outside the host, use an HTTPS reverse proxy or protected VPN, set `FILAMENT_COOKIE_SECURE=1`, configure `FILAMENT_PUBLIC_BASE_URL` as the external origin, and restrict printer egress to explicitly allowlisted IPs. Do not publish unencrypted HTTP login endpoints.
+**Security warning:** Application login is implemented, but the Compose service still binds to localhost by default. For access from outside the host, use an HTTPS reverse proxy or protected VPN, set `SPOOLMERA_COOKIE_SECURE=1`, configure `SPOOLMERA_PUBLIC_BASE_URL` as the external origin, and restrict printer egress to explicitly allowlisted IPs. Do not publish unencrypted HTTP login endpoints.
 
 ### Print QR labels
 
@@ -131,9 +131,9 @@ See [CSV schema and limits](docs/csv-format.md).
 
 ### Printer connections, job import, slicing and stock accounting
 
-The **Printers** screen (admin-only configuration) supports **Moonraker/Klipper** and **OctoPrint** controller polling, with optional administrator-only commands and file transfers. The server refuses to connect unless each exact private IP is listed in `FILAMENT_PRINTER_ALLOWED_IPS`; public IPs, hostnames, redirects, proxy forwarding and arbitrary remote URLs are rejected.
+The **Printers** screen (admin-only configuration) supports **Moonraker/Klipper** and **OctoPrint** controller polling, with optional administrator-only commands and file transfers. The server refuses to connect unless each exact private IP is listed in `SPOOLMERA_PRINTER_ALLOWED_IPS`; public IPs, hostnames, redirects, proxy forwarding and arbitrary remote URLs are rejected.
 
-Place any controller API key in an environment variable such as `FILAMENT_PRINTER_TOKEN_WORKSHOP` in the operator's private `.env` file, then enter that **variable name** in the printer form. The key itself is never stored in SQLite. OctoPrint requires an API key; some trusted-LAN Moonraker installations may be reachable without one. Prefer restricted printer credentials and firewall rules.
+Place any controller API key in an environment variable such as `SPOOLMERA_PRINTER_TOKEN_WORKSHOP` in the operator's private `.env` file, then enter that **variable name** in the printer form. The key itself is never stored in SQLite. OctoPrint requires an API key; some trusted-LAN Moonraker installations may be reachable without one. Prefer restricted printer credentials and firewall rules.
 
 In **Print jobs**, select a printer and physical spool, then register either the exact filename already on the printer with an estimated gram weight, or import metadata from a local `.gcode`/`.gco`/`.gc` file (up to 16 MiB). **Metadata import** does not store or transmit the file. An administrator can separately enable safe, explicit G-code transfer and manual printer start. Optional isolated PrusaSlicer worker slicing accepts an STL and produces downloadable G-code using a trusted INI profile; slicing is disabled by default. Multi-tool jobs accept explicit material mappings, which are debited atomically if verified. [Detailed operator setup](docs/operations.md).
 
@@ -143,7 +143,7 @@ All inventory routes, printed labels, CSV endpoints, and read-only Integration A
 
 ## Local development
 
-Python **3.12+** and Angular 22-compatible Node.js (24.15+ recommended). For non-Docker development set `FILAMENT_BOOTSTRAP_TOKEN` to a unique, random 24+ character secret before starting FastAPI:
+Python **3.12+** and Angular 22-compatible Node.js (24.15+ recommended). For non-Docker development set `SPOOLMERA_BOOTSTRAP_TOKEN` to a unique, random 24+ character secret before starting FastAPI:
 
 ```bash
 python -m venv .venv
@@ -186,27 +186,27 @@ Configuration:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `FILAMENT_DB_PATH` | `.data/filaments.sqlite3` | Persistent SQLite database path; Docker uses `/data/filaments.sqlite3` |
-| `FILAMENT_PUBLIC_BASE_URL` | `http://127.0.0.1:8765` | QR link base URL and allowed browser Origin |
-| `FILAMENT_BOOTSTRAP_TOKEN` | unset | Required secret for initial administrator creation |
-| `FILAMENT_COOKIE_SECURE` | `0` | Set `1` behind HTTPS/TLS termination |
-| `FILAMENT_PRINTER_ALLOWED_IPS` | empty | Exact, comma-separated private controller IPs |
-| `FILAMENT_PRINTER_TOKEN_*` | unset | Printer API keys referenced by environment name |
-| `FILAMENT_PRINTER_POLL_SECONDS` | `30` | Background polling cadence, min 10/max 300 |
-| `FILAMENT_PRINTER_CONTROL_ENABLED` | `0` | Enable admin-only printer commands, file upload, and print start (physical operations) |
-| `FILAMENT_SLICER_ENABLED` | `0` | Enable privileged, operator-profile-only slicer CLI |
-| `FILAMENT_SLICER_EXECUTABLE` | `/usr/bin/prusa-slicer` | Approved slicer executable path |
-| `FILAMENT_SLICER_PROFILES_DIR` | `/config/slicer-profiles` | Read-only profiles inside optional worker |
-| `FILAMENT_SLICER_WORKER_TOKEN` | unset | Required 32+ character secret for internal slicer worker |
-| `FILAMENT_SLICER_WORKER_URL` | unset | Fixed to `http://slicer-worker:8767` by optional Compose overlay |
-| `FILAMENT_CLOUD_HMAC_<ALIAS>` | unset | 32+ character HMAC secret for separately operated cloud bridge |
-| `FILAMENT_CLOUD_PRINTER_<ALIAS>` | unset | Required printer ID binding for each signed relay |
+| `SPOOLMERA_DB_PATH` | `.data/spoolmera.sqlite3` | Persistent SQLite database path; Docker uses `/data/spoolmera.sqlite3` |
+| `SPOOLMERA_PUBLIC_BASE_URL` | `http://127.0.0.1:8765` | QR link base URL and allowed browser Origin |
+| `SPOOLMERA_BOOTSTRAP_TOKEN` | unset | Required secret for initial administrator creation |
+| `SPOOLMERA_COOKIE_SECURE` | `0` | Set `1` behind HTTPS/TLS termination |
+| `SPOOLMERA_PRINTER_ALLOWED_IPS` | empty | Exact, comma-separated private controller IPs |
+| `SPOOLMERA_PRINTER_TOKEN_*` | unset | Printer API keys referenced by environment name |
+| `SPOOLMERA_PRINTER_POLL_SECONDS` | `30` | Background polling cadence, min 10/max 300 |
+| `SPOOLMERA_PRINTER_CONTROL_ENABLED` | `0` | Enable admin-only printer commands, file upload, and print start (physical operations) |
+| `SPOOLMERA_SLICER_ENABLED` | `0` | Enable privileged, operator-profile-only slicer CLI |
+| `SPOOLMERA_SLICER_EXECUTABLE` | `/usr/bin/prusa-slicer` | Approved slicer executable path |
+| `SPOOLMERA_SLICER_PROFILES_DIR` | `/config/slicer-profiles` | Read-only profiles inside optional worker |
+| `SPOOLMERA_SLICER_WORKER_TOKEN` | unset | Required 32+ character secret for internal slicer worker |
+| `SPOOLMERA_SLICER_WORKER_URL` | unset | Fixed to `http://slicer-worker:8767` by optional Compose overlay |
+| `SPOOLMERA_CLOUD_HMAC_<ALIAS>` | unset | 32+ character HMAC secret for separately operated cloud bridge |
+| `SPOOLMERA_CLOUD_PRINTER_<ALIAS>` | unset | Required printer ID binding for each signed relay |
 
 ### Migrations and backups
 
 Schema v10 adds stock revisions, measurement anchors, reviewed consumption totals, per-printer operation state, batch retry identities and restock targets. Version-gated migrations retain UUIDs, numeric IDs, explicit tool assignments and existing movement history from supported earlier schemas. **Take a consistent SQLite backup before upgrading.** Historical material inconsistencies appear in Operations for deliberate review; migration does not guess which earlier stock movements to correct.
 
-Use the administrator backup download or `python scripts/backup.py /path/to/new-backup.sqlite3 --database /path/to/filaments.sqlite3` with access to the mounted data volume. Backups include committed WAL content and enforce size, time and free-space bounds. Restore only with the application stopped, following [the supported recovery commands](docs/operations.md). Restore validates the application schema, retains damaged target bytes and preserves file ownership. Restored sessions and machine tokens are revoked; sign in again and reissue integration tokens. Run one API process per database.
+Use the administrator backup download or `python scripts/backup.py /path/to/new-backup.sqlite3 --database /path/to/spoolmera.sqlite3` with access to the mounted data volume. Backups include committed WAL content and enforce size, time and free-space bounds. Restore only with the application stopped, following [the supported recovery commands](docs/operations.md). Restore validates the application schema, retains damaged target bytes and preserves file ownership. Restored sessions and machine tokens are revoked; sign in again and reissue integration tokens. Run one API process per database.
 
 ## Architecture
 
@@ -231,11 +231,3 @@ Contributions and review are welcome; this project is an experiment in AI-develo
 Licensed under the **Apache License, Version 2.0**. See [LICENSE](LICENSE) for the full terms.
 
 This license applies to the repository's original project files. Third-party dependencies retain their respective upstream licenses.
-
-
-
-## Name change and existing installations
-
-Spoolmera was previously published as Filament Manager. The public-facing UI, labels, API title, Angular build target, container service, documentation and graphics have been rebranded. Existing `FILAMENT_*` environment variables, SQLite database path, API routes and `filament_data` Docker volume deliberately stay unchanged to preserve compatibility. To avoid orphaning the existing default Docker Compose volume when renaming the source directory, `compose.yaml` retains the legacy default Compose project name `filamentmanager`. If you deployed with a custom `-p` project name, continue using that same name after upgrading. **Create a SQLite backup before updating.**
-
-The GitHub clone URL currently retains `Cenn0/FilamentManager` until the repository owner changes its GitHub repository name in Settings. That administrative rename is separate from the application rebrand; links in this README intentionally continue to use the working current URL.
