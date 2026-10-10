@@ -37,7 +37,7 @@
         </div>
       }
       @if(upload){<button type="button" class="btn ghost" [disabled]="busy()" (click)="useManualMapping()">{{'Use manual mapping instead'|t}}</button>}
-      <label class="full">{{'G-code filename already on printer'|t}}<input name="fileName" [(ngModel)]="fileName" required maxlength="180" [placeholder]="'e.g. bracket.gcode'|t" [readonly]="!!upload"></label>
+      <label class="full">{{(printers().find(p=>p.id===printerId)?.kind==='bambu'?'Print job filename on Bambu (e.g. .3mf)':'G-code filename already on printer')|t}}<input name="fileName" [(ngModel)]="fileName" required maxlength="180" [placeholder]="'e.g. bracket.gcode'|t" [readonly]="!!upload"></label>
       <label>{{'Estimated filament (g)'|t}}<input name="estimatedG" type="number" [(ngModel)]="estimatedG" (ngModelChange)="invalidateSuggestions()" min="1" max="100000" step="1" [placeholder]="'Use G-code metadata when blank'|t"></label>
       <label>{{'Note (manual mapping only)'|t}}<input name="note" [(ngModel)]="note" maxlength="300" [placeholder]="'Optional reference'|t"></label>
     </div>

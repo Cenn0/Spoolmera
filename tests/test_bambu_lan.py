@@ -162,3 +162,21 @@ def test_migration_v10_upgrade_preserves_referenced_jobs(tmp_path,monkeypatch):
         assert db.execute('PRAGMA foreign_key_check').fetchall()==[]
         assert db.execute('SELECT printer_id FROM print_jobs WHERE id=?',(jid,)).fetchone()[0]==pid
         assert 'bambu' in db.execute("SELECT sql FROM sqlite_master WHERE name='printers'").fetchone()[0]
+
+
+def test_3mf_job_name_allowed_only_for_bambu(tmp_path,monkeypatch):
+    configured(monkeypatch)
+    with TestClient(create_app(tmp_path/'archive.sqlite3')) as client:
+        authenticate(client)
+        spool=make_inventory(client)
+        bambu_id=client.post('/api/printers',json=configured(monkeypatch)).json()['id']
+        other_id=client.post('/api/printers',json={'name':'Octo','kind':'octoprint',
+            'base_url':'http://192.168.50.20:5000','token_env':'FILAMENT_PRINTER_TOKEN_BAMBU1',
+            'enabled':True}).json()['id']
+        def job(printer_id,filename):
+            return client.post('/api/jobs',json={'printer_id':printer_id,'spool_id':spool,
+                'file_name':filename,'estimated_g':42})
+        assert job(bambu_id,'part.3mf').status_code==201
+        assert job(other_id,'part.3mf').status_code==422
+        assert job(bambu_id,'../secrets.3mf').status_code==422
+        assert job(bambu_id,'valid.gcode').status_code==201

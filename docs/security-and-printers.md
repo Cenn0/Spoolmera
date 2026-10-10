@@ -29,6 +29,8 @@ Bambu Lab X1, P1, A1 and A1 mini models may expose MQTT over TLS in **Developer 
 
 The backend uses a short-lived MQTT connection, validates the exact pinned TLS certificate **before** sending credentials, subscribes to `device/<serial>/report` and requests a `pushall` snapshot. It neither discovers printers nor silently trusts self-signed certificates. If configured, printer commands pause, resume and stop use `device/<serial>/request`; they require admin authentication and the global opt-in `FILAMENT_PRINTER_CONTROL_ENABLED=1`. A broker PUBACK is **not confirmation of physical execution**; inspect the printer after each command. 
 
+**Job filenames:** manually registered Bambu jobs can refer to an existing `.3mf` filename as reported by MQTT telemetry, in addition to G-code filenames. Archive uploads and slicing are not implied. Other controllers continue to accept G-code filenames only.
+
 **Limitations:** No Bambu FTP file upload, remote print start, camera streaming, Bambu cloud login, automatic AMS-to-spool mapping, guaranteed compatibility on newer firmware, or completion-proof for automatic stock deduction. Start and upload using Bambu Studio. Job polling records a matching active job, then marks it for review when printing stops; a human must approve the estimated consumption. AMS `remain` is a printer-reported percentage, not physical grams. All networking and protocol fields are bounded; credentials and certificate PINs are not persisted in SQLite.
 
 ## G-code import

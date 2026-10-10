@@ -70,8 +70,9 @@ class Resolution(BaseModel):
     action: str = Field(pattern=r"^(debit|discard)$")
 
 
-def valid_filename(name: str) -> bool:
-    if len(name) > 180 or not name.lower().endswith((".gcode", ".gco", ".gc")):
+def valid_filename(name: str, *, allow_3mf: bool = False) -> bool:
+    extensions = (".gcode", ".gco", ".gc", ".3mf") if allow_3mf else (".gcode", ".gco", ".gc")
+    if len(name) > 180 or not name.lower().endswith(extensions):
         return False
     if name.startswith("/") or "\\" in name or any(ord(char) < 32 for char in name):
         return False
@@ -102,8 +103,6 @@ def insert_job(db_path: Path, payload: JobInput, actor_id: int) -> int:
 
 def insert_multi_job(db_path: Path, payload: MultiJobInput, actor_id: int) -> int:
     """Explicit tool-to-spool assignments; never infer mappings from color."""
-    if not valid_filename(payload.file_name):
-        raise HTTPException(status_code=422, detail="Expected a safe relative G-code filename.")
     if len({item.tool for item in payload.materials}) != len(payload.materials):
         raise HTTPException(status_code=422, detail="Tool numbers must be unique.")
     total = sum(item.estimated_g for item in payload.materials)
@@ -113,9 +112,11 @@ def insert_multi_job(db_path: Path, payload: MultiJobInput, actor_id: int) -> in
     for item in payload.materials:
         by_spool[item.spool_id] = by_spool.get(item.spool_id, 0) + item.estimated_g
     with session(db_path, write=True) as db:
-        printer = db.execute("SELECT enabled FROM printers WHERE id=?", (payload.printer_id,)).fetchone()
+        printer = db.execute("SELECT enabled,kind FROM printers WHERE id=?", (payload.printer_id,)).fetchone()
         if not printer or not printer["enabled"]:
             raise HTTPException(status_code=404, detail="Enabled printer not found.")
+        if not valid_filename(payload.file_name, allow_3mf=printer["kind"] == "bambu"):
+            raise HTTPException(status_code=422, detail="Expected a safe relative printer job filename.")
         for spool_id, grams in by_spool.items():
             spool = db.execute(
                 "SELECT remaining_g,archived_at FROM spools WHERE id=?", (spool_id,)

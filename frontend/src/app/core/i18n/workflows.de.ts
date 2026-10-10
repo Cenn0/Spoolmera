@@ -1,5 +1,6 @@
 // English source text is the stable message key; API values and user content stay unchanged.
 export const WORKFLOWS_DE: Record<string, string> = {
+  "Print job filename on Bambu (e.g. .3mf)": "Druckauftrags-Dateiname auf Bambu (z. B. .3mf)",
   "(required for this correction)": "(für diese Korrektur erforderlich)",
   "3D printers": "3D-Drucker",
   "ADMINISTRATION": "VERWALTUNG",
