@@ -72,9 +72,10 @@ export interface ApiSpoolPage {
 export interface ApiPrinter {
   id: number;
   name: string;
-  kind: "moonraker" | "octoprint";
+  kind: "moonraker" | "octoprint" | "bambu";
   base_url: string;
   token_env: string;
+  serial: string;
   enabled: number;
   created_at: string;
 }

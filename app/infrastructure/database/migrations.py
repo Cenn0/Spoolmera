@@ -227,5 +227,26 @@ def migrate_v10(db: sqlite3.Connection) -> None:
 
 
 def migrate_v11(db: sqlite3.Connection) -> None:
-    """Persist a device serial for LAN MQTT topics without storing credentials."""
-    _ensure_column(db, "printers", "serial", "TEXT NOT NULL DEFAULT ''")
+    """Rebuild the printer kind constraint while preserving referenced printer IDs.
+
+    initialize_database disables FK enforcement before this transaction and
+    verifies referential integrity before reenabling it.
+    """
+    sql = db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='printers'").fetchone()[0]
+    if "'bambu'" in sql:
+        _ensure_column(db, "printers", "serial", "TEXT NOT NULL DEFAULT ''")
+        return
+    db.execute("""CREATE TABLE printers_v11 (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        kind TEXT NOT NULL CHECK(kind IN ('moonraker','octoprint','bambu')),
+        base_url TEXT NOT NULL,
+        token_env TEXT NOT NULL DEFAULT '',
+        serial TEXT NOT NULL DEFAULT '',
+        enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0,1)),
+        created_at TEXT NOT NULL
+    )""")
+    db.execute("""INSERT INTO printers_v11(id,name,kind,base_url,token_env,enabled,created_at)
+                  SELECT id,name,kind,base_url,token_env,enabled,created_at FROM printers""")
+    db.execute("DROP TABLE printers")
+    db.execute("ALTER TABLE printers_v11 RENAME TO printers")

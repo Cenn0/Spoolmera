@@ -69,7 +69,7 @@
       }
     }
     <p class="helper">{{'The first spool is tool {tool}. All additional tools must have unique numbers and explicit weights. Imported estimates preserve their tool numbers. You must assign every physical roll explicitly. The combined amount is deducted atomically after verified completion or manual approval.'|t:{tool:''+firstTool} }}</p>
-    <p class="helper">{{'Importing a G-code file here registers metadata only. Uploading to a printer is a separate administrator action; it never starts automatically. Moonraker history-confirmed jobs may debit automatically; OctoPrint always requires review.'|t}}</p>
+    <p class="helper">{{'Importing a G-code file here registers metadata only. Uploading to a printer is a separate administrator action; it never starts automatically. Moonraker history-confirmed jobs may debit automatically; OctoPrint and Bambu LAN always require review.'|t}}</p>
     <button class="btn primary" type="submit" [disabled]="busy()||jobForm.invalid||!printerId||!spoolId||!!upload">{{'Register print job'|t}}</button>
   </form>
 </section>

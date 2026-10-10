@@ -160,7 +160,9 @@ def initialize_database(path: str | Path) -> None:
         if version > CURRENT_SCHEMA_VERSION:
             raise RuntimeError("Database schema is newer than this Filament Manager version.")
         connection.executescript(SCHEMA)
-        # Migration v2 preserves existing numeric IDs while assigning stable UUIDs.
+        # Suspend FK triggers only for the v11 printer-table rebuild.
+        if version < 11:
+            connection.execute("PRAGMA foreign_keys=OFF")
         connection.execute("BEGIN IMMEDIATE")
         try:
             if version < 4:
@@ -180,9 +182,14 @@ def initialize_database(path: str | Path) -> None:
             if version < 11:
                 migrate_v11(connection)
             recover_interrupted_commands(connection)
+            if connection.execute("PRAGMA foreign_key_check").fetchone():
+                raise RuntimeError("Migration would leave invalid printer references.")
             connection.execute(f"PRAGMA user_version = {CURRENT_SCHEMA_VERSION}")
             connection.execute("COMMIT")
         except BaseException:
             if connection.in_transaction:
                 connection.execute("ROLLBACK")
             raise
+        finally:
+            if version < 11:
+                connection.execute("PRAGMA foreign_keys=ON")
