@@ -135,5 +135,5 @@ def run(image: str) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--image", default="filament-manager:ci")
+    parser.add_argument("--image", default="spoolmera:ci")
     run(parser.parse_args().image)
