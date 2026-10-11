@@ -17,6 +17,12 @@ updates:
       time: "07:00"
       timezone: Europe/Berlin
     open-pull-requests-limit: 5
+    # Angular 22's compiler/build toolchain supports TypeScript 6.0.x, not 7.x.
+    # Revisit this restriction when upgrading Angular to a compatible release.
+    ignore:
+      - dependency-name: "typescript"
+        update-types:
+          - "version-update:semver-major"
     groups:
       angular:
         patterns:
