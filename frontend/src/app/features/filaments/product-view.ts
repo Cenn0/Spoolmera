@@ -14,7 +14,9 @@ export function productOrder(value: unknown): ProductOrder {
 
 /** Derive a view without reordering the shared inventory or modifying user data. */
 export function selectProducts(products: readonly Product[], filters: ProductFilters, locale: string): Product[] {
-  const normalize = (text: string): string => text.normalize('NFC').toLocaleLowerCase(locale);
+  // Match accented and unaccented search text without changing stored product fields.
+  const normalize = (text: string): string =>
+    text.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase(locale);
   const terms = normalize(filters.query.trim()).split(/\s+/u).filter(Boolean);
   const collator = new Intl.Collator(locale, {numeric: true, sensitivity: 'base'});
   const byName = (left: Product, right: Product): number =>
