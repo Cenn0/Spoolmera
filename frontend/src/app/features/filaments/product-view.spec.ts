@@ -30,6 +30,15 @@ describe('filament gallery view', () => {
     expect(result.map(item => item.id)).toEqual([1]);
     expect(result[0].color_name).toBe('Grün');
   });
+  it.each(['Grun', 'GRÜN', 'GRU\u0308N'])('matches stored accented colors with query %s', query => {
+    expect(select({query}).map(item => item.id)).toEqual([1]);
+  });
+  it('folds accents in multi-term queries without changing product data', () => {
+    const before = JSON.stringify(products);
+    expect(select({query: '  MA\u0308KER 10  GRUN  '}).map(item => item.id)).toEqual([1]);
+    expect(select({query: 'Grun missing'})).toEqual([]);
+    expect(JSON.stringify(products)).toBe(before);
+  });
   it('can find a recorded hex color', () => {
     expect(select({query: '#337799'}).map(item => item.id)).toEqual([3]);
   });

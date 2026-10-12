@@ -29,7 +29,7 @@ The **Filaments** view groups products by material, color and variant. Its cards
 
 | Area | Current capabilities |
 | --- | --- |
-| **Filament catalog** | Products with brand, material, color, diameter, density, temperature limits, product IDs and reorder thresholds; optional review-first community catalog lookups |
+| **Filament catalog** | Case- and accent-insensitive multi-term search; products with brand, material, color, diameter, density, temperature limits, product IDs and reorder thresholds; optional review-first community catalog lookups |
 | **Physical spool inventory** | Individual UUIDs, tare/remaining weight, purchase details, location, condition, opening/archive state, drying records, low-stock flags |
 | **Inventory UX** | Color-coded cards and table view, filters, storage board, label tray, drag-and-drop with keyboard/click alternatives, light/dark/system themes |
 | **Accounting** | Transactional movements, manual weighing, actual/partial/zero-use job review, traceable corrections and a searchable history |
