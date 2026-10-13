@@ -10,6 +10,7 @@ This release remains fully free, Apache-2.0-licensed, Docker-self-hosted and bas
 | Rich material properties | Density, nozzle/bed limits, GTIN/SKU, slicer preset, low-stock threshold | app/models.py |
 | Physical spool metadata | Tare, purchase price/currency/date, batch and location | app/models.py |
 | Filament catalog search | Local multi-term filtering across product details, insensitive to case and accents without modifying stored product data | frontend/src/app/features/filaments/product-view.ts |
+| Physical spool search | Server-side Unicode casefolding and accent-insensitive literal substring search across product/spool fields, with existing cursor pagination and filters | app/services/inventory_query_service.py |
 | Responsive inventory | Cards, full-width tables and location grids, independent lane heights, direct label selection and explicit physical-location confirmation | frontend/src/app/features/spools/ |
 | Complete visual audit | All routes and declared interactive states in light/dark desktop/mobile layouts, screenshot gallery and strict completeness/layout checks | scripts/ui_visual_audit.py, docs/testing.md |
 | Manual weighing | Revision-aware gross minus tare, pending-job guard and durable measurement anchors | app/services/material_service.py |

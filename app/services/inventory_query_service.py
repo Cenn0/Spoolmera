@@ -2,6 +2,7 @@
 from datetime import date, timedelta
 import hashlib
 import json
+import unicodedata
 from pathlib import Path
 
 from fastapi import HTTPException
@@ -15,6 +16,12 @@ from app.services.inventory_service import insert_spool, spool_as_dict
 SPOOL_SELECT = '''SELECT s.*,p.brand,p.name AS product_name,p.material,
     p.color_name,p.color_hex,p.diameter_mm,p.low_stock_threshold_g
     FROM spools s JOIN products p ON p.id=s.product_id'''
+
+
+def _search_fold(value: str | None) -> str:
+    """Normalize casing and diacritics for a read-only, local SQLite substring search."""
+    normalized = unicodedata.normalize("NFD", (value or "").casefold())
+    return "".join(char for char in normalized if not unicodedata.category(char).startswith("M"))
 
 
 def spool_page(db_path: Path, *, archived='active', before_id=None, limit=50,
@@ -39,14 +46,20 @@ def spool_page(db_path: Path, *, archived='active', before_id=None, limit=50,
         # Match the inventory warning definition; empty rolls have their own state.
         clauses.append('s.remaining_g>0 AND s.remaining_g<=p.low_stock_threshold_g')
     if q:
-        # LIKE is parameterized; escaped wildcards make search literal.
-        term = '%' + q.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%'
+        # Normalize both sides for diacritic-insensitive Unicode matching.
+        # Keep LIKE wildcards literal and apply filters before cursor pagination.
+        folded = _search_fold(q)
+        term = '%' + folded.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%'
         searchable = ('p.brand', 'p.name', 'p.material', 'p.color_name', 's.uid',
                       's.location', 's.notes', 's.batch', 'CAST(s.id AS TEXT)')
-        clauses.append('(' + ' OR '.join(column + " LIKE ? ESCAPE '\\'" for column in searchable) + ')')
+        clauses.append('(' + ' OR '.join(
+            "inventory_search_fold(" + column + ") LIKE ? ESCAPE '\\'" for column in searchable
+        ) + ')')
         values.extend([term] * len(searchable))
     where = ' WHERE ' + ' AND '.join(clauses) if clauses else ''
     with session(db_path) as db:
+        if q:
+            db.create_function('inventory_search_fold', 1, _search_fold, deterministic=True)
         rows = db.execute(SPOOL_SELECT + where + ' ORDER BY s.id DESC LIMIT ?', (*values, limit + 1)).fetchall()
     items = [spool_as_dict(row) for row in rows[:limit]]
     return {'items': items, 'next_cursor': items[-1]['id'] if len(rows) > limit else None}
