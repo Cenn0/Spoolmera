@@ -83,6 +83,64 @@ def test_paginated_search_preserves_color_material_notes_and_literal_text(invent
     assert client.get('/api/spools/page', params={'q': 'lot%1'}).json()['items'] == []
 
 
+def test_spool_search_folds_case_and_accents_without_changing_inventory(inventory):
+    client, _, existing_product = inventory
+    product_response = client.post('/api/products', json={
+        'brand': 'Müller', 'name': 'Grün Weiß', 'material': 'PETG', 'color_name': 'Crème',
+    })
+    assert product_response.status_code == 201, product_response.text
+    product_id = product_response.json()['id']
+    first_response = client.post('/api/spools', json={
+        'product_id': product_id, 'initial_g': 1000, 'remaining_g': 250,
+        'location': 'Büro Süd', 'notes': 'Straße', 'batch': 'Café_1',
+    })
+    second_response = client.post('/api/spools', json={
+        'product_id': product_id, 'initial_g': 1000,
+    })
+    unrelated_response = client.post('/api/spools', json={
+        'product_id': existing_product, 'initial_g': 1000, 'batch': 'CafeX1',
+    })
+    assert all(response.status_code == 201 for response in (
+        first_response, second_response, unrelated_response
+    ))
+    first = first_response.json()['id']
+    second = second_response.json()['id']
+    baseline = client.get('/api/spools/page?archived=all').json()['items']
+
+    for query in ('MULLER', 'Mu\u0308ller', 'grun', 'GRÜN', 'weiss', 'creme'):
+        found = client.get('/api/spools/page', params={'q': query}).json()['items']
+        assert [row['id'] for row in found] == [second, first], query
+    for query in ('buro', 'sud', 'STRASSE', 'cafe_1'):
+        found = client.get('/api/spools/page', params={'q': query}).json()['items']
+        assert [row['id'] for row in found] == [first], query
+
+    # Wildcards stay literal even when a Unicode character was normalized.
+    assert client.get('/api/spools/page', params={'q': 'Cafe%1'}).json()['items'] == []
+    first_page = client.get('/api/spools/page', params={
+        'q': 'GRUN', 'material': 'petg', 'product_id': product_id, 'limit': 1,
+    }).json()
+    assert [row['id'] for row in first_page['items']] == [second]
+    assert first_page['next_cursor'] == second
+    next_page = client.get('/api/spools/page', params={
+        'q': 'GRUN', 'material': 'petg', 'product_id': product_id,
+        'limit': 1, 'before_id': second,
+    }).json()
+    assert [row['id'] for row in next_page['items']] == [first]
+    assert next_page['next_cursor'] is None
+    assert [row['id'] for row in client.get('/api/spools/page', params={
+        'q': 'grun', 'status': 'opened',
+    }).json()['items']] == [first]
+    assert client.get('/api/spools/page?archived=all').json()['items'] == baseline
+
+    assert client.post(f'/api/spools/{second}/archive').status_code == 200
+    assert [row['id'] for row in client.get('/api/spools/page', params={
+        'q': 'grun', 'archived': 'archived',
+    }).json()['items']] == [second]
+    assert [row['id'] for row in client.get('/api/spools/page', params={
+        'q': 'grun',
+    }).json()['items']] == [first]
+
+
 def test_archived_uuid_history_and_audited_reactivation(inventory):
     client, path, product = inventory
     spool = client.post('/api/spools/batch', json={'count': 1, 'spool': {'product_id': product,

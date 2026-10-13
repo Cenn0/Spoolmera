@@ -113,7 +113,7 @@ Not implemented: native Bambu/Prusa cloud login and control, OIDC/SSO, automatic
 
 ### Each roll has its own identity
 
-A filament *product* can have multiple physical rolls. In **Spools**, you see each roll's material and color, remaining weight, condition and storage location. Search and filters help narrow down the inventory; a card or table view provides different levels of detail. Consumption, weighing and corrections are recorded against the **individual spool**, not an entire product group.
+A filament *product* can have multiple physical rolls. In **Spools**, you see each roll's material and color, remaining weight, condition and storage location. Search ignores case and common accents (for example `Grun` matches `Grün`) across product and roll details, while filters and pagination narrow the inventory; a card or table view provides different levels of detail. Consumption, weighing and corrections are recorded against the **individual spool**, not an entire product group.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/spools-dark.png">
