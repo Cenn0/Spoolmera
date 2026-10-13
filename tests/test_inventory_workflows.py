@@ -231,7 +231,10 @@ def test_history_free_text_search_finds_older_rows_across_fields_without_wildcar
     assert {row['note'] for row in first['items'] + later['items']} == {
         'Straße Café_100%', 'Café_100% spare',
     }
-    for term in ('grun', 'WEISS', 'crème', special['uid']):
+    spool_uid = client.get('/api/spools/page', params={
+        'product_id': response.json()['id'],
+    }).json()['items'][0]['uid']
+    for term in ('grun', 'WEISS', 'crème', spool_uid):
         results = client.get('/api/movements/page', params={'q': term}).json()['items']
         assert {row['spool_id'] for row in results} == {special['id']}, term
     assert len(client.get('/api/movements/page', params={'q': 'STRASSE'}).json()['items']) == 1
