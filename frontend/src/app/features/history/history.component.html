@@ -3,6 +3,7 @@
 <section class="panel workflow-panel">
   <form class="workflow-form history-filters" (ngSubmit)="apply()">
     <div class="form-grid">
+      <label>{{'Search history'|t}}<input name="query" type="search" maxlength="120" [(ngModel)]="query" [placeholder]="'Filament, spool UUID, note, job file, user…'|t" autocomplete="off"></label>
       <label>{{'Movement type'|t}}<select id="movement-type" name="kind" [ngModel]="kind()" (ngModelChange)="kind.set($event)"><option value="">{{'All movements'|t}}</option><option value="initial">{{'Registered'|t}}</option><option value="consume">{{'Consumption'|t}}</option><option value="adjust">{{'Adjustment'|t}}</option></select></label>
       <label>{{'Spool number'|t}}<input name="spool" type="number" min="1" step="1" [(ngModel)]="spoolId" [placeholder]="'All spools'|t"></label>
       <label>{{'Job number'|t}}<input name="job" type="number" min="1" step="1" [(ngModel)]="jobId" [placeholder]="'All jobs'|t"></label>

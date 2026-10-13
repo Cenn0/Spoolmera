@@ -8,7 +8,7 @@ type Section = 'overview' | 'products' | 'spools' | 'movements';
 const ALL_SECTIONS: Section[] = ['overview', 'products', 'spools', 'movements'];
 export interface MovementFilters {
   spool_id?: number; job_id?: number; actor_id?: number;
-  source?: string; from_date?: string; to_date?: string; kind?: string;
+  source?: string; from_date?: string; to_date?: string; kind?: string; q?: string;
 }
 export function apiError(error: unknown): string {
   if (error instanceof HttpErrorResponse) {
