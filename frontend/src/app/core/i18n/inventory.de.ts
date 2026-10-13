@@ -333,6 +333,8 @@ export const INVENTORY_DE: Record<string,string> = {
   "Catalog {version}": "Katalog {version}",
   "OPT-IN LOOKUP": "OPTIONALE ABFRAGE",
   "Inventory history.": "Bestandshistorie.",
+  "Search history": "Historie durchsuchen",
+  "Filament, spool UUID, note, job file, user…": "Filament, Spulen-UUID, Notiz, Auftragsdatei, Benutzer…",
   "{count} matching movements loaded": "{count} passende Buchungen geladen",
   "Registration": "Erfassung",
   "Inventory import": "Bestandsimport",

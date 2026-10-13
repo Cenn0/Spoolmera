@@ -109,7 +109,7 @@ def unarchive(db_path: Path, spool_id: int, actor_id: int) -> dict:
 
 
 def movements_page(db_path: Path, *, before_id=None, limit=50, spool_id=None,
-                   job_id=None, actor_id=None, source=None, from_date=None, to_date=None, kind=None) -> dict:
+                   job_id=None, actor_id=None, source=None, from_date=None, to_date=None, kind=None, q=None) -> dict:
     clauses, values = [], []
     for field, value in [('m.spool_id', spool_id), ('COALESCE(m.print_job_id,ao.job_id)', job_id),
                          ('m.actor_id', actor_id), ('m.source', source), ('m.kind', kind)]:
@@ -129,6 +129,17 @@ def movements_page(db_path: Path, *, before_id=None, limit=50, spool_id=None,
         if to_date < date.max:
             clauses.append('m.created_at<?')
             values.append((to_date + timedelta(days=1)).isoformat())
+    if q and q.strip():
+        # Each word may appear in a different field; all words must match.
+        # Fold Unicode before pagination, and treat SQL LIKE metacharacters literally.
+        fields = ('s.uid', 'p.brand', 'p.name', 'p.material', 'p.color_name',
+                  'm.note', 'u.username', 'j.file_name')
+        for term in _search_fold(q).split():
+            pattern = '%' + term.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%'
+            clauses.append('(' + ' OR '.join(
+                "inventory_search_fold(" + field + ") LIKE ? ESCAPE '\\'" for field in fields
+            ) + ')')
+            values.extend([pattern] * len(fields))
     query = '''SELECT m.*,COALESCE(m.print_job_id,ao.job_id) AS job_id,s.uid AS spool_uid,
         p.brand,p.name AS product_name,p.material,p.color_name,p.color_hex,
         u.username AS actor_name,j.file_name AS job_file_name
@@ -139,6 +150,8 @@ def movements_page(db_path: Path, *, before_id=None, limit=50, spool_id=None,
     if clauses:
         query += ' WHERE ' + ' AND '.join(clauses)
     with session(db_path) as db:
+        if q and q.strip():
+            db.create_function('inventory_search_fold', 1, _search_fold, deterministic=True)
         rows = db.execute(query + ' ORDER BY m.id DESC LIMIT ?', (*values, limit + 1)).fetchall()
     items = [dict(row) for row in rows[:limit]]
     return {'items': items, 'next_cursor': items[-1]['id'] if len(rows) > limit else None}
