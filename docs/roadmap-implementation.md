@@ -26,7 +26,7 @@ This release remains fully free, Apache-2.0-licensed, Docker-self-hosted and bas
 | Notifications | Opt-in categories, minimal secret environment, separate ntfy authentication, durable condition deduplication and restore-epoch handling | scripts/notification_bridge.py |
 | Price reporting | Recorded material use and purchase-price allocation, currencies kept separate | app/api/analytics.py |
 | Recovery | Bounded online snapshots, schema/identity validation, retained corrupt bytes, runtime ownership and live-process exclusion | app/api/backup.py, scripts/restore.py |
-| History and archive | Server pagination and filters, source/actor/job/correction links, archived UUID lookup and audited reactivation | app/services/inventory_query_service.py |
+| History and archive | Server pagination, combined filters and accent-insensitive multi-term search over movement details, source/actor/job/correction links, archived UUID lookup and audited reactivation | app/services/inventory_query_service.py |
 | Batch registration and labels | Atomic 1–100 roll creation, immutable preview, durable retries and one UUID/label per roll in both 60 x 40 mm and 50 x 30 mm formats | app/services/inventory_query_service.py, app/labels.py |
 | Restock | Product targets, active physical stock, zero-stock products and separately displayed reservations | app/services/inventory_query_service.py |
 | Operations | Supervised worker/lease state, device failures, unresolved commands/uploads, storage, backup and recovery diagnostics | app/api/diagnostics.py |

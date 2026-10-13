@@ -137,11 +137,12 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
                       job_id: int | None = Query(default=None, gt=0),
                       actor_id: int | None = Query(default=None, gt=0),
                       source: str | None = Query(default=None, min_length=1, max_length=80),
+                      q: str | None = Query(default=None, min_length=1, max_length=120),
                       kind: Literal['initial', 'consume', 'adjust'] | None = None,
                       from_date: date | None = None, to_date: date | None = None):
         return inventory_query_service.movements_page(db_path, before_id=before_id,
             limit=limit, spool_id=spool_id, job_id=job_id, actor_id=actor_id, source=source,
-            from_date=from_date, to_date=to_date, kind=kind)
+            from_date=from_date, to_date=to_date, kind=kind, q=q)
 
     @router.post("/api/spools/{spool_id}/archive", dependencies=[Depends(require_editor)])
     def archive_spool(spool_id: int, request: Request):

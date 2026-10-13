@@ -184,6 +184,75 @@ def test_history_pagination_searches_beyond_recent_window(inventory):
     assert client.get('/api/movements/page?from_date=2024-01-02&to_date=2024-01-01').status_code == 422
 
 
+def test_history_free_text_search_finds_older_rows_across_fields_without_wildcards(inventory):
+    client, path, original_product = inventory
+    response = client.post('/api/products', json={
+        'brand': 'Müller', 'name': 'Grün Weiß', 'material': 'PETG', 'color_name': 'Crème',
+    })
+    assert response.status_code == 201, response.text
+    special = client.post('/api/spools', json={
+        'product_id': response.json()['id'], 'initial_g': 1000,
+    }).json()
+    other = client.post('/api/spools', json={
+        'product_id': original_product, 'initial_g': 1000,
+    }).json()
+    for note in ('Straße Café_100%', 'Café_100% spare'):
+        assert client.post(f"/api/spools/{special['id']}/movements", json={
+            'kind': 'consume', 'grams': 10, 'note': note,
+        }).status_code == 201
+    assert client.post(f"/api/spools/{other['id']}/movements", json={
+        'kind': 'consume', 'grams': 5, 'note': 'CafeX100X',
+    }).status_code == 201
+
+    with session(path, write=True) as db:
+        # Assign synthetic job metadata only; no printer command or accounting is executed.
+        db.execute("""INSERT INTO printers(id,name,kind,base_url,created_at)
+            VALUES(1,'Test','moonraker','http://192.168.50.20','2026-01-01')""")
+        db.execute("""INSERT INTO print_jobs(id,printer_id,spool_id,file_name,estimated_g,created_at,updated_at)
+            VALUES(1,1,?,'prototype_case.gcode',100,'2026-01-01','2026-01-01')""", (special['id'],))
+        newest = db.execute("""SELECT id FROM movements WHERE spool_id=? AND kind='consume'
+            ORDER BY id DESC LIMIT 1""", (special['id'],)).fetchone()['id']
+        db.execute('UPDATE movements SET print_job_id=1 WHERE id=?', (newest,))
+
+    base = client.get('/api/movements/page', params={'limit': 100}).json()['items']
+    result = client.get('/api/movements/page', params={
+        'q': 'MULLER cafe_100%', 'kind': 'consume', 'limit': 1,
+    })
+    assert result.status_code == 200, result.text
+    first = result.json()
+    assert len(first['items']) == 1
+    assert first['next_cursor'] == first['items'][0]['id']
+    later = client.get('/api/movements/page', params={
+        'q': 'müller CAFÉ_100%', 'kind': 'consume', 'limit': 1,
+        'before_id': first['next_cursor'],
+    }).json()
+    assert len(later['items']) == 1 and later['next_cursor'] is None
+    assert first['items'][0]['id'] > later['items'][0]['id']
+    assert {row['note'] for row in first['items'] + later['items']} == {
+        'Straße Café_100%', 'Café_100% spare',
+    }
+    spool_uid = client.get('/api/spools/page', params={
+        'product_id': response.json()['id'],
+    }).json()['items'][0]['uid']
+    for term in ('grun', 'WEISS', 'crème', spool_uid):
+        results = client.get('/api/movements/page', params={'q': term}).json()['items']
+        assert {row['spool_id'] for row in results} == {special['id']}, term
+    assert len(client.get('/api/movements/page', params={'q': 'STRASSE'}).json()['items']) == 1
+    assert len(client.get('/api/movements/page', params={
+        'q': 'MULLER prototype_case.gcode',
+    }).json()['items']) == 1
+    assert len(client.get('/api/movements/page', params={
+        'q': 'testadmin', 'kind': 'consume',
+    }).json()['items']) == 3
+    assert client.get('/api/movements/page', params={'q': 'cafe%100%'}).json()['items'] == []
+    assert client.get('/api/movements/page', params={'q': 'MULLER cafe_100%',
+        'spool_id': other['id']}).json()['items'] == []
+    assert client.get('/api/movements/page', params={'q': 'MULLER', 'kind': 'initial',
+        'from_date': '2027-01-01'}).json()['items'] == []
+    assert client.get('/api/movements/page', params={'q': 'x' * 121}).status_code == 422
+    assert client.get('/api/movements/page', params={'limit': 100}).json()['items'] == base
+
+
 def test_restock_counts_spares_zero_stock_and_advisory_reservations(inventory):
     client, path, product = inventory
     zero = client.get('/api/inventory/restock').json()['items'][0]

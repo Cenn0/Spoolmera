@@ -22,4 +22,19 @@ describe('full movement history',()=>{
     data.movementPage.mockResolvedValueOnce({items:[movement({id:7,spool_id:2})],next_cursor:null});component.spoolId=2;await component.apply();
     old.resolve({items:[movement({id:199})],next_cursor:null});await next;expect(component.items().map(row=>row.id)).toEqual([7]);
   });
+  it('searches all history pages on the server and clears the query on reset',async()=>{
+    component.ngOnInit();await Promise.resolve();
+    component.query='Müller Café_100%';component.source='manual';
+    data.movementPage.mockResolvedValueOnce({items:[movement({id:12})],next_cursor:12});
+    await component.apply();
+    expect(data.movementPage).toHaveBeenLastCalledWith(expect.objectContaining({
+      q:'Müller Café_100%',job_id:42,source:'manual',
+    }),undefined);
+    data.movementPage.mockResolvedValueOnce({items:[movement({id:9})],next_cursor:null});
+    await component.load(true);
+    expect(data.movementPage).toHaveBeenLastCalledWith(expect.objectContaining({q:'Müller Café_100%'}),12);
+    component.reset();await Promise.resolve();
+    expect(data.movementPage).toHaveBeenLastCalledWith(expect.objectContaining({q:'',source:'',job_id:undefined}),undefined);
+  });
+
 });
