@@ -32,7 +32,7 @@ The **Filaments** view groups products by material, color and variant. Its cards
 | **Filament catalog** | Case- and accent-insensitive multi-term search; products with brand, material, color, diameter, density, temperature limits, product IDs and reorder thresholds; optional review-first community catalog lookups |
 | **Physical spool inventory** | Individual UUIDs, tare/remaining weight, purchase details, location, condition, opening/archive state, drying records, low-stock flags |
 | **Inventory UX** | Color-coded cards and table view, filters, storage board, label tray, drag-and-drop with keyboard/click alternatives, light/dark/system themes |
-| **Accounting** | Transactional movements, manual weighing, actual/partial/zero-use job review, traceable corrections and a searchable history |
+| **Accounting** | Transactional movements, manual weighing, actual/partial/zero-use job review, traceable corrections and multi-term searchable movement history |
 | **Labels and migration** | QR labels (60 × 40 / 50 × 30 mm), batch spool registration, validated CSV import/export and create-only Spoolman JSON snapshot import |
 | **Print jobs** | Job tracking, G-code/3MF metadata inspection, explicit multi-tool-to-spool mappings, advisory reservations and optional Bambu task-correlated estimated consumption |
 | **Printer connections** | Local Moonraker/Klipper, OctoPrint and **experimental community Bambu Lab LAN MQTT** integration (capabilities differ; see below) |

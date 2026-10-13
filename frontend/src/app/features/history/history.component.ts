@@ -13,7 +13,7 @@ export class HistoryComponent implements OnInit, OnDestroy {
   readonly data=inject(InventoryService);readonly route=inject(ActivatedRoute);private readonly destroy=inject(DestroyRef);
   readonly dateText=(value:string|null|undefined)=>this.i18n.dateText(value);readonly grams=(value:number)=>this.i18n.grams(value);readonly items=signal<Movement[]>([]);
   readonly loading=signal(false);readonly error=signal('');readonly nextCursor=signal<number|null>(null);
-  readonly kind=signal('');private readonly requests=new RequestOwner();
+  readonly kind=signal('');query='';private readonly requests=new RequestOwner();
   spoolId:number|null=null;jobId:number|null=null;actorId:number|null=null;source='';fromDate='';toDate='';
   private filters:MovementFilters={};
   ngOnInit():void{this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroy)).subscribe(params=>{
@@ -24,11 +24,11 @@ export class HistoryComponent implements OnInit, OnDestroy {
   sourceLabel(source:string):string{return ({manual:'Manual entry',registration:'Registration',print_job:'Print job',job:'Print job',job_correction:'Job correction',scale:'Scale measurement',weighing:'Scale measurement',csv_import:'CSV import',spoolman_import:'Spoolman import',measurement_reconciliation:'Measurement reconciliation',import:'Inventory import'} as Record<string,string>)[source]||source.replaceAll('_',' ');}
   async apply():Promise<void>{
     if(this.fromDate&&this.toDate&&this.fromDate>this.toDate){this.error.set('The start date must be on or before the end date.');return;}
-    this.filters={kind:this.kind(),spool_id:this.spoolId||undefined,job_id:this.jobId||undefined,actor_id:this.actorId||undefined,
+    this.filters={kind:this.kind(),q:this.query.trim(),spool_id:this.spoolId||undefined,job_id:this.jobId||undefined,actor_id:this.actorId||undefined,
       source:this.source.trim(),from_date:this.fromDate||undefined,to_date:this.toDate||undefined};
     await this.load();
   }
-  reset():void{this.kind.set('');this.spoolId=null;this.jobId=null;this.actorId=null;this.source='';this.fromDate='';this.toDate='';void this.apply();}
+  reset():void{this.kind.set('');this.query='';this.spoolId=null;this.jobId=null;this.actorId=null;this.source='';this.fromDate='';this.toDate='';void this.apply();}
   async load(more=false):Promise<void>{
     if(more&&(this.loading()||!this.nextCursor()))return;
     const owner=this.requests.begin();this.loading.set(true);this.error.set('');
