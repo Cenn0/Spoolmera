@@ -18,3 +18,7 @@ frontend/.angular/
 frontend/dist/
 app/ui/
 
+# Operator-owned hardware profiles and generated legal notices
+slicer-profiles/
+frontend/third-party-licenses.txt
+
