@@ -193,6 +193,10 @@ def test_scheduled_and_manual_printer_polls_share_same_gate(tmp_path, monkeypatc
         def get_status(self, printer):
             return {"state": "standby", "filename": ""}
 
+        def observe(self, *args):
+            from types import SimpleNamespace
+            return SimpleNamespace(outcome=None, external_id=None, remote_state=None)
+
     monkeypatch.setattr(jobs, "adapter_for", lambda *a, **k: FakeAdapter())
     with TestClient(create_app(path)) as client:
         authenticate(client)
