@@ -30,6 +30,8 @@ jobs:
         run: python -m compileall -q app
       - name: Validate documentation links and UI screenshot files
         run: python scripts/check_docs.py
+      - name: Reject accidental personal email addresses in tracked files
+        run: python scripts/check_public_content.py
       - name: Validate generated Angular API contracts
         run: python scripts/generate_api_types.py --check
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
@@ -39,6 +41,7 @@ jobs:
         working-directory: frontend
         run: |
           npm ci --no-audit --no-fund
+          node scripts/collect-license-notices.mjs third-party-licenses.txt
           npm run typecheck
           npm run i18n:check
           npm test
@@ -66,6 +69,15 @@ jobs:
         run: docker compose config --quiet
       - name: Build image
         run: docker build --tag spoolmera:ci --tag spoolmera:test .
+      - name: Verify license notices in shipped image
+        run: |
+          docker run --rm --entrypoint /bin/sh spoolmera:ci -ec '
+            test -s /usr/share/doc/spoolmera/LICENSE
+            test -s /usr/share/doc/spoolmera/THIRD_PARTY_LICENSES.md
+            test -s /usr/share/doc/spoolmera/npm-licenses.txt
+            test -s /usr/share/doc/spoolmera/python-licenses.txt
+            test -s /usr/share/doc/spoolmera/python-dependencies.json
+          '
       - name: Start container and probe HTTP
         shell: bash
         run: |
@@ -119,6 +131,14 @@ jobs:
           cp scripts/start_test.py test-release/scripts/
           cp docs/testing.md test-release/TESTING.md
           cp docs/build-inputs.json test-release/
+          cp LICENSE THIRD_PARTY_LICENSES.md test-release/
+          image_container="$(docker create spoolmera:test)"
+          trap 'docker rm "$image_container" >/dev/null 2>&1 || true' EXIT
+          docker cp "$image_container":/usr/share/doc/spoolmera/npm-licenses.txt test-release/npm-licenses.txt
+          docker cp "$image_container":/usr/share/doc/spoolmera/python-licenses.txt test-release/python-licenses.txt
+          docker cp "$image_container":/usr/share/doc/spoolmera/python-dependencies.json test-release/python-dependencies.json
+          docker rm "$image_container" >/dev/null
+          trap - EXIT
           python3 - <<'PY'
           import hashlib, json, os, subprocess
           from pathlib import Path
@@ -248,6 +268,7 @@ jobs:
         run: |
           docker run --rm --entrypoint /usr/bin/test spoolmera:slicer-ci -x /usr/bin/prusa-slicer
           docker run --rm --entrypoint /usr/bin/prusa-slicer spoolmera:slicer-ci --help >/dev/null
+          docker run --rm --entrypoint /usr/bin/test spoolmera:slicer-ci -s /usr/share/doc/prusa-slicer/copyright
       - name: Smoke-test isolated slicer Compose networking and token
         shell: bash
         run: |
@@ -284,3 +305,14 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm audit --omit=dev --audit-level=high
+      - name: Produce production frontend CycloneDX SBOM
+        working-directory: frontend
+        run: npm sbom --omit=dev --sbom-format cyclonedx > "$RUNNER_TEMP/frontend-sbom.cdx.json"
+      - name: Publish frontend SBOM for review
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: frontend-sbom
+          path: ${{ runner.temp }}/frontend-sbom.cdx.json
+          if-no-files-found: warn
+          retention-days: 7

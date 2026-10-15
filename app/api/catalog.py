@@ -74,7 +74,7 @@ def fetch_catalog_json(path: str) -> dict:
         return saved
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), RejectRedirect())
     request = urllib.request.Request(
-        ORIGIN + path, headers={"Accept": "application/json", "User-Agent": "Spoolmera/0.7"}
+        ORIGIN + path, headers={"Accept": "application/json", "User-Agent": "Spoolmera/0.10.0"}
     )
     try:
         with opener.open(request, timeout=6) as response:
