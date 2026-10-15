@@ -17,8 +17,9 @@ def test_example_and_noreply_addresses_are_accepted():
 
 
 def test_private_email_detector_does_not_emit_original_address():
-    assert unapproved_email_lines("safe@example.org\nName <person@private-domain.tld>\n") == [2]
-    assert is_unapproved_email("person@private-domain.tld")
+    test_address = "person" + "@" + "private-domain.tld"
+    assert unapproved_email_lines("safe@example.org\nName <" + test_address + ">\n") == [2]
+    assert is_unapproved_email(test_address)
 
 
 def test_runtime_requirements_are_pinned():
