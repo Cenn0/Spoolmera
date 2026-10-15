@@ -220,7 +220,7 @@ def poll_printer(db_path: Path, printer_id: int) -> dict:
                             (printer_id, external_id),
                         ).fetchone()
                         if existing_run and existing_run["job_id"] not in (None, job["id"]):
-                            LOG.warning("Run identity already belongs to another job; printer=%d", printer_id)
+                            LOG.warning("Run identity already belongs to another job.")
                             continue
                         if printer["kind"] == "bambu" and outcome == "completed":
                             # MQTT FINISH alone is insufficient. Require a persisted
@@ -281,7 +281,7 @@ def poll_printer(db_path: Path, printer_id: int) -> dict:
                     changed += 1
             except sqlite3.IntegrityError:
                 # Duplicate external identifiers must never trigger a second debit.
-                LOG.warning("Rejected duplicate printer job identity for printer %d", printer_id)
+                LOG.warning("Rejected duplicate printer job identity.")
         return {"printer_id": printer_id, "state": current_status["state"],
                 "filename": current_status["filename"], "updated_jobs": changed}
     finally:
