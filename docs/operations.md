@@ -189,3 +189,14 @@ Exercise the full recovery procedure on a separate test installation before rely
 Label pages support `size=60x40` or `size=50x30` query parameters in millimeters. Always select the matching stock and 100% print scaling.
 
 The web interface and printed labels support English and German. Labels use an explicit `lang=en` or `lang=de` query parameter first, then the interface language stored in the `spoolmera_language` browser cookie, then supported browser `Accept-Language` preferences; otherwise they use English. Size-switch links retain the selected language. Language selection changes display text and number formatting only; product names, spool identities, QR targets and access requirements remain unchanged.
+
+
+### Host recovery privileges
+
+The **recommended** restore is the non-root Compose command above, with the
+application and all optional services stopped. Running the host script as root
+is not needed for ordinary installations and increases the impact of mistakes.
+For exceptional host recovery, inspect database-directory ownership and all
+existing operation-lock entries before privileged execution; symbolic links and
+non-regular/multiply-linked lock files are rejected. Do not operate on an
+untrusted, writable data directory while granting privileges to recovery tools.
