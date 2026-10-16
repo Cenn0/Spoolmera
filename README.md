@@ -5,6 +5,8 @@
 [![CI](https://github.com/Cenn0/Spoolmera/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Cenn0/Spoolmera/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 
+**Explore:** [Interface](#interface) · [Features](#features) · [Docker quick start](#quick-start-with-docker) · [Printer safety](#printer-integration-and-safety) · [Docs](docs/README.md)
+
 <img src="frontend/public/spoolmera-wordmark.svg" alt="Spoolmera — Your 3D Printing Workspace" width="400">
 
 **Your self-hosted 3D printing workspace:** manage filament products, individual spools, storage locations, print jobs and supported local printer connections.
@@ -12,18 +14,6 @@
 [![CodeQL](https://github.com/Cenn0/Spoolmera/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/Cenn0/Spoolmera/actions/workflows/codeql.yml)
 
 > **Status: experimental v0.10.0.** Source code is available; this is not a certified printer-control system or a stable hosted service. CI artifacts are test builds, not signed product releases.
-
-## Features
-
-- **Filaments and spools:** Product catalog, material/color variants, individual physical spools, remaining/tare weight, locations, conditions and low-stock indications.
-- **Inventory workflow:** Search and filters, color-coded cards, storage board, drag-and-drop with alternatives, transactional movements, manual weighing and traceable corrections.
-- **Labels and import:** Printable QR labels, CSV import/export and one-time Spoolman JSON snapshot import (not ongoing synchronization).
-- **Printing:** Print-job tracking, G-code/3MF metadata inspection, explicit mapping from tools to spools and review of estimated versus actual use.
-- **Connections:** Local Moonraker/Klipper, OctoPrint and an **experimental, unofficial Bambu Lab LAN MQTT adapter**.
-- **Operations:** Role-based access, first-run admin setup, diagnostics and guarded SQLite backup/restore. Optional isolated slicing worker and notification sidecar.
-- **Interface:** Responsive Angular web app with English/German localization and light/dark modes.
-
-A print job, imported metadata or advisory reservation does **not** automatically start a physical print or deduct material. An explicitly enabled Bambu completion workflow can record **estimated** consumption after strict task correlation; uncertain outcomes require manual review.
 
 ## Interface
 
@@ -43,6 +33,18 @@ A print job, imported metadata or advisory reservation does **not** automaticall
 </details>
 
 Screenshots use synthetic demonstration data, not connected physical hardware. See [screenshot provenance](docs/screenshots/README.md).
+
+## Features
+
+- **Filaments and spools:** Product catalog, material/color variants, individual physical spools, remaining/tare weight, locations, conditions and low-stock indications.
+- **Inventory workflow:** Search and filters, color-coded cards, storage board, drag-and-drop with alternatives, transactional movements, manual weighing and traceable corrections.
+- **Labels and import:** Printable QR labels, CSV import/export and one-time Spoolman JSON snapshot import (not ongoing synchronization).
+- **Printing:** Print-job tracking, G-code/3MF metadata inspection, explicit mapping from tools to spools and review of estimated versus actual use.
+- **Connections:** Local Moonraker/Klipper, OctoPrint and an **experimental, unofficial Bambu Lab LAN MQTT adapter**.
+- **Operations:** Role-based access, first-run admin setup, diagnostics and guarded SQLite backup/restore. Optional isolated slicing worker and notification sidecar.
+- **Interface:** Responsive Angular web app with English/German localization and light/dark modes.
+
+A print job, imported metadata or advisory reservation does **not** automatically start a physical print or deduct material. An explicitly enabled Bambu completion workflow can record **estimated** consumption after strict task correlation; uncertain outcomes require manual review.
 
 ## Quick start with Docker
 
@@ -105,6 +107,10 @@ npm run build
 ```
 
 CI additionally runs targeted container, browser, migration/recovery and dependency checks. Simulated integrations and passing automated tests do not prove compatibility or safety on real printers. See [testing](docs/testing.md) and [architecture](docs/architecture.md).
+
+## Contributing and public reports
+
+Contributions should include a reproducible test and update the relevant [operating guide](docs/README.md). Report a vulnerability using the [private security process](SECURITY.md); use sanitized example spools and simulated printer responses in public issues. Real hardware commands require supervised testing and are not certified by CI.
 
 ## Documentation and license
 
