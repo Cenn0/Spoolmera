@@ -2,13 +2,14 @@
 
 **Sprache:** [English](README.md) · **Deutsch**
 
+[![CI](https://github.com/Cenn0/Spoolmera/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Cenn0/Spoolmera/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+
 <img src="frontend/public/spoolmera-wordmark.svg" alt="Spoolmera — Your 3D Printing Workspace" width="400">
 
 **Dein selbst gehosteter Arbeitsbereich für den 3D-Druck:** Filamentprodukte, einzelne Spulen, Lagerorte, Druckaufträge und unterstützte lokale Drucker zentral verwalten.
 
-[![CI](https://github.com/Cenn0/Spoolmera/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Cenn0/Spoolmera/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/Cenn0/Spoolmera/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/Cenn0/Spoolmera/actions/workflows/codeql.yml)
-[![Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 > **Status: experimentelles Projekt v0.10.0.** Der Quellcode ist öffentlich; Spoolmera ist kein zertifiziertes Druckersteuerungssystem und kein stabil betriebener Cloud-Dienst. CI-Artefakte sind Test-Builds, keine signierten Produktveröffentlichungen.
 
