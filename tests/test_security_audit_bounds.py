@@ -273,3 +273,20 @@ def test_operation_lock_refuses_symlink_without_modifying_target(tmp_path):
     normal = ProcessLock(tmp_path / ".spoolmera.sqlite3.application.lock")
     assert normal.acquire()
     normal.release()
+
+
+def test_legacy_gcode_estimate_rejects_multiline_metadata_and_accepts_crlf():
+    # The separator cannot absorb a newline and borrow an unsigned following line.
+    assert jobs.estimate_gcode(b";\nfilament_weight_g = 23\n") is None
+    assert jobs.estimate_gcode(b"; filament_weight_g = 23\r\n") == 23
+    assert jobs.estimate_gcode(b"; filament used [g] = 23.4\r\n") == 23
+
+
+def test_metadata_inspection_accepts_crlf_gcode_comments():
+    assert gcode_tool_estimates(b"; filament used [g] = 12.5, 8\r\n") == [
+        {"tool": 0, "estimated_g": 13},
+        {"tool": 1, "estimated_g": 8},
+    ]
+    assert gcode_tool_estimates(b"; filament_weight_g = 10.2\r\n") == [
+        {"tool": 0, "estimated_g": 10},
+    ]
