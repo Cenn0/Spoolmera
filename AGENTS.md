@@ -43,7 +43,7 @@ Extend the existing module owner; avoid parallel state stores, duplicated busine
 - Keep printer network boundaries: exact private-IP allowlists, bounded communication, no redirects or proxy bypass, credentials outside the database and verified TLS certificate pinning where required. Bambu LAN MQTT is an **unofficial community integration**, not guaranteed vendor support or hardware certification.
 - Preserve authentication, role enforcement, session/CSRF protection, audit trails and least-privilege credentials. Do not weaken security checks to make a test or integration pass.
 - One application process per local SQLite database is the supported deployment. Preserve existing data through additive, versioned migrations and tested backup/restore behavior; never assume downgrades are supported.
-- Never commit secrets, live inventory, private printer profiles, actual access codes, local database files or generated runtime/build output. Do not expose sensitive vulnerability details in public issues or PRs; use [SECURITY.md](SECURITY.md).
+- Never commit secrets, live inventory, private printer profiles, actual access codes, personal contact addresses, local database files or generated runtime/build output. Prefer the contributor's GitHub noreply commit identity; do not copy real email addresses into the source tree. Do not expose sensitive vulnerability details in public issues or PRs; use [SECURITY.md](SECURITY.md).
 - Keep hardware tests and simulated-controller tests explicitly distinguished. Do not claim that green CI certifies a printer, physical operation or security posture.
 
 ## Implementing a feature

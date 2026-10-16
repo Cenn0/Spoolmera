@@ -21,6 +21,12 @@ Both test locks may be installed in one development environment. Runtime contain
 
 These controls reproduce dependency selection and verify Python distributions. They do **not** promise byte-identical Docker builds: Debian transitive packages are not frozen to a historical apt snapshot, timestamps vary, and the optional package repository must still supply the pinned slicer version. The built image ID and archive hash are recorded in each test artifact.
 
+## Release licenses and software inventory
+
+The default and optional application images ship the project's Apache-2.0 LICENSE and a third-party license overview at `/usr/share/doc/spoolmera/`. `scripts/collect_python_licenses.py` reads exactly the pinned runtime distributions and includes their packaged license/notice files and a JSON component manifest. `frontend/scripts/collect-license-notices.mjs` collects notices for installed production npm packages and fails the build if a required notice is missing. Debian copyright files for installed system packages remain under `/usr/share/doc/`; the optional PrusaSlicer worker specifically verifies `/usr/share/doc/prusa-slicer/copyright`.
+
+The `docker-smoke` job verifies these files and copies runtime notices into the downloadable CI test bundle. `security-audit` additionally produces a production npm CycloneDX SBOM for inspection; this is **not** a complete SBOM for Debian packages or the optional slicer image. For any stable binary release, inventory Debian/system packages separately and verify the license/source-offer obligations of the exact image build. Details: [License compliance](license-compliance.md).
+
 ## Deliberate update procedure
 
 Review direct version changes in the `.in` files first. Using the recorded generator (`uv 0.12.23` for this update), resolve and hash the supported target:
