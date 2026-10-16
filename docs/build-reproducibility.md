@@ -1,6 +1,6 @@
 # Build inputs and dependency updates
 
-The release target is CPython 3.12 on Linux; the CI image artifact is `linux/amd64`. Backend and frontend package versions are **0.10.0**. Other architectures in an upstream manifest do not imply application validation on those hosts.
+The release target is CPython 3.12 on Linux; tagged experimental test bundles target `linux/amd64`. Backend and frontend package versions are **0.10.0**. Other architectures in an upstream manifest do not imply application validation on those hosts.
 
 ## What is locked
 
@@ -19,13 +19,13 @@ python -m pip install --require-hashes -r requirements-e2e.txt
 
 Both test locks may be installed in one development environment. Runtime containers install only `requirements.txt`.
 
-These controls reproduce dependency selection and verify Python distributions. They do **not** promise byte-identical Docker builds: Debian transitive packages are not frozen to a historical apt snapshot, timestamps vary, and the optional package repository must still supply the pinned slicer version. The built image ID and archive hash are recorded in each test artifact.
+These controls reproduce dependency selection and verify Python distributions. They do **not** promise byte-identical Docker builds: Debian transitive packages are not frozen to a historical apt snapshot, timestamps vary, and the optional package repository must still supply the pinned slicer version. The tagged test release metadata records the released image ID and archive hash.
 
 ## Release licenses and software inventory
 
 The default and optional application images ship the project's Apache-2.0 LICENSE and a third-party license overview at `/usr/share/doc/spoolmera/`. `scripts/collect_python_licenses.py` reads exactly the pinned runtime distributions and includes their packaged license/notice files and a JSON component manifest. `frontend/scripts/collect-license-notices.mjs` collects notices for installed production npm packages and fails the build if a required notice is missing. Debian copyright files for installed system packages remain under `/usr/share/doc/`; the optional PrusaSlicer worker specifically verifies `/usr/share/doc/prusa-slicer/copyright`.
 
-The `docker-smoke` job verifies these files and copies runtime notices into the downloadable CI test bundle. `security-audit` additionally produces a production npm CycloneDX SBOM for inspection; this is **not** a complete SBOM for Debian packages or the optional slicer image. For any stable binary release, inventory Debian/system packages separately and verify the license/source-offer obligations of the exact image build. Details: [License compliance](license-compliance.md).
+The `docker-smoke` job verifies these files; the tagged test-release workflow copies runtime notices into the downloadable release bundle. `security-audit` additionally validates a production npm CycloneDX SBOM in-job without storing it; this is **not** a complete SBOM for Debian packages or the optional slicer image. For any stable binary release, inventory Debian/system packages separately and verify the license/source-offer obligations of the exact image build. Details: [License compliance](license-compliance.md).
 
 ## Deliberate update procedure
 
@@ -43,10 +43,10 @@ Regenerate API declarations with `python scripts/generate_api_types.py`; CI uses
 
 ## Browser screenshot provenance
 
-A successful `browser-smoke` job publishes genuine German and UI/UX Chromium captures using a synthetic, disposable database. Reviewed images are checked in under [`docs/screenshots/`](screenshots/README.md), referenced by the README and accompanied by a source commit and run identifier. The files are not a claim of physical printer certification, and CI artifacts are only temporarily available.
+A successful `browser-smoke` job validates genuine German and UI/UX Chromium captures from a synthetic, disposable database without uploading them. Reviewed images are checked in under [`docs/screenshots/`](screenshots/README.md), referenced by the README and accompanied by a source commit and run identifier. The files are not a claim of physical printer certification; complete fresh captures can be regenerated locally.
 
-## Test artifact provenance
+## Tagged test-release provenance
 
-The Docker CI job produces `spoolmera-0.10.0-test-linux-amd64`. Its `release.json` identifies version, schema, tested checkout commit and Docker image ID. `SHA256SUMS` covers the archive and supporting files. `TESTING.md` explains the isolated test volume and launcher. Validate checksums before importing the image.
+Routine CI runs have no persistent Actions artifacts or dependency caches. The tag-triggered test release runs all CI gates, then rebuilds and smoke-tests a Linux amd64 Docker image from the tagged commit. Its `release.json` identifies version, schema, source tag/commit and image ID. `SHA256SUMS` inside the bundle covers the image archive and accompanying files, while `SHA256SUMS.txt` on GitHub Releases verifies the outer downloadable ZIP. `TESTING.md` describes the isolated test volume and launcher.
 
-Artifacts are retained for the period configured in CI. They are downloadable test builds, not a published GitHub release or a declaration of production/hardware certification. Packaging does not change repository visibility.
+The workflow refuses version/tag mismatches and refuses to overwrite an existing release. Published assets are unsigned experimental test distributions, not a production or physical-printer certification.
