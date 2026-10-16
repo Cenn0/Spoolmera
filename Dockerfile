@@ -36,4 +36,4 @@ CMD ["uvicorn", "app.slicer_worker:app", "--host", "0.0.0.0", "--port", "8767"]
 
 # Default production build never ships the executable to the API container.
 FROM python-runtime AS app-runtime
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8765"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8765", "--limit-concurrency", "64"]

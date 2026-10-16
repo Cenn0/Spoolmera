@@ -12,6 +12,8 @@ services:
       SPOOLMERA_DB_PATH: /data/spoolmera.sqlite3
     volumes:
       - spoolmera_data:/data
+    # Preserve availability under abusive requests; tune for small self-hosted hosts.
+    mem_limit: 768m
     read_only: true
     tmpfs:
       - /tmp:rw,nosuid,size=64m

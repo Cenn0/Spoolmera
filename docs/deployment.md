@@ -98,3 +98,23 @@ Restore checks schema, identity, integrity and manifest where present; it reject
 ## Isolated test instance
 
 Run `python3 scripts/start_test.py` from the repository root to start a separate environment on **127.0.0.1:8766** with its own data volume. No hardware/printer access is enabled by default. Browser/HTTP smoke scripts create data and must **never** run against a production installation. See [Testing](testing.md).
+
+## Availability and request budgets
+
+The default image admits at most 64 concurrent Uvicorn connections/tasks, and Compose
+sets a 768 MiB memory ceiling for the main container. Public setup/login JSON is
+limited to 4 KiB at the ASGI transport boundary, including streamed requests.
+Login work is additionally limited by atomic per-client and instance-wide rolling
+budgets and at most four simultaneous password verifications. Reverse proxies
+and VPN gateways should independently restrict request size, concurrent clients
+and authentication attempts; **do not** trust arbitrary `X-Forwarded-For` headers
+as a substitute for a configured trusted proxy. NAT or reverse-proxy clients may
+share one peer-address login budget. Budget exhaustion returns HTTP 429; oversized
+public authentication requests return HTTP 413.
+
+Read-only metadata inspection runs bounded G-code and 3MF parsing off the API
+event loop. Concurrent manual/background printer polling for the same device is
+rejected or skipped rather than opening duplicate controller sessions. A manual
+poll that is already active returns HTTP 429. These safeguards protect service
+availability but do not replace container, ingress, device-network and host
+resource controls.
