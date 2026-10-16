@@ -11,7 +11,6 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
-from app import __version__
 
 ORIGIN = "https://api.openfilamentdatabase.org/api/v1/brands/"
 SLUG = re.compile(r"^[A-Za-z0-9+]+(?:_[A-Za-z0-9+]+)*$")
@@ -75,7 +74,7 @@ def fetch_catalog_json(path: str) -> dict:
         return saved
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), RejectRedirect())
     request = urllib.request.Request(
-        ORIGIN + path, headers={"Accept": "application/json", "User-Agent": f"Spoolmera/{__version__}"}
+        ORIGIN + path, headers={"Accept": "application/json", "User-Agent": "Spoolmera/0.7"}
     )
     try:
         with opener.open(request, timeout=6) as response:
