@@ -10,6 +10,8 @@ import logging
 import os
 import re
 import sqlite3
+import threading
+import weakref
 from datetime import datetime
 from pathlib import Path
 
@@ -35,6 +37,27 @@ from app.printers import (
 from urllib.parse import quote
 
 LOG = logging.getLogger(__name__)
+# Shared by scheduled and manual polling in the one-process-per-DB deployment.
+# Weak references avoid permanent gates for arbitrary or removed printer IDs.
+_POLL_GATE_GUARD = threading.Lock()
+_POLL_GATES = weakref.WeakValueDictionary()
+_GLOBAL_POLL_SLOTS = threading.BoundedSemaphore(4)
+
+
+class PollBusyError(RuntimeError):
+    """Another request already polls this printer or the global budget is full."""
+
+
+def _printer_poll_gate(db_path: Path, printer_id: int):
+    key = (str(db_path.resolve()), printer_id)
+    with _POLL_GATE_GUARD:
+        gate = _POLL_GATES.get(key)
+        if gate is None:
+            gate = threading.Lock()
+            _POLL_GATES[key] = gate
+        return gate
+
+
 MAX_GCODE = 16 * 1024 * 1024
 GRAMS_COMMENT = re.compile(
     r"(?im)^[ \t]*;\s*(?:filament used \[g\]|filament_weight_g|estimated_filament_weight_g)"
@@ -163,98 +186,107 @@ def poll_printer(db_path: Path, printer_id: int) -> dict:
         ).fetchall()}
     if not printer:
         raise ValueError("Printer is disabled or missing.")
-    adapter = adapter_for(
-        printer["kind"], status=printer_status,
-        history=moonraker_history, lookup=moonraker_job,
-    )
-    history = adapter.get_history(printer)
-    current_status = adapter.get_status(printer)
-    changed = 0
-    for job in jobs:
-        observation = adapter.observe(printer, job, history, current_status, claimed_ids)
-        outcome = observation.outcome
-        external_id = observation.external_id
-        remote_state = observation.remote_state
-        if not outcome:
-            continue
-        try:
-            with session(db_path, write=True) as db:
-                fresh = db.execute("SELECT * FROM print_jobs WHERE id=?", (job["id"],)).fetchone()
-                if fresh is None or fresh["status"] not in ("pending", "printing"):
-                    continue
-                if fresh["external_job_id"] and external_id and fresh["external_job_id"] != external_id:
-                    continue
-                if external_id and remote_state and printer["kind"] in ("moonraker", "bambu"):
-                    existing_run = db.execute(
-                        "SELECT job_id,state FROM print_runs WHERE printer_id=? AND external_run_id=?",
-                        (printer_id, external_id),
-                    ).fetchone()
-                    if existing_run and existing_run["job_id"] not in (None, job["id"]):
-                        LOG.warning("Run identity already belongs to another job; printer=%s", printer_id)
+    gate = _printer_poll_gate(db_path, printer_id)
+    if not gate.acquire(blocking=False):
+        raise PollBusyError("Printer poll is already in progress.")
+    if not _GLOBAL_POLL_SLOTS.acquire(blocking=False):
+        gate.release()
+        raise PollBusyError("Maximum concurrent printer polls reached.")
+    try:
+        adapter = adapter_for(
+            printer["kind"], status=printer_status,
+            history=moonraker_history, lookup=moonraker_job,
+        )
+        history = adapter.get_history(printer)
+        current_status = adapter.get_status(printer)
+        changed = 0
+        for job in jobs:
+            observation = adapter.observe(printer, job, history, current_status, claimed_ids)
+            outcome = observation.outcome
+            external_id = observation.external_id
+            remote_state = observation.remote_state
+            if not outcome:
+                continue
+            try:
+                with session(db_path, write=True) as db:
+                    fresh = db.execute("SELECT * FROM print_jobs WHERE id=?", (job["id"],)).fetchone()
+                    if fresh is None or fresh["status"] not in ("pending", "printing"):
                         continue
-                    if printer["kind"] == "bambu" and outcome == "completed":
-                        # MQTT FINISH alone is insufficient. Require a persisted
-                        # matching run that was observed active on an earlier poll.
-                        if (not existing_run or existing_run["job_id"] != job["id"]
-                                or existing_run["state"] not in ("printing", "paused")):
-                            outcome = "needs_review"
-                        else:
+                    if fresh["external_job_id"] and external_id and fresh["external_job_id"] != external_id:
+                        continue
+                    if external_id and remote_state and printer["kind"] in ("moonraker", "bambu"):
+                        existing_run = db.execute(
+                            "SELECT job_id,state FROM print_runs WHERE printer_id=? AND external_run_id=?",
+                            (printer_id, external_id),
+                        ).fetchone()
+                        if existing_run and existing_run["job_id"] not in (None, job["id"]):
+                            LOG.warning("Run identity already belongs to another job.")
+                            continue
+                        if printer["kind"] == "bambu" and outcome == "completed":
+                            # MQTT FINISH alone is insufficient. Require a persisted
+                            # matching run that was observed active on an earlier poll.
+                            if (not existing_run or existing_run["job_id"] != job["id"]
+                                    or existing_run["state"] not in ("printing", "paused")):
+                                outcome = "needs_review"
+                            else:
+                                db.execute(
+                                    "UPDATE print_runs SET state='completed',last_seen_at=? "
+                                    "WHERE printer_id=? AND external_run_id=?",
+                                    (utc_now(), printer_id, external_id),
+                                )
+                        if printer["kind"] == "moonraker" or outcome == "printing":
                             db.execute(
-                                "UPDATE print_runs SET state='completed',last_seen_at=? "
-                                "WHERE printer_id=? AND external_run_id=?",
-                                (utc_now(), printer_id, external_id),
+                                """INSERT INTO print_runs(printer_id,job_id,external_run_id,state,first_seen_at,last_seen_at)
+                                   VALUES(?,?,?,?,?,?)
+                                   ON CONFLICT(printer_id,external_run_id)
+                                   DO UPDATE SET state=excluded.state,last_seen_at=excluded.last_seen_at""",
+                                (printer_id, job["id"], external_id, remote_state, utc_now(), utc_now()),
                             )
-                    if printer["kind"] == "moonraker" or outcome == "printing":
+                    if outcome == "printing":
+                        confirm_job_command(db, job["id"])
                         db.execute(
-                            """INSERT INTO print_runs(printer_id,job_id,external_run_id,state,first_seen_at,last_seen_at)
-                               VALUES(?,?,?,?,?,?)
-                               ON CONFLICT(printer_id,external_run_id)
-                               DO UPDATE SET state=excluded.state,last_seen_at=excluded.last_seen_at""",
-                            (printer_id, job["id"], external_id, remote_state, utc_now(), utc_now()),
+                            "UPDATE print_jobs SET status='printing',observed_printing=1,external_job_id=?,updated_at=? WHERE id=?",
+                            (external_id, utc_now(), job["id"]),
                         )
-                if outcome == "printing":
-                    confirm_job_command(db, job["id"])
-                    db.execute(
-                        "UPDATE print_jobs SET status='printing',observed_printing=1,external_job_id=?,updated_at=? WHERE id=?",
-                        (external_id, utc_now(), job["id"]),
-                    )
-                    if printer["kind"] == "bambu":
-                        progress = current_status.get("progress_percent")
-                        layers = current_status.get("layer_num")
-                        total_layers = current_status.get("total_layer_num")
-                        if type(progress) in (int, float) and 0 <= progress <= 100:
-                            db.execute("""UPDATE print_jobs SET last_progress_percent=MAX(COALESCE(last_progress_percent,0),?)
-                                WHERE id=?""", (round(progress), job["id"]))
-                        if type(layers) is int and 0 <= layers <= 200000:
-                            db.execute("""UPDATE print_jobs SET last_layer_num=MAX(COALESCE(last_layer_num,0),?)
-                                WHERE id=?""", (layers, job["id"]))
-                        if type(total_layers) is int and 0 < total_layers <= 200000:
-                            db.execute("UPDATE print_jobs SET total_layer_num=? WHERE id=?", (total_layers,job["id"]))
-                elif outcome == "completed":
-                    # Recheck durable identity before debiting; the external run must have been seen active.
-                    if not fresh["observed_printing"] or fresh["external_job_id"] != external_id:
-                        continue
-                    apply_consumption(db, fresh, None, reason=(
-                        "Bambu MQTT observed task finished; slicer-estimated grams, not measured"
-                        if printer["kind"] == "bambu" else None))
-                    finish_job_operation(db, job['id'])
-                else:
-                    db.execute(
-                        "UPDATE print_jobs SET status='needs_review',accounting_status=CASE WHEN accounting_status IN ('debited','discarded') THEN accounting_status ELSE 'needs_review' END,external_job_id=?,accounting_note=?,updated_at=? WHERE id=?",
-                        (external_id, "Printer completion not proven, ambiguous history or print failed. Confirm actual material usage.",
-                         utc_now(), job["id"]),
-                    )
-                    if (fresh['observed_printing'] and fresh['external_job_id'] == external_id
-                            and remote_state in ('completed', 'cancelled', 'error', 'failed')
-                            and current_status['state'].lower() in ('standby', 'complete', 'cancelled', 'operational')):
+                        if printer["kind"] == "bambu":
+                            progress = current_status.get("progress_percent")
+                            layers = current_status.get("layer_num")
+                            total_layers = current_status.get("total_layer_num")
+                            if type(progress) in (int, float) and 0 <= progress <= 100:
+                                db.execute("""UPDATE print_jobs SET last_progress_percent=MAX(COALESCE(last_progress_percent,0),?)
+                                    WHERE id=?""", (round(progress), job["id"]))
+                            if type(layers) is int and 0 <= layers <= 200000:
+                                db.execute("""UPDATE print_jobs SET last_layer_num=MAX(COALESCE(last_layer_num,0),?)
+                                    WHERE id=?""", (layers, job["id"]))
+                            if type(total_layers) is int and 0 < total_layers <= 200000:
+                                db.execute("UPDATE print_jobs SET total_layer_num=? WHERE id=?", (total_layers,job["id"]))
+                    elif outcome == "completed":
+                        # Recheck durable identity before debiting; the external run must have been seen active.
+                        if not fresh["observed_printing"] or fresh["external_job_id"] != external_id:
+                            continue
+                        apply_consumption(db, fresh, None, reason=(
+                            "Bambu MQTT observed task finished; slicer-estimated grams, not measured"
+                            if printer["kind"] == "bambu" else None))
                         finish_job_operation(db, job['id'])
-                changed += 1
-        except sqlite3.IntegrityError:
-            # Duplicate external identifiers must never trigger a second debit.
-            LOG.warning("Rejected duplicate printer job identity for printer %s", printer_id)
-    return {"printer_id": printer_id, "state": current_status["state"],
-            "filename": current_status["filename"], "updated_jobs": changed}
-
+                    else:
+                        db.execute(
+                            "UPDATE print_jobs SET status='needs_review',accounting_status=CASE WHEN accounting_status IN ('debited','discarded') THEN accounting_status ELSE 'needs_review' END,external_job_id=?,accounting_note=?,updated_at=? WHERE id=?",
+                            (external_id, "Printer completion not proven, ambiguous history or print failed. Confirm actual material usage.",
+                             utc_now(), job["id"]),
+                        )
+                        if (fresh['observed_printing'] and fresh['external_job_id'] == external_id
+                                and remote_state in ('completed', 'cancelled', 'error', 'failed')
+                                and current_status['state'].lower() in ('standby', 'complete', 'cancelled', 'operational')):
+                            finish_job_operation(db, job['id'])
+                    changed += 1
+            except sqlite3.IntegrityError:
+                # Duplicate external identifiers must never trigger a second debit.
+                LOG.warning("Rejected duplicate printer job identity.")
+        return {"printer_id": printer_id, "state": current_status["state"],
+                "filename": current_status["filename"], "updated_jobs": changed}
+    finally:
+        _GLOBAL_POLL_SLOTS.release()
+        gate.release()
 
 def poll_all(db_path: Path) -> None:
     with session(db_path) as db:
@@ -265,6 +297,10 @@ def poll_all(db_path: Path) -> None:
         try:
             poll_printer(db_path, printer_id)
             record_poll_success(db_path, printer_id)
+        except PollBusyError:
+            # Manual and background reads share the same gate. A busy printer
+            # is not an integration failure; the next cycle can retry.
+            continue
         except (ValueError, OSError, sqlite3.Error) as exc:
             record_poll_failure(db_path, printer_id, type(exc).__name__)
             LOG.warning("Read-only polling failed for printer %s", printer_id)
@@ -348,6 +384,8 @@ def register_job_routes(app: FastAPI, db_path: Path) -> None:
     def manual_poll(printer_id: int):
         try:
             return poll_printer(db_path, printer_id)
+        except PollBusyError as exc:
+            raise HTTPException(status_code=429, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
 

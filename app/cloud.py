@@ -88,6 +88,11 @@ def register_cloud_routes(app: FastAPI, db_path: Path) -> None:
                 raise HTTPException(status_code=503, detail="Cloud relay has no configured printer binding.")
             if int(bound_printer) != job["printer_id"]:
                 raise HTTPException(status_code=403, detail="Cloud relay is not authorized for this printer.")
+            # Telemetry that cannot change the tracked job is not a durable
+            # accounting event. Without this guard, one scoped relay key can
+            # create arbitrarily many audit/receipt rows for a terminal job.
+            if event.status == "printing" or job["status"] not in {"pending", "printing"}:
+                return {"duplicate": False, "disposition": "ignored_no_change"}
             disposition = "recorded"
             if event.status in {"completed", "failed", "cancelled"} and job["status"] in {"pending", "printing"}:
                 db.execute(

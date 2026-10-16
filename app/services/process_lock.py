@@ -1,5 +1,6 @@
 """Kernel-released single-host locks for operations that outlive an HTTP call."""
 import os
+import stat
 from pathlib import Path
 
 
@@ -14,8 +15,17 @@ class ProcessLock:
         if self.fd is not None:
             return True
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        fd = os.open(self.path, os.O_RDWR | os.O_CREAT, 0o600)
+        flags = os.O_RDWR | os.O_CREAT
+        if os.name == "posix":
+            # Root-run recovery must not follow entries planted in an app-owned volume.
+            if not hasattr(os, "O_NOFOLLOW"):
+                raise OSError("Safe operation-lock creation is unsupported on this platform.")
+            flags |= os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+        fd = os.open(self.path, flags, 0o600)
         try:
+            entry = os.fstat(fd)
+            if not stat.S_ISREG(entry.st_mode) or entry.st_nlink != 1:
+                raise OSError("Unsafe operation-lock file type or link count.")
             if os.name == "posix":
                 import fcntl
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)

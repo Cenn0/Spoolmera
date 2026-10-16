@@ -1,4 +1,5 @@
 """Read-only user-file inspection. Files are not persisted, sliced or uploaded."""
+import asyncio
 from fastapi import FastAPI, HTTPException, Request, Query
 from app.services.gcode_metadata import MAX_FILE, gcode_tool_estimates, three_mf_plate_estimates
 from app.api.contracts import InspectionResponse
@@ -22,9 +23,9 @@ def register_inspection_routes(app: FastAPI) -> None:
         try:
             payload = b"".join(chunks)
             if lower.endswith(".3mf"):
-                plates = three_mf_plate_estimates(payload)
+                plates = await asyncio.to_thread(three_mf_plate_estimates, payload)
             else:
-                tools = gcode_tool_estimates(payload)
+                tools = await asyncio.to_thread(gcode_tool_estimates, payload)
                 plates = [{"plate": 1, "materials": tools}] if tools else []
         except (ValueError, OverflowError) as exc:
             raise HTTPException(422, str(exc)) from exc
