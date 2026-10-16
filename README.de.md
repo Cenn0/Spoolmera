@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/branding/banner-dark.svg">
+  <img src="docs/branding/banner-light.svg" alt="Spoolmera — Your 3D Printing Workspace. Filament and print jobs." width="1200">
+</picture>
+
 # Spoolmera
 
 **Marke und UI-Design:** [Logo sowie helle und dunkle Designvorlagen](docs/branding/README.md) (Konzeptgrafiken, keine Produktscreenshots).
@@ -8,8 +13,6 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 
 **Direkt zu:** [Oberfläche](#oberfläche) · [Funktionen](#funktionen) · [Docker-Schnellstart](#schnellstart-mit-docker) · [Druckersicherheit](#druckeranbindung-und-sicherheit) · [Dokumentation](docs/README.md)
-
-<img src="frontend/public/spoolmera-wordmark.svg" alt="Spoolmera — Your 3D Printing Workspace" width="400">
 
 **Dein selbst gehosteter Arbeitsbereich für den 3D-Druck:** Filamentprodukte, einzelne Spulen, Lagerorte, Druckaufträge und unterstützte lokale Drucker zentral verwalten.
 

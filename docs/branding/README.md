@@ -1,5 +1,14 @@
 # Spoolmera branding and UI design references
 
+## Brand banners
+
+The light and dark banners include the project's existing filament-spool brand symbol, product name, and the established slogan. The README uses a theme-aware `<picture>` element to select the banner without scripts.
+
+- [Light banner](banner-light.svg)
+- [Dark banner](banner-dark.svg)
+
+The [compact mark](logo.svg) remains appropriate for navigation and favicons; the banner is intended for README headers and presentations, not for replacing interactive UI components. All SVGs are self-contained with no external fonts or images.
+
 **Status:** visual design concepts, not screenshots, shipped features, or evidence of product readiness.
 
 | Asset | Purpose |
