@@ -266,5 +266,5 @@ jobs:
           if sbom.get("bomFormat") != "CycloneDX" or not sbom.get("components"):
               raise SystemExit("Missing or invalid CycloneDX component inventory")
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as result:
-              result.write(f"### Frontend SBOM\n\nCycloneDX components: {len(sbom['components'])}; SHA-256: \`{hashlib.sha256(data).hexdigest()}\` (generated in-job, not uploaded).\n")
+              result.write(f"### Frontend SBOM\n\nCycloneDX components: {len(sbom['components'])}; SHA-256: `{hashlib.sha256(data).hexdigest()}` (generated in-job, not uploaded).\n")
           PY
