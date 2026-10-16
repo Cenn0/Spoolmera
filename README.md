@@ -1,5 +1,7 @@
 # Spoolmera
 
+**Language:** **English** · [Deutsch](README.de.md)
+
 <img src="frontend/public/spoolmera-wordmark.svg" alt="Spoolmera — Your 3D Printing Workspace" width="400">
 
 **Your self-hosted 3D printing workspace:** manage filament products, individual spools, storage locations, print jobs and supported local printer connections.
