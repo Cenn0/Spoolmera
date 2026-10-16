@@ -22,11 +22,33 @@ const originals = new Set([
   'English', 'Deutsch', 'PLA', 'workshop-spoolman',
 ]);
 
+// Measurement strings are checked with a linear scanner rather than a
+// quantified alternation that can backtrack over long, invalid source text.
+const MEASUREMENT_TOKENS = Object.freeze([
+  'MiB', 'GiB', 'min', 'kg', 'mg', 'mm', 'cm', 'ms', 'MB', 'GB', '°C', '°F',
+  'g', 'm', 's', 'h', 'T',
+]);
+const MEASUREMENT_CHAR = /^[\s\d.,:;·\/×+−\-()%#=]$/u;
+
+export function isMeasurementText(text) {
+  if (!text) return false;
+  for (let i = 0; i < text.length;) {
+    if (MEASUREMENT_CHAR.test(text[i])) {
+      i++;
+      continue;
+    }
+    const token = MEASUREMENT_TOKENS.find(part => text.startsWith(part, i));
+    if (!token) return false;
+    i += token.length;
+  }
+  return true;
+}
+
 function originalText(value) {
   const text = value.trim().replace(/\s+/g, ' ');
   if (!/\p{L}/u.test(text) || originals.has(text)) return true;
   // Measurements, tool numbers/prefixes, API examples, URLs, environment keys.
-  if (/^(?:[\s\d.,:;·/×+−\-()%#=]|kg|mg|mm|cm|min|ms|MiB|GiB|MB|GB|°C|°F|g|m|s|h|T)+$/.test(text)) return true;
+  if (isMeasurementText(text)) return true;
   if (/^(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)(?:\s+\/\S+)?$/.test(text)) return true;
   if (/^(?:https?:\/\/\S+|\/[A-Za-z0-9_/?&=.#%<>:+-]+|SPOOLMERA_[A-Z0-9_]+)$/.test(text)) return true;
   return false;
