@@ -2,13 +2,14 @@
 
 **Language:** **English** · [Deutsch](README.de.md)
 
+[![CI](https://github.com/Cenn0/Spoolmera/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Cenn0/Spoolmera/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+
 <img src="frontend/public/spoolmera-wordmark.svg" alt="Spoolmera — Your 3D Printing Workspace" width="400">
 
 **Your self-hosted 3D printing workspace:** manage filament products, individual spools, storage locations, print jobs and supported local printer connections.
 
-[![CI](https://github.com/Cenn0/Spoolmera/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Cenn0/Spoolmera/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/Cenn0/Spoolmera/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/Cenn0/Spoolmera/actions/workflows/codeql.yml)
-[![Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 > **Status: experimental v0.10.0.** Source code is available; this is not a certified printer-control system or a stable hosted service. CI artifacts are test builds, not signed product releases.
 
