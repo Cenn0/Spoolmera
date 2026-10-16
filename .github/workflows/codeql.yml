@@ -41,3 +41,32 @@ jobs:
           queries: security-extended
       - name: Analyze
         uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+# PR-local, temporary diagnostic: print only CodeQL rule IDs and source
+      # locations, never taint traces, source snippets or exploit details.
+      - name: Summarize analysis locations for triage
+        if: github.event_name == 'pull_request' && github.event.pull_request.number == 30
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import glob
+          import json
+          import os
+          for path in glob.glob(os.path.join(os.environ['RUNNER_WORKSPACE'], 'results', '*.sarif')):
+              try:
+                  document = json.load(open(path, encoding='utf-8'))
+              except (OSError, ValueError):
+                  continue
+              for run in document.get('runs', []):
+                  rules = {rule.get('id'): rule for rule in run.get('tool', {}).get('driver', {}).get('rules', [])}
+                  for result in run.get('results', []):
+                      rule_id = result.get('ruleId', 'unknown')
+                      rule = rules.get(rule_id, {})
+                      severity = rule.get('properties', {}).get('security-severity', '')
+                      if not severity:
+                          continue
+                      locations = result.get('locations', [])
+                      physical = (locations[0].get('physicalLocation', {}) if locations else {})
+                      uri = physical.get('artifactLocation', {}).get('uri', '?')
+                      line = physical.get('region', {}).get('startLine', '?')
+                      print(f'CODEQL TRIAGE: {rule_id} in {uri}:{line}; CVSS={severity}')
+          PY
