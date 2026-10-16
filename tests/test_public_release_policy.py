@@ -39,11 +39,15 @@ def test_lockfile_runtime_components_have_license_metadata():
         assert pkg.get("license"), name
 
 
-def test_container_and_ci_ship_notices():
+def test_container_ci_and_tagged_release_ship_notices():
     docker = (ROOT / "Dockerfile").read_text(encoding="utf-8")
     ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    release = (ROOT / ".github/workflows/release-test.yml").read_text(encoding="utf-8")
     assert "COPY LICENSE THIRD_PARTY_LICENSES.md /usr/share/doc/spoolmera/" in docker
     assert "python-licenses.txt" in docker
     assert "npm-licenses.txt" in docker
-    assert "cp LICENSE THIRD_PARTY_LICENSES.md test-release/" in ci
+    assert "cp LICENSE THIRD_PARTY_LICENSES.md test-release/" in release
     assert "frontend-sbom.cdx.json" in ci
+    assert "Verify generated SBOM without uploading" in ci
+    assert "actions/upload-artifact" not in ci
+    assert "actions/upload-artifact" not in release
