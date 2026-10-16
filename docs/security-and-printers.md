@@ -4,7 +4,7 @@
 
 First-administrator setup requires `SPOOLMERA_BOOTSTRAP_TOKEN` (a unique, unpredictable string of at least 24 characters). Accounts use Argon2id (19 MiB memory, 2 iterations, parallelism 1) and a minimum of 14 characters. Previous development-only scrypt hashes can be verified and are upgraded on login. Random session credentials are stored only as SHA-256 hashes; browser cookies use HttpOnly, SameSite=Lax and Secure when configured. Session-bound CSRF headers protect state-changing operations.
 
-Roles: **viewer** can inspect inventory, **editor** can change inventory and manage tracked jobs, and **admin** can additionally manage user accounts and printer configuration. Role changes revoke existing sessions. The last enabled administrator cannot be removed. Login attempts are throttled per client/user pair.
+Roles: **viewer** can inspect inventory, **editor** can change inventory and manage tracked jobs, and **admin** can additionally manage user accounts and printer configuration. Role changes revoke existing sessions. The last enabled administrator cannot be removed. Login work is throttled per client/username pair, peer address and instance-wide budget; concurrent password verification is bounded. Reverse proxies should additionally enforce ingress-level request throttling.
 
 For WAN use keep network access restricted through a VPN or properly configured HTTPS reverse proxy, set `SPOOLMERA_PUBLIC_BASE_URL` to the actual origin and set `SPOOLMERA_COOKIE_SECURE=1`. Do not expose direct HTTP to the internet.
 
@@ -57,7 +57,7 @@ Existing `/api/integrations/v1/*` remains read-only; it now requires an authenti
 
 ## Known limitations
 
-No OAuth/SSO, MFA, native cloud-vendor API integration, automatic tool mapping, tenant isolation or physical filament weighing. The optional slicer now runs in a restricted, internal-only container; this reduces risk but is not a formal malware sandbox. Opt-in slicing, uploads, controls and signed vendor-neutral cloud bridge exist with explicit constraints in [Operations](operations.md). SQLite backups must be consistent across WAL files. Upgrading to DB v4 is forward-only without restoring a backup.
+No OAuth/SSO, MFA, native cloud-vendor API integration, automatic tool mapping, tenant isolation or physical filament weighing. The optional slicer now runs in a restricted, internal-only container; this reduces risk but is not a formal malware sandbox. Opt-in slicing, uploads, controls and signed vendor-neutral cloud bridge exist with explicit constraints in [Operations](operations.md). SQLite backups must be consistent across WAL files. The current database schema is version 12; migrations are forward-only. Downgrades require a matching pre-upgrade backup and the corresponding older application.
 
 Original device documentation:
 
