@@ -35,26 +35,31 @@ docker compose -p spoolmera-test -f compose.test.yaml down -v
 Existing `.env.test` is never overwritten. If it no longer contains the original
 bootstrap token and setup is incomplete, repair that file before starting.
 
-## Download a tested image from GitHub Actions
+## Download a versioned experimental test image
 
-Open a successful CI run on `main`, then download
-the versioned artifact **spoolmera-0.10.0-test-linux-amd64** (available for seven days).
-Extract it into a separate directory. It contains the same Docker image that
-passed real HTTP checks and a restart/persistence check, plus a launcher.
-The complete `main` CI run must also have passed API/build, browser and security audit jobs. Fork pull requests execute tests, but no downloadable Docker image is published until the code is merged into `main`.
+Regular pull request and `main` CI builds are tested without storing Actions artifacts or caches.
+Maintainer-created version tags matching `v<app version>` run the complete CI suite again.
+After all gates pass, the tag workflow builds and smoke-tests a fresh Docker image and publishes
+a test bundle under [GitHub Releases](https://github.com/Cenn0/Spoolmera/releases).
+No bundle exists until a version tag is intentionally published. Release archives are unsigned
+experimental testing material, not production- or hardware-certified builds.
+
+Download the `spoolmera-vX.Y.Z-test-linux-amd64.zip` asset and its `SHA256SUMS.txt`,
+verify the ZIP using `sha256sum -c SHA256SUMS.txt`, then extract and change directory:
 
 ```bash
+unzip spoolmera-vX.Y.Z-test-linux-amd64.zip
+cd test-release
+sha256sum -c SHA256SUMS
 docker load -i spoolmera-image.tar.gz
 python scripts/start_test.py --prebuilt
 ```
 
 Open **http://127.0.0.1:8766** and use the token in `.env.test` for first setup.
-The artifact targets Linux amd64, including Docker Desktop with Linux containers
-on x86-64 Windows. ARM hosts should build from source; no native ARM image was
-validated by this workflow. SHA256SUMS contains the image archive checksum.
-`release.json` records the application/schema versions, source commit and Docker image ID.
-SHA256SUMS covers the image archive, launcher, Compose file and accompanying metadata.
-No secrets, database or pre-created accounts are shipped in the image.
+The tested archive targets Linux amd64, including Docker Desktop with Linux containers
+on x86-64 Windows. ARM hosts should build from source; this release workflow does not
+validate ARM images. `release.json` records the version, schema, source commit, tag and image ID.
+No secrets, databases or pre-created accounts are shipped.
 
 ## Suggested manual acceptance checks
 
@@ -108,7 +113,7 @@ disposable test instance; they are not credentials for a vendor cloud service.
 
 ## Verified UI screenshots
 
-The browser CI job creates **real Chromium screenshots from synthetic example data** after exercising the Angular UI in light, dark and mobile layouts. Successful runs publish the artifacts `ui-ux-previews` and `german-interface-previews`; failure evidence is kept separately. Five screenshots from the verified [2026-10-10 CI run](https://github.com/Cenn0/Spoolmera/actions/runs/38064112965) are committed under [`docs/screenshots/`](screenshots/README.md) and embedded in the project README, so images remain available after short-lived Actions artifacts expire. The [provenance guide](screenshots/README.md) maps the filenames and explains how to recapture them after frontend changes. They are visual regression evidence, **not** hardware compatibility results or a complete accessibility audit.
+The browser CI job creates **real Chromium screenshots from synthetic example data** after exercising the Angular UI in light, dark and mobile layouts. CI validates the captured previews and the complete audit locally, but does not upload them to Actions storage. For durable previews, use the reviewed screenshots committed under `docs/screenshots/`. Five screenshots from the verified [2026-10-10 CI run](https://github.com/Cenn0/Spoolmera/actions/runs/38064112965) are committed under [`docs/screenshots/`](screenshots/README.md) and embedded in the project README, so images remain available after short-lived Actions artifacts expire. The [provenance guide](screenshots/README.md) maps the filenames and explains how to recapture them after frontend changes. They are visual regression evidence, **not** hardware compatibility results or a complete accessibility audit.
 
 ### Complete view inventory
 
@@ -154,9 +159,9 @@ Open `index.html` for the screenshot gallery and `manifest.json` for the exact
 requested state matrix, actual captures, errors and geometry measurements.
 The gallery links each preview to its complete screenshot. Focused states also
 have viewport captures; full-page images start at the top of the document so
-fixed navigation is not displaced by screenshot scrolling. CI uploads the
-complete directory as **`ui-all-views-audit`**, including partial evidence on
-failure, with seven-day retention.
+fixed navigation is not displaced by screenshot scrolling. CI validates the complete directory locally but does not upload it. To inspect
+full-resolution evidence, run the command above locally; GitHub Actions retains
+only the test outcome and logs.
 
 The strict gate rejects missing requested states, capture failures, JavaScript
 page errors, horizontal document overflow and concrete regressions such as

@@ -1,0 +1,152 @@
+name: Publish tagged experimental test bundle
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spoolmera-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify complete CI on tagged commit
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  publish:
+    name: Build and publish tested Linux amd64 bundle
+    needs: verify
+    if: github.repository == 'Cenn0/Spoolmera'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Verify release tag matches exact project version
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          from app import __version__
+          expected = f'v{__version__}'
+          actual = os.environ["GITHUB_REF_NAME"]
+          if actual != expected:
+              raise SystemExit(f"Release tag {actual!r} does not match project version {expected!r}")
+          PY
+          git tag --points-at HEAD | grep -Fx -- "$GITHUB_REF_NAME"
+          # Release only commits already integrated into the protected main history.
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD || { echo "Tag commit is not reachable from main." >&2; exit 1; }
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Refusing to overwrite an existing GitHub release." >&2
+            exit 1
+          fi
+      - name: Build Docker image from verified source
+        run: docker build --tag spoolmera:test .
+      - name: Verify license inventory in published image
+        shell: bash
+        run: |
+          docker run --rm --entrypoint /bin/sh spoolmera:test -ec '
+            test -s /usr/share/doc/spoolmera/LICENSE
+            test -s /usr/share/doc/spoolmera/THIRD_PARTY_LICENSES.md
+            test -s /usr/share/doc/spoolmera/npm-licenses.txt
+            test -s /usr/share/doc/spoolmera/python-licenses.txt
+            test -s /usr/share/doc/spoolmera/python-dependencies.json
+          '
+      - name: Smoke-test release image and persistence
+        shell: bash
+        run: |
+          set -euo pipefail
+          export SPOOLMERA_BOOTSTRAP_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+          docker volume create spoolmera-release-check >/dev/null
+          container="$(docker run --detach --read-only --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp:rw,nosuid --env SPOOLMERA_BOOTSTRAP_TOKEN --mount type=volume,source=spoolmera-release-check,target=/data --publish 127.0.0.1:8765:8765 spoolmera:test)"
+          trap 'docker rm -f "$container" >/dev/null 2>&1 || true; docker volume rm spoolmera-release-check >/dev/null 2>&1 || true' EXIT
+          ready=0
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8765/api/health | grep -q '"status":"ok"'; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" = 1 || { docker logs "$container"; exit 1; }
+          python3 scripts/http_smoke.py
+          docker restart "$container" >/dev/null
+          ready=0
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8765/api/health >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" = 1 || { docker logs "$container"; exit 1; }
+          python3 scripts/http_smoke.py --persistence
+      - name: Assemble versioned bundle with checksums and notices
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p test-release/scripts
+          docker save spoolmera:test | gzip > test-release/spoolmera-image.tar.gz
+          cp compose.test.yaml test-release/
+          cp scripts/start_test.py test-release/scripts/
+          cp docs/testing.md test-release/TESTING.md
+          cp docs/build-inputs.json test-release/
+          cp LICENSE THIRD_PARTY_LICENSES.md test-release/
+          image_container="$(docker create spoolmera:test)"
+          trap 'docker rm "$image_container" >/dev/null 2>&1 || true' EXIT
+          docker cp "$image_container":/usr/share/doc/spoolmera/npm-licenses.txt test-release/npm-licenses.txt
+          docker cp "$image_container":/usr/share/doc/spoolmera/python-licenses.txt test-release/python-licenses.txt
+          docker cp "$image_container":/usr/share/doc/spoolmera/python-dependencies.json test-release/python-dependencies.json
+          docker rm "$image_container" >/dev/null
+          trap - EXIT
+          python3 - <<'PY'
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+          from app import __version__
+          from app.infrastructure.database.migrations import CURRENT_SCHEMA_VERSION
+          root = Path('test-release')
+          image_id = subprocess.check_output(['docker', 'image', 'inspect', '--format', '{{.Id}}', 'spoolmera:test'], text=True).strip()
+          (root / 'release.json').write_text(json.dumps({
+              'version': __version__, 'schema_version': CURRENT_SCHEMA_VERSION,
+              'tag': os.environ['GITHUB_REF_NAME'],
+              'commit': os.environ['GITHUB_SHA'], 'platform': 'linux/amd64',
+              'image_tag': 'spoolmera:test', 'image_id': image_id,
+              'image_archive': 'spoolmera-image.tar.gz',
+              'status': 'experimental prerelease; not production or hardware certified',
+          }, indent=2) + '\n')
+          lines = []
+          for path in sorted(root.rglob('*')):
+              if path.is_file():
+                  with path.open('rb') as contents:
+                      digest = hashlib.file_digest(contents, 'sha256').hexdigest()
+                  lines.append(digest + '  ' + path.relative_to(root).as_posix())
+          (root / 'SHA256SUMS').write_text('\n'.join(lines) + '\n')
+          PY
+          archive="spoolmera-${GITHUB_REF_NAME}-test-linux-amd64.zip"
+          zip -qr "$archive" test-release
+          unzip -t "$archive" >/dev/null
+          sha256sum "$archive" > SHA256SUMS.txt
+          echo "BUNDLE_ARCHIVE=$archive" >> "$GITHUB_ENV"
+      - name: Publish unsigned experimental prerelease
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$GITHUB_REF_NAME" "$BUNDLE_ARCHIVE" SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "Spoolmera $GITHUB_REF_NAME (experimental test)" \
+            --notes "Experimental, unsigned test build from the tagged source commit. Not certified for production operation or physical printer control. Verify SHA256SUMS.txt before extracting; see docs/testing.md." \
+            --prerelease --latest=false
