@@ -60,8 +60,8 @@ def _printer_poll_gate(db_path: Path, printer_id: int):
 
 MAX_GCODE = 16 * 1024 * 1024
 GRAMS_COMMENT = re.compile(
-    r"(?im)^[ \t]*;\s*(?:filament used \[g\]|filament_weight_g|estimated_filament_weight_g)"
-    r"\s*[:=]\s*(\d{1,5}(?:\.\d{1,3})?)\s*$"
+    r"(?im)^[ \t]*;[ \t]*(?:filament used \[g\]|filament_weight_g|estimated_filament_weight_g)"
+    r"[ \t]*[:=][ \t]*(\d{1,5}(?:\.\d{1,3})?)[ \t]*\r?$"
 )
 
 
