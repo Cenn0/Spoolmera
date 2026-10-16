@@ -40,6 +40,7 @@ def test_tagged_release_requires_ci_verification_and_checksums():
     assert "if: github.repository == 'Cenn0/Spoolmera'" in release
     assert "      contents: write" in release
     assert "Verify release tag matches exact project version" in release
+    assert "git merge-base --is-ancestor" in release
     assert "gh release create" in release
     assert "--verify-tag" in release
     assert "sha256sum" in release
