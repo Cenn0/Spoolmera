@@ -60,6 +60,10 @@ def metadata_consistency_errors(root: Path) -> list[str]:
     documented_schema = re.search(r"Current SQLite schema version:\s*\*\*(\d+)\*\*", architecture)
     if documented_schema is None or int(documented_schema.group(1)) != schema_version:
         errors.append(f"docs/architecture.md: schema version must match CURRENT_SCHEMA_VERSION={schema_version}")
+    security_guide = (root / "docs/security-and-printers.md").read_text(encoding="utf-8")
+    security_schema = re.search(r"The current database schema is version (\d+)", security_guide)
+    if security_schema is None or int(security_schema.group(1)) != schema_version:
+        errors.append(f"docs/security-and-printers.md: schema version must match CURRENT_SCHEMA_VERSION={schema_version}")
     return errors
 
 

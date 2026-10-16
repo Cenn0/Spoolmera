@@ -193,7 +193,7 @@ matrix; consult the manifest before describing it as a complete audit.
 
 ## Architecture regression checks
 
-The test suite additionally checks legacy migrations through schema v10, online SQLite backups, durable printer command replay protection, worker token isolation, polling leases, role-restricted API routes, backend/Angular API contracts and stable cursor pagination. CI compiles Python, runs Angular unit tests, builds Angular, verifies generated API models and exercises browser and Docker persistence tests. The opt-in slicer image is built independently from the default runtime.
+The test suite additionally checks legacy migrations up to the current schema (defined by `CURRENT_SCHEMA_VERSION`), online SQLite backups, durable printer command replay protection, worker token isolation, polling leases, role-restricted API routes, backend/Angular API contracts and stable cursor pagination. CI compiles Python, runs Angular unit tests, builds Angular, verifies generated API models and exercises browser and Docker persistence tests. The opt-in slicer image is built independently from the default runtime.
 
 No automated tests certify a printer model, its firmware or safe physical G-code. Test a real machine while supervised before enabling write controls. The application is free/open source experimental software without a warranty.
 
