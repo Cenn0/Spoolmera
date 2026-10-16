@@ -7,20 +7,19 @@ import json
 import os
 import re
 import time
-import urllib.error
-import urllib.request
+import http.client
+from contextlib import closing
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
+from app import __version__
 
-ORIGIN = "https://api.openfilamentdatabase.org/api/v1/brands/"
+# The connection authority is fixed independently of any catalog path. TLS
+# certificate and hostname verification use Python's default trust store.
+CATALOG_HOST = "api.openfilamentdatabase.org"
+RESOURCE_ROOT = "/api/v1/brands/"
 SLUG = re.compile(r"^[A-Za-z0-9+]+(?:_[A-Za-z0-9+]+)*$")
 LIMIT = 2 * 1024 * 1024
 CACHE_SECONDS = 86400
-
-
-class RejectRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise urllib.error.HTTPError(req.full_url, code, "Catalog redirect rejected", headers, fp)
 
 
 def _validate(path: str) -> None:
@@ -72,12 +71,15 @@ def fetch_catalog_json(path: str) -> dict:
     saved = _read_cache(cache)
     if saved is not None and time.time() - cache.stat().st_mtime < CACHE_SECONDS:
         return saved
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), RejectRedirect())
-    request = urllib.request.Request(
-        ORIGIN + path, headers={"Accept": "application/json", "User-Agent": "Spoolmera/0.7"}
-    )
+    # Do not pass a user-derived URL to an HTTP opener or inherit proxies.
+    # HTTPConnection never follows redirects, even if a remote server suggests one.
     try:
-        with opener.open(request, timeout=6) as response:
+        with closing(http.client.HTTPSConnection(CATALOG_HOST, timeout=6)) as connection:
+            connection.request(
+                "GET", RESOURCE_ROOT + path,
+                headers={"Accept": "application/json", "User-Agent": f"Spoolmera/{__version__}"},
+            )
+            response = connection.getresponse()
             if response.status != 200 or "json" not in response.headers.get("Content-Type", ""):
                 raise ValueError("Unexpected catalog response.")
             raw = response.read(LIMIT + 1)
@@ -86,7 +88,7 @@ def fetch_catalog_json(path: str) -> dict:
         decoded = json.loads(raw)
         if not isinstance(decoded, dict):
             raise ValueError("Unexpected catalog JSON.")
-    except (urllib.error.URLError, TimeoutError, ValueError, UnicodeError, OSError) as exc:
+    except (http.client.HTTPException, TimeoutError, ValueError, UnicodeError, OSError) as exc:
         if saved is not None:
             return saved
         raise HTTPException(502, "Catalog unavailable or returned invalid data.") from exc
