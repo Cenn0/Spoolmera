@@ -18,7 +18,7 @@
 
 [![CodeQL](https://github.com/Cenn0/Spoolmera/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/Cenn0/Spoolmera/actions/workflows/codeql.yml)
 
-> **Status: experimentelles Projekt v0.10.0.** Der Quellcode ist öffentlich; Spoolmera ist kein zertifiziertes Druckersteuerungssystem und kein stabil betriebener Cloud-Dienst. CI-Artefakte sind Test-Builds, keine signierten Produktveröffentlichungen.
+> **Status: experimentelles Projekt v0.10.0.** Der Quellcode ist öffentlich; Spoolmera ist kein zertifiziertes Druckersteuerungssystem und kein stabil betriebener Cloud-Dienst. Die reguläre CI speichert keine herunterladbaren Build-Artefakte. Geprüfte Versionstags können unsignierte experimentelle Testpakete unter [Releases](https://github.com/Cenn0/Spoolmera/releases) bereitstellen; sie sind keine zertifizierten Produktveröffentlichungen.
 
 ## Oberfläche
 
