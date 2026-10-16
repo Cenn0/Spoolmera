@@ -6,7 +6,7 @@ COPY frontend/src ./src
 COPY frontend/public ./public
 COPY frontend/scripts/collect-license-notices.mjs ./scripts/
 RUN npm ci --no-audit --no-fund \
-    && node scripts/collect-license-notices.mjs third-party-licenses.txt \
+    && node scripts/collect-license-notices.mjs \
     && npm run build
 
 FROM python:3.12-slim-trixie@sha256:05cda9777409a9c3ffddd94a4c476b79f0769a0b4857f0c7ed9226b6800b0d6f AS python-runtime

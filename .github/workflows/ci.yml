@@ -41,7 +41,7 @@ jobs:
         working-directory: frontend
         run: |
           npm ci --no-audit --no-fund
-          node scripts/collect-license-notices.mjs third-party-licenses.txt
+          node scripts/collect-license-notices.mjs
           npm run typecheck
           npm run i18n:check
           npm test
