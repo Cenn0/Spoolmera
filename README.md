@@ -1,5 +1,7 @@
 # Spoolmera
 
+**Brand and UI design:** [Logo and light/dark design templates](docs/branding/README.md) (concept artwork, not product screenshots).
+
 **Language:** **English** · [Deutsch](README.de.md)
 
 [![CI](https://github.com/Cenn0/Spoolmera/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Cenn0/Spoolmera/actions/workflows/ci.yml)
@@ -7,7 +9,7 @@
 
 **Explore:** [Interface](#interface) · [Features](#features) · [Docker quick start](#quick-start-with-docker) · [Printer safety](#printer-integration-and-safety) · [Docs](docs/README.md)
 
-<img src="frontend/public/spoolmera-wordmark.svg" alt="Spoolmera — Your 3D Printing Workspace" width="400">
+<img src="frontend/public/spoolmera-wordmark.svg" alt="Spoolmera — filament spool symbol and wordmark" width="400">
 
 **Your self-hosted 3D printing workspace:** manage filament products, individual spools, storage locations, print jobs and supported local printer connections.
 
