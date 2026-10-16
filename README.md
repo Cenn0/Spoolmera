@@ -18,7 +18,7 @@
 
 [![CodeQL](https://github.com/Cenn0/Spoolmera/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/Cenn0/Spoolmera/actions/workflows/codeql.yml)
 
-> **Status: experimental v0.10.0.** Source code is available; this is not a certified printer-control system or a stable hosted service. CI artifacts are test builds, not signed product releases.
+> **Status: experimental v0.10.0.** Source code is available; this is not a certified printer-control system or a stable hosted service. Routine CI keeps no downloadable build artifacts. Reviewed version tags may publish unsigned experimental test bundles under [Releases](https://github.com/Cenn0/Spoolmera/releases); these are not certified product releases.
 
 ## Interface
 
