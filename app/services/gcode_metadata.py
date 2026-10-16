@@ -10,7 +10,10 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 MAX_FILE = 16 * 1024 * 1024
 MAX_TOOLS = 8
-GRAMS = re.compile(rb"(?im)^[ \t]*;[ \t]*filament used \[g\][ \t]*[:=][ \t]*([0-9., \t]+)[ \t]*$")
+MAX_XML_ELEMENTS = 4096
+MAX_XML_DEPTH = 32
+MAX_XML_PLATES = 64
+GRAMS = re.compile(rb"(?im)^[ \t]*;[ \t]*filament used \[g\][ \t]*[:=]([0-9., \t]+)$")
 SINGLE = re.compile(rb"(?im)^[ \t]*;[ \t]*(?:filament_weight_g|estimated_filament_weight_g)[ \t]*[:=][ \t]*([0-9.]+)[ \t]*$")
 
 
@@ -84,23 +87,40 @@ def three_mf_plate_estimates(data: bytes) -> list[dict]:
         root = ET.fromstring(xml)
     except ET.ParseError as exc:
         raise ValueError("Invalid 3MF slice metadata.") from exc
+    # One traversal, with structural limits, rather than rescanning nested plates.
+    # Nested plates are invalid: they would ambiguously reuse the same filaments.
     plates = []
-    for number, plate in enumerate(root.iter("plate"), start=1):
-        entries = []
-        for filament in plate.iter("filament"):
-            tool = int(filament.get("id", "0")) - 1
-            value = filament.get("used_g", "")
-            if not 0 <= tool < 16 or not value:
-                continue
+    stack = [(root, 0, None)]
+    elements = 0
+    while stack:
+        node, depth, active_plate = stack.pop()
+        elements += 1
+        if elements > MAX_XML_ELEMENTS or depth > MAX_XML_DEPTH:
+            raise ValueError("3MF slice metadata exceeds structural limits.")
+        if node.tag == "plate":
+            if active_plate is not None:
+                raise ValueError("Nested 3MF plates are not supported.")
+            if len(plates) >= MAX_XML_PLATES:
+                raise ValueError("3MF slice metadata contains too many plates.")
+            active_plate = len(plates)
+            plates.append({"plate": active_plate + 1, "materials": []})
+        elif node.tag == "filament" and active_plate is not None:
             try:
-                amount = Decimal(value)
-            except InvalidOperation as exc:
-                raise ValueError("Invalid 3MF material estimate.") from exc
-            if amount == 0:
-                continue
-            entries.append({"tool": tool, "estimated_g": grams_int(value)})
-        if entries:
-            if len(entries) > MAX_TOOLS or len({x["tool"] for x in entries}) != len(entries):
-                raise ValueError("3MF plate tool mapping is ambiguous.")
-            plates.append({"plate": number, "materials": entries})
-    return plates
+                tool = int(node.get("id", "0")) - 1
+            except ValueError as exc:
+                raise ValueError("Invalid 3MF material identifier.") from exc
+            value = node.get("used_g", "")
+            if 0 <= tool < 16 and value:
+                try:
+                    amount = Decimal(value)
+                except InvalidOperation as exc:
+                    raise ValueError("Invalid 3MF material estimate.") from exc
+                if amount != 0:
+                    entries = plates[active_plate]["materials"]
+                    if len(entries) >= MAX_TOOLS or any(item["tool"] == tool for item in entries):
+                        raise ValueError("3MF plate tool mapping is ambiguous.")
+                    entries.append({"tool": tool, "estimated_g": grams_int(value)})
+        # The file is size-capped; limit tree depth and count before processing.
+        for child in reversed(node):
+            stack.append((child, depth + 1, active_plate))
+    return [plate for plate in plates if plate["materials"]]

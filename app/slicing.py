@@ -24,6 +24,13 @@ MAX_RESULT = 16 * 1024 * 1024
 SLICER_LOCK = threading.BoundedSemaphore(1)
 
 
+class RejectWorkerRedirect(urllib.request.HTTPRedirectHandler):
+    """An isolated worker cannot make the API contact a second origin."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 def slicer_enabled() -> bool:
     return os.getenv("SPOOLMERA_SLICER_ENABLED") == "1"
 
@@ -109,7 +116,7 @@ def request_worker(path: str, data: bytes | None = None) -> tuple[bytes, dict]:
     request = urllib.request.Request(url + path, data=data, headers=headers,
                                      method="POST" if data is not None else "GET")
     # Never use process HTTP proxy settings for internal slicing.
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), RejectWorkerRedirect())
     try:
         with opener.open(request, timeout=75) as response:
             if response.status != 200:

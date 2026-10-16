@@ -11,6 +11,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import __version__
 from app.core.settings import Settings
+from app.core.auth_body_limit import AuthenticationBodyLimit
 from app.database import initialize_database, session
 from app.api.inventory import register_inventory_routes
 from app.auth import protect
@@ -87,6 +88,8 @@ def create_app(database_path: str | Path | None = None) -> FastAPI:
         lifespan=lifespan,
     )
     protect(app, db_path)
+    # Added after auth: the byte guard is the outermost ASGI middleware.
+    app.add_middleware(AuthenticationBodyLimit)
     register_printer_routes(app, db_path)
     register_job_routes(app, db_path)
     register_cloud_routes(app, db_path)

@@ -9,6 +9,7 @@ import hmac
 import os
 import re
 import secrets
+import threading
 import time
 from pathlib import Path
 from argon2 import PasswordHasher, Type
@@ -29,6 +30,13 @@ PASSWORD_HASHER = PasswordHasher(time_cost=2, memory_cost=19456, parallelism=1,
                                  hash_len=32, salt_len=16, type=Type.ID)
 DUMMY_HASH = PASSWORD_HASHER.hash("irrelevant-invalid-dummy-password")
 ROLE_ORDER = {"viewer": 0, "editor": 1, "admin": 2}
+# These limits apply independently of user-selected login names. Counters are
+# reserved atomically before running Argon2 to bound resource consumption.
+LOGIN_CLIENT_WINDOW = 60
+LOGIN_CLIENT_BUDGET = 20
+LOGIN_GLOBAL_WINDOW = 60
+LOGIN_GLOBAL_BUDGET = 100
+_LOGIN_HASH_SLOTS = threading.BoundedSemaphore(4)
 
 
 class LoginForm(BaseModel):
@@ -202,18 +210,37 @@ def protect(app: FastAPI, db_path: Path) -> None:
     @router.post("/api/auth/login")
     def login(payload: LoginForm, request: Request):
         """Costly password verification runs outside SQLite's write transaction."""
-        subject = hashlib.sha256((payload.username.casefold() + "|" +
-                   (request.client.host if request.client else "unknown")).encode()).hexdigest()
+        client_host = request.client.host if request.client else "unknown"
+        subject = hashlib.sha256((payload.username.casefold() + "|" + client_host).encode()).hexdigest()
+        client_bucket = "login-client:" + hashlib.sha256(client_host.encode()).hexdigest()
+        global_bucket = "login-global"
         now = int(time.time())
         with session(db_path, write=True) as db:
             db.execute("DELETE FROM auth_failures WHERE created_at < ?", (now - 900,))
-            count = db.execute("SELECT COUNT(*) FROM auth_failures WHERE subject=?", (subject,)).fetchone()[0]
-        if count >= 5:
-            raise HTTPException(status_code=429, detail="Too many attempts. Try again later.")
-        with session(db_path) as db:
-            row = db.execute("SELECT * FROM users WHERE username=?", (payload.username,)).fetchone()
-            candidate = dict(row) if row else None
-        valid = verify_password(payload.password, candidate["password_hash"] if candidate else None)
+            for bucket, budget, window in (
+                (subject, 5, 900),
+                (client_bucket, LOGIN_CLIENT_BUDGET, LOGIN_CLIENT_WINDOW),
+                (global_bucket, LOGIN_GLOBAL_BUDGET, LOGIN_GLOBAL_WINDOW),
+            ):
+                attempts = db.execute(
+                    "SELECT COUNT(*) FROM auth_failures WHERE subject=? AND created_at>=?",
+                    (bucket, now - window),
+                ).fetchone()[0]
+                if attempts >= budget:
+                    raise HTTPException(status_code=429, detail="Too many attempts. Try again later.")
+            # Reserve work inside one SQLite write transaction so parallel
+            # requests cannot each pass the threshold before hashing.
+            db.executemany("INSERT INTO auth_failures(subject,created_at) VALUES(?,?)",
+                           ((client_bucket, now), (global_bucket, now)))
+        if not _LOGIN_HASH_SLOTS.acquire(blocking=False):
+            raise HTTPException(status_code=429, detail="Login is busy. Try again later.")
+        try:
+            with session(db_path) as db:
+                row = db.execute("SELECT * FROM users WHERE username=?", (payload.username,)).fetchone()
+                candidate = dict(row) if row else None
+            valid = verify_password(payload.password, candidate["password_hash"] if candidate else None)
+        finally:
+            _LOGIN_HASH_SLOTS.release()
         if not valid or not candidate or not candidate["enabled"]:
             with session(db_path, write=True) as db:
                 db.execute("INSERT INTO auth_failures(subject,created_at) VALUES(?,?)", (subject, now))
