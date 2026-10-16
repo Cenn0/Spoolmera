@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_call:
 
 permissions:
   contents: read
@@ -23,7 +24,6 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.12"
-          cache: pip
       - name: Install dependencies
         run: python -m pip install --require-hashes -r requirements-dev.txt
       - name: Compile backend
@@ -37,6 +37,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
+          package-manager-cache: false
       - name: Validate Angular frontend
         working-directory: frontend
         run: |
@@ -50,13 +51,27 @@ jobs:
         run: mkdir -p app/ui && cp -a frontend/dist/spoolmera/browser/. app/ui/
       - name: Run API tests
         run: python -m pytest -q --junitxml=test-results.xml
-      - name: Publish test report
+      - name: Summarize API test results (no artifact storage)
         if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: api-test-results
-          path: test-results.xml
-          retention-days: 7
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          report = Path('test-results.xml')
+          if report.is_file():
+              root = ET.parse(report).getroot()
+              suite = root if root.tag == "testsuite" else root.find("testsuite")
+              if suite is not None:
+                  fields = ("tests", "failures", "errors", "skipped")
+                  summary = " | ".join(f"{field}: {suite.get(field, '0')}" for field in fields)
+                  print(summary)
+                  with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as output:
+                      output.write("### API tests\n\n" + summary + "\n")
+          else:
+              print("No XML test report (earlier step may have failed).")
+          PY
 
   docker-smoke:
     runs-on: ubuntu-latest
@@ -122,55 +137,6 @@ jobs:
         run: |
           docker build -f Dockerfile.notifications --tag spoolmera:notifier-ci .
           python3 scripts/notifier_container_smoke.py --image spoolmera:notifier-ci --api-image spoolmera:ci
-      - name: Package tested image
-        if: github.event_name == 'push'
-        run: |
-          mkdir -p test-release/scripts
-          docker save spoolmera:test | gzip > test-release/spoolmera-image.tar.gz
-          cp compose.test.yaml test-release/
-          cp scripts/start_test.py test-release/scripts/
-          cp docs/testing.md test-release/TESTING.md
-          cp docs/build-inputs.json test-release/
-          cp LICENSE THIRD_PARTY_LICENSES.md test-release/
-          image_container="$(docker create spoolmera:test)"
-          trap 'docker rm "$image_container" >/dev/null 2>&1 || true' EXIT
-          docker cp "$image_container":/usr/share/doc/spoolmera/npm-licenses.txt test-release/npm-licenses.txt
-          docker cp "$image_container":/usr/share/doc/spoolmera/python-licenses.txt test-release/python-licenses.txt
-          docker cp "$image_container":/usr/share/doc/spoolmera/python-dependencies.json test-release/python-dependencies.json
-          docker rm "$image_container" >/dev/null
-          trap - EXIT
-          python3 - <<'PY'
-          import hashlib, json, os, subprocess
-          from pathlib import Path
-          from app import __version__
-          from app.infrastructure.database.migrations import CURRENT_SCHEMA_VERSION
-          root = Path('test-release')
-          image_id = subprocess.check_output(['docker', 'image', 'inspect', '--format', '{{.Id}}', 'spoolmera:test'], text=True).strip()
-          (root / 'release.json').write_text(json.dumps({
-              'version': __version__, 'schema_version': CURRENT_SCHEMA_VERSION,
-              'commit': os.environ['GITHUB_SHA'], 'platform': 'linux/amd64',
-              'image_tag': 'spoolmera:test', 'image_id': image_id,
-              'image_archive': 'spoolmera-image.tar.gz',
-              'status': 'tested CI artifact; no public release published',
-          }, indent=2) + '\n')
-          lines = []
-          for path in sorted(root.rglob('*')):
-              if path.is_file():
-                  with path.open('rb') as content:
-                      digest = hashlib.file_digest(content, 'sha256').hexdigest()
-                  lines.append(digest + '  ' + path.relative_to(root).as_posix())
-          (root / 'SHA256SUMS').write_text('\n'.join(lines) + '\n')
-          with open(os.environ['GITHUB_ENV'], 'a') as output:
-              output.write('RELEASE_VERSION=' + __version__ + '\n')
-          PY
-      - name: Publish downloadable test instance
-        if: github.event_name == 'push'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: spoolmera-${{ env.RELEASE_VERSION }}-test-linux-amd64
-          path: test-release/
-          compression-level: 0
-          retention-days: 7
 
   browser-smoke:
     runs-on: ubuntu-latest
@@ -182,10 +148,10 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.12"
-          cache: pip
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
+          package-manager-cache: false
       - name: Build Angular for browser tests
         working-directory: frontend
         run: npm ci --no-audit --no-fund && npm run build
@@ -217,39 +183,17 @@ jobs:
           python scripts/browser_smoke.py
       - name: Capture every interface view in all four layouts
         run: python scripts/ui_visual_audit.py --serve --strict --output "${{ runner.temp }}/ui-all-views-audit"
-      - name: Publish complete visual audit
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: ui-all-views-audit
-          path: ${{ runner.temp }}/ui-all-views-audit/
-          if-no-files-found: warn
-          retention-days: 7
-      - name: Publish browser failure evidence
-        if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: browser-failure-evidence
-          path: |
-            ${{ runner.temp }}/browser-results/
-            ${{ runner.temp }}/browser-server.log
-          retention-days: 7
-      - name: Publish German interface previews
+      - name: Verify captured audit and previews without uploading
         if: success()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: german-interface-previews
-          path: ${{ runner.temp }}/browser-results/de-*.png
-          if-no-files-found: error
-          retention-days: 7
-      - name: Publish light, dark and mobile UI previews
-        if: success()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: ui-ux-previews
-          path: ${{ runner.temp }}/browser-results/ui-*.png
-          if-no-files-found: error
-          retention-days: 7
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$RUNNER_TEMP/ui-all-views-audit/manifest.json"
+          test -s "$RUNNER_TEMP/ui-all-views-audit/index.html"
+          test -n "$(find "$RUNNER_TEMP/browser-results" -maxdepth 1 -name 'de-*.png' -print -quit)"
+          test -n "$(find "$RUNNER_TEMP/browser-results" -maxdepth 1 -name 'ui-*.png' -print -quit)"
+          echo "### Browser visual audit" >> "$GITHUB_STEP_SUMMARY"
+          echo "Strict screenshot, layout and browser gates passed; evidence was checked locally and not uploaded." >> "$GITHUB_STEP_SUMMARY"
 
   slicer-build:
     runs-on: ubuntu-latest
@@ -300,6 +244,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
+          package-manager-cache: false
       - name: Audit Angular runtime dependencies
         working-directory: frontend
         run: |
@@ -308,11 +253,18 @@ jobs:
       - name: Produce production frontend CycloneDX SBOM
         working-directory: frontend
         run: npm sbom --omit=dev --sbom-format cyclonedx > "$RUNNER_TEMP/frontend-sbom.cdx.json"
-      - name: Publish frontend SBOM for review
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: frontend-sbom
-          path: ${{ runner.temp }}/frontend-sbom.cdx.json
-          if-no-files-found: warn
-          retention-days: 7
+      - name: Verify generated SBOM without uploading
+        if: success()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          source = Path(os.environ["RUNNER_TEMP"]) / "frontend-sbom.cdx.json"
+          data = source.read_bytes()
+          sbom = json.loads(data)
+          if sbom.get("bomFormat") != "CycloneDX" or not sbom.get("components"):
+              raise SystemExit("Missing or invalid CycloneDX component inventory")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as result:
+              result.write(f"### Frontend SBOM\n\nCycloneDX components: {len(sbom['components'])}; SHA-256: \`{hashlib.sha256(data).hexdigest()}\` (generated in-job, not uploaded).\n")
+          PY
