@@ -47,6 +47,9 @@ jobs:
               raise SystemExit(f"Release tag {actual!r} does not match project version {expected!r}")
           PY
           git tag --points-at HEAD | grep -Fx -- "$GITHUB_REF_NAME"
+          # Release only commits already integrated into the protected main history.
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD || { echo "Tag commit is not reachable from main." >&2; exit 1; }
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Refusing to overwrite an existing GitHub release." >&2
             exit 1
