@@ -13,8 +13,8 @@ MAX_TOOLS = 8
 MAX_XML_ELEMENTS = 4096
 MAX_XML_DEPTH = 32
 MAX_XML_PLATES = 64
-GRAMS = re.compile(rb"(?im)^[ \t]*;[ \t]*filament used \[g\][ \t]*[:=]([0-9., \t]+)$")
-SINGLE = re.compile(rb"(?im)^[ \t]*;[ \t]*(?:filament_weight_g|estimated_filament_weight_g)[ \t]*[:=][ \t]*([0-9.]+)[ \t]*$")
+GRAMS = re.compile(rb"(?im)^[ \t]*;[ \t]*filament used \[g\][ \t]*[:=]([0-9., \t]+)\r?$")
+SINGLE = re.compile(rb"(?im)^[ \t]*;[ \t]*(?:filament_weight_g|estimated_filament_weight_g)[ \t]*[:=][ \t]*([0-9.]+)[ \t]*\r?$")
 
 
 def grams_int(value: str) -> int:
