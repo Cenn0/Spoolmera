@@ -214,8 +214,9 @@ Start with the [documentation index](docs/README.md), which separates **current 
 - [Security model and printer restrictions](docs/security-and-printers.md) · [Security policy](SECURITY.md)
 - [Architecture](docs/architecture.md) · [feature and limitation matrix](docs/roadmap-implementation.md)
 - [Testing and evidence](docs/testing.md) · [Screenshot provenance](docs/screenshots/README.md)
-- [Contributing](CONTRIBUTING.md)
+- [Contributing](CONTRIBUTING.md) · [Third-party licensing and release notices](docs/license-compliance.md)
+- [Commit email privacy](docs/commit-email-privacy.md)
 
 ## License and contributions
 
-Spoolmera is an **Apache License 2.0** project. See [LICENSE](LICENSE). Individual third-party packages and services retain their upstream terms. Development contributions, bug reports and critical reviews are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). The repository is public; security issues must be reported privately as described in [SECURITY.md](SECURITY.md). Pull requests are checked by CI and CodeQL.
+Spoolmera is an **Apache License 2.0** project. See [LICENSE](LICENSE). Individual third-party packages, optional services and external data sources retain their own terms. Consult [third-party licensing](THIRD_PARTY_LICENSES.md) and [the distribution compliance guide](docs/license-compliance.md); license texts and package notices are included in built runtime images and test-download packages. The optional PrusaSlicer worker contains AGPL-3.0 software and is not part of the default app image. Development contributions, bug reports and critical reviews are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). The repository is public; security issues must be reported privately as described in [SECURITY.md](SECURITY.md). Pull requests are checked by CI and CodeQL.
