@@ -40,7 +40,7 @@ Touched workflows use HTTP → service → database/device boundaries. Existing 
 
 ## Persistent model
 
-Current SQLite schema version: **10**.
+Current SQLite schema version: **12**.
 
 | Entity | Meaning |
 | --- | --- |

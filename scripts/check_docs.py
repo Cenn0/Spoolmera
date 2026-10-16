@@ -6,6 +6,7 @@ No network calls or external Python dependencies. Runs against the Git checkout.
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import re
 import struct
 from urllib.parse import unquote, urlsplit
@@ -32,6 +33,34 @@ def local_path(markdown: Path, address: str) -> Path | None:
     if not uri.path:
         return None
     return (markdown.parent / unquote(uri.path)).resolve()
+
+
+def metadata_consistency_errors(root: Path) -> list[str]:
+    """Keep release and SQLite schema claims aligned with executable sources."""
+    errors: list[str] = []
+    migration = (root / "app/infrastructure/database/migrations.py").read_text(encoding="utf-8")
+    release = (root / "app/__init__.py").read_text(encoding="utf-8")
+    frontend = json.loads((root / "frontend/package.json").read_text(encoding="utf-8"))
+    schema_match = re.search(r"(?m)^CURRENT_SCHEMA_VERSION\s*=\s*(\d+)\s*$", migration)
+    version_match = re.search(r'(?m)^__version__\s*=\s*"([^"]+)"\s*$', release)
+    if schema_match is None or version_match is None:
+        return ["Cannot determine current schema version or application release identity."]
+    schema_version = int(schema_match.group(1))
+    app_version = version_match.group(1)
+    if frontend.get("version") != app_version:
+        errors.append("frontend/package.json: version differs from app/__init__.py")
+    for relative in (
+        "README.md", "docs/README.md", "docs/deployment.md",
+        "docs/architecture.md", "docs/roadmap-implementation.md",
+    ):
+        document = (root / relative).read_text(encoding="utf-8")
+        if f"v{app_version}" not in document:
+            errors.append(f"{relative}: current application version v{app_version} is missing")
+    architecture = (root / "docs/architecture.md").read_text(encoding="utf-8")
+    documented_schema = re.search(r"Current SQLite schema version:\s*\*\*(\d+)\*\*", architecture)
+    if documented_schema is None or int(documented_schema.group(1)) != schema_version:
+        errors.append(f"docs/architecture.md: schema version must match CURRENT_SCHEMA_VERSION={schema_version}")
+    return errors
 
 
 def main() -> int:
@@ -74,6 +103,8 @@ def main() -> int:
     for markdown in markdown_files:
         if obsolete_repository in markdown.read_text(encoding='utf-8'):
             errors.append(f'{markdown.relative_to(ROOT)}: outdated repository URL')
+
+    errors.extend(metadata_consistency_errors(ROOT))
 
     for error in errors:
         print(f"ERROR: {error}")
