@@ -1,6 +1,6 @@
 # Spoolmera documentation
 
-[← Project README and screenshots](../README.md)
+[← English README and screenshots](../README.md) · [Deutsch](../README.de.md)
 
 **Spoolmera v0.10.0** is an experimental, self-hosted Python/FastAPI + Angular + SQLite application. The source repository is [`Cenn0/Spoolmera`](https://github.com/Cenn0/Spoolmera). The UI supports English and German; developer and operator documentation is in English.
 

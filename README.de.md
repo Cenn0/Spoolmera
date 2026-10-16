@@ -1,9 +1,13 @@
 # Spoolmera
 
+**Marke und UI-Design:** [Logo sowie helle und dunkle Designvorlagen](docs/branding/README.md) (Konzeptgrafiken, keine Produktscreenshots).
+
 **Sprache:** [English](README.md) · **Deutsch**
 
 [![CI](https://github.com/Cenn0/Spoolmera/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Cenn0/Spoolmera/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+
+**Direkt zu:** [Oberfläche](#oberfläche) · [Funktionen](#funktionen) · [Docker-Schnellstart](#schnellstart-mit-docker) · [Druckersicherheit](#druckeranbindung-und-sicherheit) · [Dokumentation](docs/README.md)
 
 <img src="frontend/public/spoolmera-wordmark.svg" alt="Spoolmera — Your 3D Printing Workspace" width="400">
 
@@ -12,18 +16,6 @@
 [![CodeQL](https://github.com/Cenn0/Spoolmera/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/Cenn0/Spoolmera/actions/workflows/codeql.yml)
 
 > **Status: experimentelles Projekt v0.10.0.** Der Quellcode ist öffentlich; Spoolmera ist kein zertifiziertes Druckersteuerungssystem und kein stabil betriebener Cloud-Dienst. CI-Artefakte sind Test-Builds, keine signierten Produktveröffentlichungen.
-
-## Funktionen
-
-- **Filamente und Spulen:** Produktkatalog, Materialien/Farben, individuelle physische Spulen, Rest-/Leergewicht, Lagerort, Zustand und Hinweise auf niedrigen Bestand.
-- **Lagerverwaltung:** Suche, Filter, farbige Karten, Lagerortübersicht, Drag-and-drop mit alternativer Bedienung, transaktionale Buchungen, manuelles Wiegen und nachvollziehbare Korrekturen.
-- **Etiketten und Import:** Druckbare QR-Etiketten, CSV-Import/-Export und einmaliger Spoolman-JSON-Snapshot-Import (keine laufende Synchronisierung).
-- **Druckaufträge:** Nachverfolgung, G-Code-/3MF-Metadaten, Zuordnung von Druckwerkzeugen zu Spulen und Abgleich von geschätztem und tatsächlichem Verbrauch.
-- **Druckeranbindung:** Lokales Moonraker/Klipper, OctoPrint und ein **experimenteller, nicht offizieller Bambu-Lab-LAN-MQTT-Adapter**.
-- **Betrieb:** Rollenbasierter Zugriff, Einrichtung des ersten Administrators, Diagnose, abgesicherte SQLite-Backups und -Wiederherstellung. Optional isolierter Slicing-Worker und Benachrichtigungsdienst.
-- **Oberfläche:** Responsive Angular-Weboberfläche mit Deutsch/Englisch und hellem/dunklem Design.
-
-Ein erfasster Druckauftrag, importierte Metadaten oder eine unverbindliche Materialreservierung **starten keinen physischen Druck und buchen nicht automatisch Material ab**. Eine explizit aktivierte Bambu-Funktion kann bei eindeutig zugeordnetem Druckabschluss den **geschätzten** Verbrauch buchen. Unklare Vorgänge müssen manuell geprüft werden.
 
 ## Oberfläche
 
@@ -43,6 +35,18 @@ Ein erfasster Druckauftrag, importierte Metadaten oder eine unverbindliche Mater
 </details>
 
 Die Screenshots verwenden synthetische Beispieldaten, keine verbundenen physischen Drucker. Siehe [Herkunft der Screenshots](docs/screenshots/README.md).
+
+## Funktionen
+
+- **Filamente und Spulen:** Produktkatalog, Materialien/Farben, individuelle physische Spulen, Rest-/Leergewicht, Lagerort, Zustand und Hinweise auf niedrigen Bestand.
+- **Lagerverwaltung:** Suche, Filter, farbige Karten, Lagerortübersicht, Drag-and-drop mit alternativer Bedienung, transaktionale Buchungen, manuelles Wiegen und nachvollziehbare Korrekturen.
+- **Etiketten und Import:** Druckbare QR-Etiketten, CSV-Import/-Export und einmaliger Spoolman-JSON-Snapshot-Import (keine laufende Synchronisierung).
+- **Druckaufträge:** Nachverfolgung, G-Code-/3MF-Metadaten, Zuordnung von Druckwerkzeugen zu Spulen und Abgleich von geschätztem und tatsächlichem Verbrauch.
+- **Druckeranbindung:** Lokales Moonraker/Klipper, OctoPrint und ein **experimenteller, nicht offizieller Bambu-Lab-LAN-MQTT-Adapter**.
+- **Betrieb:** Rollenbasierter Zugriff, Einrichtung des ersten Administrators, Diagnose, abgesicherte SQLite-Backups und -Wiederherstellung. Optional isolierter Slicing-Worker und Benachrichtigungsdienst.
+- **Oberfläche:** Responsive Angular-Weboberfläche mit Deutsch/Englisch und hellem/dunklem Design.
+
+Ein erfasster Druckauftrag, importierte Metadaten oder eine unverbindliche Materialreservierung **starten keinen physischen Druck und buchen nicht automatisch Material ab**. Eine explizit aktivierte Bambu-Funktion kann bei eindeutig zugeordnetem Druckabschluss den **geschätzten** Verbrauch buchen. Unklare Vorgänge müssen manuell geprüft werden.
 
 ## Schnellstart mit Docker
 
@@ -105,6 +109,10 @@ npm run build
 ```
 
 Die CI enthält außerdem Container-, Browser-, Migrations-/Recovery- und Abhängigkeitsprüfungen. Simulierte Integrationen und bestandene Tests sind **kein Sicherheits- oder Kompatibilitätsnachweis für reale Drucker**. Siehe [Tests](docs/testing.md) und [Architektur](docs/architecture.md).
+
+## Mitwirken und Fehler melden
+
+Beiträge sollten reproduzierbare Tests und passende Ergänzungen zur [Betriebsdokumentation](docs/README.md) enthalten. Sicherheitslücken über den [vertraulichen Meldeweg](SECURITY.md) melden; in öffentlichen Issues nur anonymisierte Testspulen und simulierte Druckerantworten verwenden. Reale Druckerbefehle benötigen beaufsichtigte Tests; eine CI ist keine Hardwarezertifizierung.
 
 ## Dokumentation und Lizenz
 
