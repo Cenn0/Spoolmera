@@ -56,7 +56,7 @@ This release remains fully free, Apache-2.0-licensed, Docker-self-hosted and bas
 
 - Validate multiple real printer/firmware combinations, job interruption and spool changes.
 - Verify sensor calibration, NFC/physical tag readers and full print cost accuracy on real hardware.
-- The automated recovery gate covers the current Linux amd64 container and supported legacy schemas. Validate additional released-package upgrades and intended arm64 hosts before claiming that support.
+- Native Linux arm64 CI now builds the default application image and exercises authenticated HTTP, ledger persistence across restart and guarded offline restore; the gate must pass on the actual revision before treating it as verified. Validate additional released-package upgrades and real deployment hosts before claiming arm64 release support.
 - Complete an independent security review and publish hardware support matrices.
 
 This document describes the code, not completion of these external release prerequisites.
