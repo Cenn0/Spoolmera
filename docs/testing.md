@@ -184,6 +184,21 @@ Use `--languages en` for English or `--languages de,en` for both supported
 languages. A selected-state run checks completeness only for its requested
 matrix; consult the manifest before describing it as a complete audit.
 
+## Native Linux arm64 integration gate
+
+The `arm64-container` job runs on GitHub's native `ubuntu-24.04-arm`
+runner. It builds the *default* `app-runtime` image for `linux/arm64`,
+checks the actual CPU architecture and shipped license notices, runs the
+normal login/inventory/CSV HTTP smoke against a disposable loopback-bound
+container, restarts the same container to verify persisted ledger data, and
+executes the offline restore and UID-ownership harness with a separate
+temporary volume. No printer, release image, registry or paid service is used.
+
+A configured job is not automatically evidence of success: check its result
+on the exact commit. This gate is a native CI integration test, not a claim
+of certified ARM host support or a released `linux/arm64` test bundle. The
+optional PrusaSlicer worker and real hardware remain outside this gate.
+
 ## Interpretation of results
 
 - **Technically tested:** API roles, password/session handling, import boundaries,
