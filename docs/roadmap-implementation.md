@@ -31,6 +31,7 @@ This release remains fully free, Apache-2.0-licensed, Docker-self-hosted and bas
 | Restock | Product targets, active physical stock, zero-stock products and separately displayed reservations | app/services/inventory_query_service.py |
 | Operations | Supervised worker/lease state, device failures, unresolved commands/uploads, storage, backup and recovery diagnostics | app/api/diagnostics.py |
 | Bambu Lab LAN (experimental) | Community/non-official MQTT observations and AMS/status telemetry, opt-in pause/resume/stop, pinned TLS certificate; no upload, remote print start or vendor-cloud authentication | app/infrastructure/printers/bambu.py |
+| Experimental release integrity | Release workflow packages the tested amd64 image with nested and outer SHA-256 manifests; an offline, extraction-free verifier rejects inconsistent archive paths, content and release source identity before GHCR/Release publication | scripts/verify_release_bundle.py, .github/workflows/release-test.yml |
 
 ## Operational invariants
 
@@ -58,6 +59,7 @@ This release remains fully free, Apache-2.0-licensed, Docker-self-hosted and bas
 - Verify sensor calibration, NFC/physical tag readers and full print cost accuracy on real hardware.
 - Native Linux arm64 CI now builds the default application image and exercises authenticated HTTP, ledger persistence across restart and guarded offline restore; the gate must pass on the actual revision before treating it as verified. Validate additional released-package upgrades and real deployment hosts before claiming arm64 release support.
 - Complete an independent security review and publish hardware support matrices.
+- Execute the versioned release workflow against an unused tag and verify downloaded ZIP/registry artifacts on a separate host; a green PR CI alone does not verify GHCR availability or release publication. Checksums are not signatures and do not constitute an independent supply-chain security review.
 
 This document describes the code, not completion of these external release prerequisites.
 
