@@ -26,6 +26,7 @@
 | Module ownership, transactions, migration and printer lifecycle | [Architecture](architecture.md) |
 | Existing API and proposed adapters | [Integration contracts](integrations.md) |
 | Dependency lockfiles, Docker base images and CI artifacts | [Build reproducibility](build-reproducibility.md) and [build inputs](build-inputs.json) |
+| Versioned experimental test bundles, integrity and provenance verification | [Release procedure](RELEASING.md) and [offline verifier](../scripts/verify_release_bundle.py) |
 | Third-party license duties, container notices and SBOM | [License compliance](license-compliance.md) and [license inventory](../THIRD_PARTY_LICENSES.md) |
 | Keep private commit email addresses out of public Git history | [Commit email privacy](commit-email-privacy.md) |
 | Development contributions and vulnerability reports | [Contributing](../CONTRIBUTING.md) and [Security policy](../SECURITY.md) |
