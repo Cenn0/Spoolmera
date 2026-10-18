@@ -14,6 +14,7 @@
 | Import/export filaments and physical spools | [CSV schema](csv-format.md) |
 | Manage job states, opt-in slicer, cloud relays, backups and restoration | [Operations](operations.md) |
 | Configure Moonraker, OctoPrint or community Bambu Lab LAN MQTT | [Security and printers](security-and-printers.md) |
+| Check actual physical printer/accessory validation and submit sanitized test evidence | [Hardware compatibility matrix](hardware-compatibility.md) |
 | Determine actual feature coverage and limitations | [Feature/status matrix](roadmap-implementation.md) |
 | Test in an isolated environment, inspect every UI view in four layouts, interpret CI evidence | [Testing](testing.md) |
 | Examine/refresh real browser screenshots | [Screenshot provenance](screenshots/README.md) |
