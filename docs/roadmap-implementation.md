@@ -57,7 +57,8 @@ This release remains fully free, Apache-2.0-licensed, Docker-self-hosted and bas
 - Validate multiple real printer/firmware combinations, job interruption and spool changes.
 - Verify sensor calibration, NFC/physical tag readers and full print cost accuracy on real hardware.
 - Native Linux arm64 CI now builds the default application image and exercises authenticated HTTP, ledger persistence across restart and guarded offline restore; the gate must pass on the actual revision before treating it as verified. Validate additional released-package upgrades and real deployment hosts before claiming arm64 release support.
-- Complete an independent security review and publish hardware support matrices.
+- The [hardware compatibility matrix](hardware-compatibility.md) now publicly separates simulated software coverage from unverified hardware. **Real printer/firmware combinations, sensor calibration and physical operation remain unvalidated**; collect and review supervised evidence before any compatibility claim.
+- Complete an **independent** security review; existing CI/CodeQL and the new matrix are not substitutes for external security acceptance.
 
 This document describes the code, not completion of these external release prerequisites.
 
