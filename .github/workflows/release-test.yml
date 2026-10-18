@@ -4,13 +4,22 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'New version tag matching app/__init__.py, e.g. v0.10.0'
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: spoolmera-release-${{ github.ref }}
+  group: spoolmera-release-${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
   cancel-in-progress: false
+
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
 
 jobs:
   verify:
@@ -27,6 +36,7 @@ jobs:
     timeout-minutes: 35
     permissions:
       contents: write
+      packages: write
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -42,15 +52,23 @@ jobs:
           import os
           from app import __version__
           expected = f'v{__version__}'
-          actual = os.environ["GITHUB_REF_NAME"]
+          actual = os.environ["RELEASE_TAG"]
           if actual != expected:
               raise SystemExit(f"Release tag {actual!r} does not match project version {expected!r}")
           PY
-          git tag --points-at HEAD | grep -Fx -- "$GITHUB_REF_NAME"
-          # Release only commits already integrated into the protected main history.
+          # Both tag-push and manual release must reference protected main.
           git fetch --no-tags origin main
           git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD || { echo "Tag commit is not reachable from main." >&2; exit 1; }
-          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            test "$GITHUB_REF" = "refs/heads/main"
+            test "$GITHUB_SHA" = "$(git rev-parse FETCH_HEAD)"
+            if git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+              echo "Refusing to reuse or move a version tag." >&2; exit 1
+            fi
+          else
+            git tag --points-at HEAD | grep -Fx -- "$RELEASE_TAG"
+          fi
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Refusing to overwrite an existing GitHub release." >&2
             exit 1
           fi
@@ -122,7 +140,7 @@ jobs:
           image_id = subprocess.check_output(['docker', 'image', 'inspect', '--format', '{{.Id}}', 'spoolmera:test'], text=True).strip()
           (root / 'release.json').write_text(json.dumps({
               'version': __version__, 'schema_version': CURRENT_SCHEMA_VERSION,
-              'tag': os.environ['GITHUB_REF_NAME'],
+              'tag': os.environ['RELEASE_TAG'],
               'commit': os.environ['GITHUB_SHA'], 'platform': 'linux/amd64',
               'image_tag': 'spoolmera:test', 'image_id': image_id,
               'image_archive': 'spoolmera-image.tar.gz',
@@ -136,17 +154,29 @@ jobs:
                   lines.append(digest + '  ' + path.relative_to(root).as_posix())
           (root / 'SHA256SUMS').write_text('\n'.join(lines) + '\n')
           PY
-          archive="spoolmera-${GITHUB_REF_NAME}-test-linux-amd64.zip"
+          archive="spoolmera-${RELEASE_TAG}-test-linux-amd64.zip"
           zip -qr "$archive" test-release
           unzip -t "$archive" >/dev/null
           sha256sum "$archive" > SHA256SUMS.txt
           echo "BUNDLE_ARCHIVE=$archive" >> "$GITHUB_ENV"
+      - name: Publish the tested linux/amd64 image under an immutable-by-convention GHCR version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          image="ghcr.io/${GITHUB_REPOSITORY,,}:$version"
+          echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker tag spoolmera:test "$image"
+          docker push "$image"
+          echo "Published tested experimental amd64 image: $image" >> "$GITHUB_STEP_SUMMARY"
       - name: Publish unsigned experimental prerelease
         shell: bash
         run: |
           set -euo pipefail
-          gh release create "$GITHUB_REF_NAME" "$BUNDLE_ARCHIVE" SHA256SUMS.txt \
-            --repo "$GITHUB_REPOSITORY" --verify-tag \
-            --title "Spoolmera $GITHUB_REF_NAME (experimental test)" \
-            --notes "Experimental, unsigned test build from the tagged source commit. Not certified for production operation or physical printer control. Verify SHA256SUMS.txt before extracting; see docs/testing.md." \
+          release_flags=(--target "$GITHUB_SHA")
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then release_flags+=(--verify-tag); fi
+          gh release create "$RELEASE_TAG" "$BUNDLE_ARCHIVE" SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" "${release_flags[@]}" \
+            --title "Spoolmera $RELEASE_TAG (experimental test)" \
+            --notes "Experimental, unsigned Linux amd64 test build from the tagged source commit. GHCR image: ghcr.io/cenn0/spoolmera (version without v). Not certified for production operation or physical printer control. Verify SHA256SUMS.txt before extracting; see docs/testing.md." \
             --prerelease --latest=false
