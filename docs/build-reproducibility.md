@@ -1,6 +1,6 @@
 # Build inputs and dependency updates
 
-The release target is CPython 3.12 on Linux; tagged experimental test bundles target `linux/amd64`. Backend and frontend package versions are **0.10.0**. Other architectures in an upstream manifest do not imply application validation on those hosts.
+The release target is CPython 3.12 on Linux; tagged experimental test bundles target `linux/amd64`. Backend and frontend package versions are **0.10.0**. The default application container is also built and exercised on a native Linux arm64 runner by the `arm64-container` CI job (API, persisted ledger, offline restore). Check the commit's CI result; no arm64 release bundle or hardware certification is provided. The optional slicer image is not part of this arm64 gate. Other architectures in upstream base-image manifests do not imply application validation on those hosts.
 
 ## What is locked
 
