@@ -268,3 +268,65 @@ jobs:
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as result:
               result.write(f"### Frontend SBOM\n\nCycloneDX components: {len(sbom['components'])}; SHA-256: `{hashlib.sha256(data).hexdigest()}` (generated in-job, not uploaded).\n")
           PY
+
+  arm64-container:
+    # Native architecture validation: no QEMU, registry push or release artifact.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build Linux arm64 application image
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = aarch64
+          docker build --platform linux/arm64 --target app-runtime --tag spoolmera:arm64-ci .
+          test "$(docker image inspect --format '{{.Architecture}}' spoolmera:arm64-ci)" = arm64
+          docker run --rm --entrypoint python spoolmera:arm64-ci -c 'import platform; assert platform.machine() == "aarch64"'
+          docker run --rm --entrypoint /bin/sh spoolmera:arm64-ci -ec '
+            test -s /usr/share/doc/spoolmera/LICENSE
+            test -s /usr/share/doc/spoolmera/THIRD_PARTY_LICENSES.md
+            test -s /usr/share/doc/spoolmera/npm-licenses.txt
+            test -s /usr/share/doc/spoolmera/python-licenses.txt
+          '
+      - name: Exercise ARM64 API, Angular assets, ledger and restart persistence
+        shell: bash
+        run: |
+          set -euo pipefail
+          export SPOOLMERA_BOOTSTRAP_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+          container=""
+          docker volume create spoolmera-arm64-ci >/dev/null
+          cleanup() {
+            if [ -n "$container" ]; then
+              docker logs --tail 100 "$container" || true
+              docker rm -f "$container" >/dev/null 2>&1 || true
+            fi
+            docker volume rm spoolmera-arm64-ci >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          container="$(docker run --detach --read-only --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp:rw,nosuid --env SPOOLMERA_BOOTSTRAP_TOKEN --mount type=volume,source=spoolmera-arm64-ci,target=/data --publish 127.0.0.1:8765:8765 spoolmera:arm64-ci)"
+          ready=0
+          for attempt in $(seq 1 45); do
+            if curl --fail --silent http://127.0.0.1:8765/api/ready | grep -q '"status":"ready"'; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" = 1
+          python3 scripts/http_smoke.py
+          docker restart "$container" >/dev/null
+          ready=0
+          for attempt in $(seq 1 45); do
+            if curl --fail --silent http://127.0.0.1:8765/api/ready | grep -q '"status":"ready"'; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" = 1
+          python3 scripts/http_smoke.py --persistence
+      - name: Validate native ARM64 offline restore and runtime file ownership
+        run: python3 scripts/container_restore_smoke.py --image spoolmera:arm64-ci
