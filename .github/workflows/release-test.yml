@@ -121,6 +121,7 @@ jobs:
           docker save spoolmera:test | gzip > test-release/spoolmera-image.tar.gz
           cp compose.test.yaml test-release/
           cp scripts/start_test.py test-release/scripts/
+          cp scripts/verify_release_bundle.py test-release/scripts/
           cp docs/testing.md test-release/TESTING.md
           cp docs/build-inputs.json test-release/
           cp LICENSE THIRD_PARTY_LICENSES.md test-release/
@@ -158,6 +159,9 @@ jobs:
           zip -qr "$archive" test-release
           unzip -t "$archive" >/dev/null
           sha256sum "$archive" > SHA256SUMS.txt
+          # Fail closed before any GHCR push or GitHub Release is created.
+          python3 scripts/verify_release_bundle.py "$archive" \
+            --tag "$RELEASE_TAG" --commit "$GITHUB_SHA" --sha256-file SHA256SUMS.txt
           echo "BUNDLE_ARCHIVE=$archive" >> "$GITHUB_ENV"
       - name: Publish the tested linux/amd64 image under an immutable-by-convention GHCR version
         shell: bash
