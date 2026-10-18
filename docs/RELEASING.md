@@ -15,8 +15,9 @@ Use the `SHA256SUMS.txt` downloaded from that release and independently confirm 
 
 ```bash
 sha256sum -c SHA256SUMS.txt
+# Set SOURCE_COMMIT_SHA to the verified source commit (40 lowercase hex characters).
 python3 scripts/verify_release_bundle.py spoolmera-v0.10.0-test-linux-amd64.zip \
-  --tag v0.10.0 --commit <expected-40-character-commit-sha> \
+  --tag v0.10.0 --commit "${SOURCE_COMMIT_SHA:?Set SOURCE_COMMIT_SHA first}" \
   --sha256-file SHA256SUMS.txt
 ```
 
