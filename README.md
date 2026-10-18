@@ -86,7 +86,7 @@ The default HTTP port listens on **loopback only**. For other devices, use a tru
 | **OctoPrint** | Status; optional G-code transfer and commands | Tested against simulated controllers; completion accounting requires review |
 | **Bambu Lab LAN MQTT** | Local status/AMS data; selected opt-in controls and correlated estimated consumption | **Community adapter, not officially supported by Bambu Lab**; depends on firmware and certificate pinning |
 
-**Implemented is not the same as manufacturer-supported, recommended or certified secure.** Printer commands are disabled by default and require explicit operator enablement. Follow least-privilege access, private-IP allowlists, suitable TLS controls and supervised hardware testing. No native manufacturer-cloud login/control or guaranteed universal hardware compatibility is provided.
+**Implemented is not the same as manufacturer-supported, recommended or certified secure.** Printer commands are disabled by default and require explicit operator enablement. Follow least-privilege access, private-IP allowlists, suitable TLS controls and supervised hardware testing. No native manufacturer-cloud login/control or guaranteed universal hardware compatibility is provided. See the [hardware compatibility and evidence matrix](docs/hardware-compatibility.md): software simulations are not verified physical printer/firmware support.
 
 The optional PrusaSlicer worker and notifications use separate opt-in Compose overlays, not the default single-container deployment. Read [integrations](docs/integrations.md), [operations](docs/operations.md) and [printer security](docs/security-and-printers.md) before enabling them.
 
