@@ -15,6 +15,25 @@ updates:
       codeql-action:
         patterns:
           - "github/codeql-action/*"
+  # Python uses uv-compiled, SHA256-hashed requirements (not uv.lock).
+  # Dependabot pip updates are proposals: CI checks pin/hash consistency.
+  # Recompile all three lockfiles with uv and review before merging.
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:30"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 3
+    versioning-strategy: increase
+    groups:
+      python-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
   - package-ecosystem: npm
     directory: "/frontend"
     schedule:
