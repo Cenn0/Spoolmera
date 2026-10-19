@@ -9,6 +9,12 @@ updates:
       time: "07:00"
       timezone: Europe/Berlin
     open-pull-requests-limit: 5
+    # CodeQL init/analyze must use the exact same release within a workflow.
+    # Group them to prevent version-mismatch failures in separate PRs.
+    groups:
+      codeql-action:
+        patterns:
+          - "github/codeql-action/*"
   - package-ecosystem: npm
     directory: "/frontend"
     schedule:
