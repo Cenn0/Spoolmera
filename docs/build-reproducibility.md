@@ -27,6 +27,43 @@ The default and optional application images ship the project's Apache-2.0 LICENS
 
 The `docker-smoke` job verifies these files; the tagged test-release workflow copies runtime notices into the downloadable release bundle. `security-audit` additionally validates a production npm CycloneDX SBOM in-job without storing it; this is **not** a complete SBOM for Debian packages or the optional slicer image. For any stable binary release, inventory Debian/system packages separately and verify the license/source-offer obligations of the exact image build. Details: [License compliance](license-compliance.md).
 
+## Dependabot Python update proposals
+
+Dependabot checks the root directory using the `pip` ecosystem weekly on Monday
+at 07:30 Europe/Berlin, with at most three open Python version-update PRs.
+Patch and minor releases are grouped; major releases are reviewed separately.
+Security audits remain independent from Dependabot version-update scheduling.
+
+**Important limitation:** Spoolmera generates its `requirements*.txt` files
+with `uv pip compile`, not pip-tools and not the `uv.lock` project format.
+Dependabot's `pip` updater recognizes requirement files, but native
+regeneration of all three **uv-generated** hash locks is not guaranteed.
+Do not treat an automatically generated PR as a reproducible upgrade
+until all of its affected input files and locks are synchronized.
+
+For each Python update PR:
+
+1. Check `requirements.in`, `requirements-dev.in` and `requirements-e2e.in`
+   against their three corresponding hashed `.txt` files; update the relevant
+   **direct pin** in the `.in` file if Dependabot changed only a compiled lock.
+   Grouped changes may require a separate decision on each direct dependency.
+2. Regenerate the runtime lock first, then the development and E2E locks using
+   the `uv 0.12.23` procedure below. For a targeted transitive update, use
+   `--upgrade-package <package-name>` where necessary; evaluate any resulting
+   changes to other transitive packages.
+3. Run `python scripts/check_python_locks.py` before installing. CI rejects
+   missing SHA256 hashes, different direct pins and runtime/test lock divergence.
+   It does not perform dependency resolution: also execute the hash-verified
+   installs and the complete CI/security audit.
+4. Review package release notes, licenses, dependency/API compatibility and
+   Docker integration. Only merge with successful tests; there is no automatic
+   merge or reduced PR permissions for Dependabot.
+
+Do not remove hashes, loosen pinned direct dependencies or skip the lock check
+to make an updater PR green. If Dependabot cannot update the `uv` format
+correctly, fix the proposed branch through the documented local `uv` commands.
+A green CI verifies the tested graph, not untested real hardware compatibility.
+
 ## Deliberate update procedure
 
 Review direct version changes in the `.in` files first. Using the recorded generator (`uv 0.12.23` for this update), resolve and hash the supported target:
