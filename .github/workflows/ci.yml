@@ -24,6 +24,8 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.12"
+      - name: Validate Python source pins and hashed lockfiles
+        run: python scripts/check_python_locks.py
       - name: Install dependencies
         run: python -m pip install --require-hashes -r requirements-dev.txt
       - name: Compile backend
