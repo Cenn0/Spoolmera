@@ -11,8 +11,8 @@ from pathlib import Path
 import re
 
 _NAME = r"[A-Za-z0-9][A-Za-z0-9._-]*"
-_PIN = re.compile(rf"^({_NAME})==([^\\s;#]+)")
-_HASH = re.compile(r"--hash=sha256:[0-9a-f]{64}(?=\\s|$)")
+_PIN = re.compile(rf"^({_NAME})==([^\s;#]+)")
+_HASH = re.compile(r"--hash=sha256:[0-9a-f]{64}(?=\s|$)")
 
 
 def normalize(name: str) -> str:
@@ -33,7 +33,7 @@ def read_pins(path: Path, *, require_hashes: bool) -> dict[str, str]:
         record = " ".join(pending)
         pending.clear()
         # Only the .in files may reference a common input manifest.
-        if not require_hashes and re.fullmatch(r"-r\\s+requirements\\.in", record):
+        if not require_hashes and re.fullmatch(r"-r\s+requirements\.in", record):
             continue
         match = _PIN.match(record)
         if not match:
