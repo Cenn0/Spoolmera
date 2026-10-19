@@ -12,13 +12,13 @@
 [![CI](https://github.com/Cenn0/Spoolmera/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Cenn0/Spoolmera/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 
-**Explore:** [Interface](#interface) · [Features](#features) · [Docker quick start](#quick-start-with-docker) · [Printer safety](#printer-integration-and-safety) · [Docs](docs/README.md)
+**Explore:** [Interface](#interface) · [Features](#features) · [Docker quick start](#quick-start-with-docker) · [Architecture](#architecture) · [Printer safety](#printer-integration-and-safety) · [Docs](docs/README.md)
 
 **Your self-hosted 3D printing workspace:** manage filament products, individual spools, storage locations, print jobs and supported local printer connections.
 
 [![CodeQL](https://github.com/Cenn0/Spoolmera/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/Cenn0/Spoolmera/actions/workflows/codeql.yml)
 
-> **Status: experimental v0.10.0.** Source code is available; this is not a certified printer-control system or a stable hosted service. Routine CI keeps no downloadable build artifacts. Reviewed version tags may publish unsigned experimental test bundles under [Releases](https://github.com/Cenn0/Spoolmera/releases); see the [release procedure and offline integrity verifier](docs/RELEASING.md). Checksums are not digital signatures, and these are not certified product releases.
+> **Status: experimental open-source v0.10.0.** Real-device behavior and durability limits remain only partially verified. Routine CI does not retain downloadable build artifacts. Version tags may publish experimental test bundles under [Releases](https://github.com/Cenn0/Spoolmera/releases); see the [release workflow and offline integrity verifier](docs/RELEASING.md). Checksums verify file integrity, not publisher identity or signature provenance.
 
 ## Interface
 
@@ -82,17 +82,33 @@ The default HTTP port listens on **loopback only**. For other devices, use a tru
 
 | Integration | Current behavior | Verification boundary |
 | --- | --- | --- |
-| **Moonraker/Klipper** | Status; optional upload and start/pause/resume/cancel actions | Tested against simulated controllers; no physical printer certification |
+| **Moonraker/Klipper** | Status; optional upload and start/pause/resume/cancel actions | Tested against simulated controllers; no reviewed real-device compatibility evidence |
 | **OctoPrint** | Status; optional G-code transfer and commands | Tested against simulated controllers; completion accounting requires review |
 | **Bambu Lab LAN MQTT** | Local status/AMS data; selected opt-in controls and correlated estimated consumption | **Community adapter, not officially supported by Bambu Lab**; depends on firmware and certificate pinning |
 
-**Implemented is not the same as manufacturer-supported, recommended or certified secure.** Printer commands are disabled by default and require explicit operator enablement. Follow least-privilege access, private-IP allowlists, suitable TLS controls and supervised hardware testing. No native manufacturer-cloud login/control or guaranteed universal hardware compatibility is provided. See the [hardware compatibility and evidence matrix](docs/hardware-compatibility.md): software simulations are not verified physical printer/firmware support.
+**Implemented is not the same as manufacturer-supported, operationally recommended or validated on real hardware.** Printer commands are disabled by default and require explicit operator enablement. Follow least-privilege access, private-IP allowlists, suitable TLS controls and supervised hardware testing. No native manufacturer-cloud login/control or guaranteed universal hardware compatibility is provided. See the [hardware compatibility and evidence matrix](docs/hardware-compatibility.md): software simulations are not verified physical printer/firmware support.
 
 The optional PrusaSlicer worker and notifications use separate opt-in Compose overlays, not the default single-container deployment. Read [integrations](docs/integrations.md), [operations](docs/operations.md) and [printer security](docs/security-and-printers.md) before enabling them.
 
-## Architecture and development
+## Architecture
 
 Spoolmera runs as a **Python 3.12/FastAPI modular monolith with SQLite**, serving a built **Angular 22** frontend. The supported deployment is a single application process per SQLite database; no broker or Kubernetes cluster is required.
+
+```mermaid
+flowchart TB
+  UI["Angular browser application"] --> API["FastAPI application and auth"]
+  API --> Services["Inventory, jobs, accounting and policies"]
+  Services --> DB[("SQLite inventory and audit ledger")]
+  API --> Printer["Allowlisted local printer adapters"]
+  Printer -. "LAN" .-> Devices["Moonraker, OctoPrint, Bambu LAN"]
+  API -. "Optional isolated job" .-> Slicer["PrusaSlicer sidecar"]
+  Notify["Optional notification sidecar"] -->|"Scoped read-only API"| API
+  Notify --> Remote["Configured notification endpoint"]
+```
+
+The optional slicer and notification services are separate opt-in Compose overlays; the default install is one application process. Physical printer commands are disabled until explicitly configured, and simulator tests do not establish hardware compatibility. See [architecture details](docs/architecture.md) and [hardware evidence](docs/hardware-compatibility.md).
+
+### Development
 
 For source development, use Python 3.12 and a Node.js version allowed by `frontend/package.json`:
 
@@ -115,7 +131,7 @@ CI additionally runs targeted container, browser, migration/recovery and depende
 
 ## Contributing and public reports
 
-Contributions should include a reproducible test and update the relevant [operating guide](docs/README.md). Report a vulnerability using the [private security process](SECURITY.md); use sanitized example spools and simulated printer responses in public issues. Real hardware commands require supervised testing and are not certified by CI.
+Contributions should include a reproducible test and update the relevant [operating guide](docs/README.md). Report a vulnerability using the [private security process](SECURITY.md); use sanitized example spools and simulated printer responses in public issues. Real hardware commands require supervised testing; CI does not verify physical hardware behavior.
 
 ## Documentation and license
 

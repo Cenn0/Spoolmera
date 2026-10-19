@@ -12,13 +12,13 @@
 [![CI](https://github.com/Cenn0/Spoolmera/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Cenn0/Spoolmera/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 
-**Direkt zu:** [Oberfläche](#oberfläche) · [Funktionen](#funktionen) · [Docker-Schnellstart](#schnellstart-mit-docker) · [Druckersicherheit](#druckeranbindung-und-sicherheit) · [Dokumentation](docs/README.md)
+**Direkt zu:** [Oberfläche](#oberfläche) · [Funktionen](#funktionen) · [Docker-Schnellstart](#schnellstart-mit-docker) · [Architektur](#architektur) · [Druckersicherheit](#druckeranbindung-und-sicherheit) · [Dokumentation](docs/README.md)
 
 **Dein selbst gehosteter Arbeitsbereich für den 3D-Druck:** Filamentprodukte, einzelne Spulen, Lagerorte, Druckaufträge und unterstützte lokale Drucker zentral verwalten.
 
 [![CodeQL](https://github.com/Cenn0/Spoolmera/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/Cenn0/Spoolmera/actions/workflows/codeql.yml)
 
-> **Status: experimentelles Projekt v0.10.0.** Der Quellcode ist öffentlich; Spoolmera ist kein zertifiziertes Druckersteuerungssystem und kein stabil betriebener Cloud-Dienst. Die reguläre CI speichert keine herunterladbaren Build-Artefakte. Geprüfte Versionstags können unsignierte experimentelle Testpakete unter [Releases](https://github.com/Cenn0/Spoolmera/releases) bereitstellen; sie sind keine zertifizierten Produktveröffentlichungen.
+> **Status: experimentelles Open-Source-Projekt v0.10.0.** Verhalten an realen Geräten und betriebliche Belastungsgrenzen sind nur eingeschränkt überprüft. Die reguläre CI speichert keine herunterladbaren Build-Artefakte. Versionstags können experimentelle Testpakete unter [Releases](https://github.com/Cenn0/Spoolmera/releases) bereitstellen. Prüfsummen bestätigen Dateiintegrität, keine signierte Herkunft.
 
 ## Oberfläche
 
@@ -82,17 +82,33 @@ Der HTTP-Port bindet standardmäßig nur an **Loopback**. Für andere Geräte ei
 
 | Integration | Aktuelles Verhalten | Nachweisgrenze |
 | --- | --- | --- |
-| **Moonraker/Klipper** | Status; optional Upload und Start/Pause/Fortsetzen/Abbrechen | Mit simulierten Controllern getestet; keine Zertifizierung realer Drucker |
+| **Moonraker/Klipper** | Status; optional Upload und Start/Pause/Fortsetzen/Abbrechen | Mit simulierten Controllern getestet; keine überprüften Nachweise an realen Geräten |
 | **OctoPrint** | Status; optionale G-Code-Übertragung und Befehle | Mit simulierten Controllern getestet; Abschlussbuchungen benötigen Prüfung |
 | **Bambu Lab LAN MQTT** | Lokaler Status/AMS-Daten; ausgewählte optionale Steuerbefehle und zugeordneter geschätzter Verbrauch | **Community-Adapter ohne offizielle Bambu-Lab-Unterstützung**; abhängig von Firmware und Zertifikats-Pinning |
 
-**Technisch implementiert bedeutet weder herstellerseitig unterstützt noch Best Practice oder sicherheitszertifiziert.** Druckerbefehle sind standardmäßig deaktiviert und müssen ausdrücklich freigeschaltet werden. Rechte minimieren, private IP-Adressen gezielt zulassen, TLS verwenden und erste Hardwaretests beaufsichtigen. Es gibt keine native Hersteller-Cloud-Anmeldung oder universell garantierte Hardwarekompatibilität. Die [Hardware-Kompatibilitätsmatrix](docs/hardware-compatibility.md) unterscheidet automatisierte Simulationen ausdrücklich von noch ausstehenden Tests an realen Geräten und Firmwareständen.
+**Technisch implementiert bedeutet weder herstellerseitig unterstützt noch Best Practice oder an realer Hardware sicher verifiziert.** Druckerbefehle sind standardmäßig deaktiviert und müssen ausdrücklich freigeschaltet werden. Rechte minimieren, private IP-Adressen gezielt zulassen, TLS verwenden und erste Hardwaretests beaufsichtigen. Es gibt keine native Hersteller-Cloud-Anmeldung oder universell garantierte Hardwarekompatibilität. Die [Hardware-Kompatibilitätsmatrix](docs/hardware-compatibility.md) unterscheidet automatisierte Simulationen ausdrücklich von noch ausstehenden Tests an realen Geräten und Firmwareständen.
 
 Der optionale PrusaSlicer-Worker und der Benachrichtigungsdienst laufen über separate, explizit aktivierte Compose-Erweiterungen und gehören nicht zum Standard-Ein-Container-Betrieb. Vor der Aktivierung [Integrationen](docs/integrations.md), [Betrieb](docs/operations.md) und [Druckersicherheit](docs/security-and-printers.md) lesen.
 
-## Architektur und Entwicklung
+## Architektur
 
 Spoolmera verwendet einen modularen Monolithen mit **Python 3.12, FastAPI und SQLite** und stellt eine gebaute **Angular-22**-Oberfläche bereit. Unterstützt wird ein Anwendungsprozess pro SQLite-Datenbank; ein Message-Broker oder Kubernetes werden nicht benötigt.
+
+```mermaid
+flowchart TB
+  UI["Angular-Weboberfläche"] --> API["FastAPI mit Authentifizierung"]
+  API --> Services["Inventar, Aufträge, Buchungen und Richtlinien"]
+  Services --> DB[("SQLite-Inventar und Audit-Protokoll")]
+  API --> Printer["Druckeradapter mit IP-Positivliste"]
+  Printer -. "LAN" .-> Devices["Moonraker, OctoPrint, Bambu LAN"]
+  API -. "Optionale Verarbeitung" .-> Slicer["Isolierter PrusaSlicer-Worker"]
+  Notify["Optionaler Benachrichtigungsdienst"] -->|"Begrenzte Lese-API"| API
+  Notify --> External["Konfigurierter Benachrichtigungsendpunkt"]
+```
+
+Slicer und Benachrichtigungen werden nur über zusätzliche Compose-Konfigurationen aktiviert. Physische Druckerbefehle sind standardmäßig deaktiviert; Simulationen belegen keine echte Gerätekompatibilität. Siehe [Architekturdetails](docs/architecture.md) und [Hardware-Nachweise](docs/hardware-compatibility.md).
+
+### Entwicklung
 
 Für die lokale Entwicklung Python 3.12 und eine laut `frontend/package.json` kompatible Node.js-Version verwenden:
 
@@ -115,7 +131,7 @@ Die CI enthält außerdem Container-, Browser-, Migrations-/Recovery- und Abhän
 
 ## Mitwirken und Fehler melden
 
-Beiträge sollten reproduzierbare Tests und passende Ergänzungen zur [Betriebsdokumentation](docs/README.md) enthalten. Sicherheitslücken über den [vertraulichen Meldeweg](SECURITY.md) melden; in öffentlichen Issues nur anonymisierte Testspulen und simulierte Druckerantworten verwenden. Reale Druckerbefehle benötigen beaufsichtigte Tests; eine CI ist keine Hardwarezertifizierung.
+Beiträge sollten reproduzierbare Tests und passende Ergänzungen zur [Betriebsdokumentation](docs/README.md) enthalten. Sicherheitslücken über den [vertraulichen Meldeweg](SECURITY.md) melden; in öffentlichen Issues nur anonymisierte Testspulen und simulierte Druckerantworten verwenden. Reale Druckerbefehle benötigen beaufsichtigte Tests; die CI prüft keine physische Hardwarefunktion.
 
 ## Dokumentation und Lizenz
 
