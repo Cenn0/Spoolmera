@@ -25,7 +25,9 @@ def history(tmp_path):
             'product_id': product.json()['id'], 'initial_g': 1000,
         })
         assert spool.status_code == 201, spool.text
-        yield client, path, spool.json()
+        full_spool = next(item for item in client.get('/api/spools').json()
+                          if item['id'] == spool.json()['id'])
+        yield client, path, full_spool
 
 
 def read_csv(response):
