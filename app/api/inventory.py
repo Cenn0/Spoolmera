@@ -4,7 +4,7 @@ from datetime import date
 from typing import Literal
 from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, StreamingResponse
 from app.auth import audit
 from app.core.policies import require_editor, require_admin
 from app.database import session, utc_now
@@ -15,6 +15,7 @@ from app.integrations import get_inventory_snapshot, get_integration_capabilitie
 from app.services.accounting_service import record_manual_movement
 from app.services import inventory_service
 from app.services import inventory_query_service
+from app.services.movement_csv_service import stream_movements
 from app.services.material_service import record_weighing, record_drying, drying_history, stock_alerts
 from app.services.inventory_service import spool_as_dict
 from app.api.import_contracts import CsvPreviewResponse
@@ -143,6 +144,30 @@ def register_inventory_routes(app: FastAPI, db_path: Path) -> None:
         return inventory_query_service.movements_page(db_path, before_id=before_id,
             limit=limit, spool_id=spool_id, job_id=job_id, actor_id=actor_id, source=source,
             from_date=from_date, to_date=to_date, kind=kind, q=q)
+
+    @router.get('/api/movements/export.csv')
+    def export_movement_history(
+        spool_id: int | None = Query(default=None, gt=0),
+        job_id: int | None = Query(default=None, gt=0),
+        actor_id: int | None = Query(default=None, gt=0),
+        source: str | None = Query(default=None, min_length=1, max_length=80),
+        q: str | None = Query(default=None, min_length=1, max_length=120),
+        kind: Literal['initial', 'consume', 'adjust'] | None = None,
+        from_date: date | None = None,
+        to_date: date | None = None,
+    ):
+        # This endpoint uses exactly the same filters as /api/movements/page.
+        # Validate dates before starting the stream so malformed input returns 422.
+        records = stream_movements(
+            db_path, spool_id=spool_id, job_id=job_id, actor_id=actor_id,
+            source=source, q=q, kind=kind, from_date=from_date, to_date=to_date,
+        )
+        return StreamingResponse(records, media_type='text/csv; charset=utf-8',
+            headers={
+                'Content-Disposition': 'attachment; filename="spoolmera-movements-v1.csv"',
+                'Cache-Control': 'no-store',
+                'X-Content-Type-Options': 'nosniff',
+            })
 
     @router.post("/api/spools/{spool_id}/archive", dependencies=[Depends(require_editor)])
     def archive_spool(spool_id: int, request: Request):
