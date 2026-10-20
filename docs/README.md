@@ -11,7 +11,7 @@
 | Install with Docker, configure HTTPS/QR URLs, back up or upgrade | [Deployment](deployment.md) |
 | Navigate inventory, cards, tables, locations and drag-and-drop | [UI and UX](interface-ux.md) |
 | Use English or German | [Language behavior](interface-languages.md) |
-| Import/export filaments and physical spools | [CSV schema](csv-format.md) |
+| Import/export filament inventory and export the complete filtered movement ledger | [CSV schemas](csv-format.md) |
 | Manage job states, opt-in slicer, cloud relays, backups and restoration | [Operations](operations.md) |
 | Configure Moonraker, OctoPrint or community Bambu Lab LAN MQTT | [Security and printers](security-and-printers.md) |
 | Check actual physical printer/accessory validation and submit sanitized test evidence | [Hardware compatibility matrix](hardware-compatibility.md) |

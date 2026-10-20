@@ -84,6 +84,8 @@ export const INVENTORY_DE: Record<string,string> = {
   "Every spool": "Jede Spule",
   "Existing inventory is not overwritten. Import creates new entries only.": "Der vorhandene Bestand wird nicht überschrieben. Der Import legt nur neue Einträge an.",
   "Export CSV": "CSV exportieren",
+  "Export full history CSV": "Gesamte Historie als CSV exportieren",
+  "Exports all matching entries, including pages not yet loaded.": "Exportiert alle passenden Buchungen, auch noch nicht geladene Seiten.",
   "FAST IDENTIFICATION": "SCHNELLER ZUGRIFF",
   "FILAMENT CATALOG": "FILAMENTKATALOG",
   "Filament": "Filament",

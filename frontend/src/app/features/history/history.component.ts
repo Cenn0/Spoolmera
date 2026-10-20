@@ -28,6 +28,15 @@ export class HistoryComponent implements OnInit, OnDestroy {
       source:this.source.trim(),from_date:this.fromDate||undefined,to_date:this.toDate||undefined};
     await this.load();
   }
+  exportUrl():string{
+    // Export the last applied server filters, not unsubmitted form edits.
+    const params=new URLSearchParams();
+    for(const [key,value] of Object.entries(this.filters)){
+      if(value!==undefined&&value!==null&&value!=='')params.set(key,String(value));
+    }
+    const query=params.toString();
+    return '/api/movements/export.csv'+(query?'?'+query:'');
+  }
   reset():void{this.kind.set('');this.query='';this.spoolId=null;this.jobId=null;this.actorId=null;this.source='';this.fromDate='';this.toDate='';void this.apply();}
   async load(more=false):Promise<void>{
     if(more&&(this.loading()||!this.nextCursor()))return;

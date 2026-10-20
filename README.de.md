@@ -43,7 +43,7 @@ Die Screenshots verwenden synthetische Beispieldaten, keine verbundenen physisch
 
 - **Filamente und Spulen:** Produktkatalog, Materialien/Farben, individuelle physische Spulen, Rest-/Leergewicht, Lagerort, Zustand und Hinweise auf niedrigen Bestand.
 - **Lagerverwaltung:** Suche, Filter, farbige Karten, Lagerortübersicht, Drag-and-drop mit alternativer Bedienung, transaktionale Buchungen, manuelles Wiegen und nachvollziehbare Korrekturen.
-- **Etiketten und Import:** Druckbare QR-Etiketten, CSV-Import/-Export und einmaliger Spoolman-JSON-Snapshot-Import (keine laufende Synchronisierung).
+- **Etiketten, Export und Import:** Druckbare QR-Etiketten, versionierter CSV-Bestandsimport/-export, vollständig filterbarer CSV-Export der Buchungshistorie (auch archivierter Spulen) und einmaliger Spoolman-JSON-Snapshot-Import (keine laufende Synchronisierung).
 - **Druckaufträge:** Nachverfolgung, G-Code-/3MF-Metadaten, Zuordnung von Druckwerkzeugen zu Spulen und Abgleich von geschätztem und tatsächlichem Verbrauch.
 - **Druckeranbindung:** Lokales Moonraker/Klipper, OctoPrint und ein **experimenteller, nicht offizieller Bambu-Lab-LAN-MQTT-Adapter**.
 - **Betrieb:** Rollenbasierter Zugriff, Einrichtung des ersten Administrators, Diagnose, abgesicherte SQLite-Backups und -Wiederherstellung. Optional isolierter Slicing-Worker und Benachrichtigungsdienst.

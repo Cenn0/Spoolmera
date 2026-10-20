@@ -108,8 +108,13 @@ def unarchive(db_path: Path, spool_id: int, actor_id: int) -> dict:
     return spool_as_dict(row)
 
 
-def movements_page(db_path: Path, *, before_id=None, limit=50, spool_id=None,
-                   job_id=None, actor_id=None, source=None, from_date=None, to_date=None, kind=None, q=None) -> dict:
+def movement_query(*, before_id=None, spool_id=None, job_id=None, actor_id=None,
+                   source=None, from_date=None, to_date=None, kind=None, q=None) -> tuple[str, tuple]:
+    """Shared filters for paginated history and complete CSV export.
+
+    The public CSV and paginated JSON endpoints must never disagree about which
+    ledger entries match an active filter.
+    """
     clauses, values = [], []
     for field, value in [('m.spool_id', spool_id), ('COALESCE(m.print_job_id,ao.job_id)', job_id),
                          ('m.actor_id', actor_id), ('m.source', source), ('m.kind', kind)]:
@@ -149,6 +154,13 @@ def movements_page(db_path: Path, *, before_id=None, limit=50, spool_id=None,
         LEFT JOIN print_jobs j ON j.id=COALESCE(m.print_job_id,ao.job_id)'''
     if clauses:
         query += ' WHERE ' + ' AND '.join(clauses)
+    return query, tuple(values)
+
+
+def movements_page(db_path: Path, *, before_id=None, limit=50, spool_id=None,
+                   job_id=None, actor_id=None, source=None, from_date=None, to_date=None, kind=None, q=None) -> dict:
+    query, values = movement_query(before_id=before_id, spool_id=spool_id, job_id=job_id,
+        actor_id=actor_id, source=source, from_date=from_date, to_date=to_date, kind=kind, q=q)
     with session(db_path) as db:
         if q and q.strip():
             db.create_function('inventory_search_fold', 1, _search_fold, deterministic=True)

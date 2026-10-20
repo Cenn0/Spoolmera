@@ -17,6 +17,10 @@
 </section>
 <section class="panel data-panel history-results">
   <div class="result-count">{{'{count} matching movements loaded'|t:{count:i18n.number(items().length)} }} <button class="btn ghost" type="button" [disabled]="loading()" (click)="load()">{{'Refresh history'|t}}</button> @if(loading()){<span role="status"> {{'· Loading…'|t}}</span>}</div>
+  <div class="history-export">
+    <a class="btn ghost" [href]="exportUrl()" download="spoolmera-movements-v1.csv">{{'Export full history CSV'|t}}</a>
+    <span class="helper">{{'Exports all matching entries, including pages not yet loaded.'|t}}</span>
+  </div>
   <div class="table-wrap"><table class="data-table"><thead><tr><th>{{'Time / entry'|t}}</th><th>{{'Filament'|t}}</th><th>{{'Movement'|t}}</th><th>{{'Change'|t}}</th><th>{{'Balance'|t}}</th><th>{{'Origin / note'|t}}</th></tr></thead>
     <tbody>
       @for(item of items();track item.id){<tr [attr.id]="'movement-'+item.id"><td class="subdued">{{dateText(item.created_at)}}<small>#{{item.id}}</small></td>
