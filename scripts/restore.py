@@ -3,7 +3,6 @@
 import argparse
 from contextlib import closing
 import hashlib
-import json
 import os
 from pathlib import Path
 import shutil
@@ -14,30 +13,11 @@ from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from app.services.backup_service import (
-    create_snapshot, now_iso, remove_snapshot,
+    now_iso, remove_snapshot,
     set_metadata, sync_directory, sync_file, validate_database, write_manifest,
 )
 from app.services.process_lock import ProcessLock, operation_lock_path
-
-
-def _verify_manifest(source: Path) -> None:
-    manifest = Path(str(source) + ".manifest.json")
-    if not manifest.exists():
-        return  # Legacy and in-app downloads are validated by their actual schema.
-    if manifest.stat().st_size > 16384:
-        raise RuntimeError("Backup manifest is too large.")
-    try:
-        info = json.loads(manifest.read_text(encoding="utf-8"))
-    except (ValueError, UnicodeError):
-        raise RuntimeError("Backup manifest is invalid.") from None
-    if not isinstance(info, dict) or info.get("application") != "Spoolmera" or info.get("size_bytes") != source.stat().st_size:
-        raise RuntimeError("Backup manifest does not match this database.")
-    digest = hashlib.sha256()
-    with source.open("rb") as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(block)
-    if info.get("sha256") != digest.hexdigest():
-        raise RuntimeError("Backup checksum does not match its manifest.")
+from app.services.recovery_service import prepare_candidate
 
 
 def _preserve_bytes(source: Path, destination: Path) -> None:
@@ -63,15 +43,13 @@ def restore(source: Path, destination: Path, *, confirm: bool = False,
         raise RuntimeError("Backup does not exist.")
     if not destination.parent.is_dir():
         raise RuntimeError("Restore destination directory does not exist.")
-    if any(Path(str(source) + suffix).exists() for suffix in ("-wal", "-shm", "-journal")):
-        raise RuntimeError("Restore source must be a standalone backup without WAL/SHM or journal files; create a verified snapshot first.")
-    _verify_manifest(source)
     locks = [ProcessLock(operation_lock_path(destination, name))
              for name in ("application", "recovery", "poll", "backup")]
     acquired = []
     scope = hashlib.sha256(str(destination).encode()).hexdigest()[:16]
     stage_prefix = ".spoolmera-restore-" + scope + "-"
     stage = destination.parent / (stage_prefix + str(uuid4()) + ".sqlite3")
+    stage_owned = False
     previous = None
     try:
         for lock in locks:
@@ -99,9 +77,9 @@ def restore(source: Path, destination: Path, *, confirm: bool = False,
         required = source.stat().st_size + (old_stat.st_size if old_stat else 0) + sum(p.stat().st_size for p in sidecars)
         if shutil.disk_usage(destination.parent).free < required + 64 * 1024 * 1024:
             raise RuntimeError("Insufficient space for recovery staging, prior state and storage reserve.")
-        create_snapshot(source, stage, timeout_seconds=300)
+        prepare_candidate(source, stage)
+        stage_owned = True
         with closing(sqlite3.connect(stage)) as db:
-            validate_database(db)
             tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             if "auth_sessions" in tables:
                 db.execute("DELETE FROM auth_sessions")
@@ -113,6 +91,7 @@ def restore(source: Path, destination: Path, *, confirm: bool = False,
             set_metadata(db, "last_restored_at", now_iso())
             set_metadata(db, "restore_token_reissue_required", "1")
             db.commit()
+            validate_database(db)
         intended_owner = old_stat or destination.parent.stat()
         if os.name == "posix":
             # Missing databases inherit the data directory owner; the standard
@@ -147,9 +126,12 @@ def restore(source: Path, destination: Path, *, confirm: bool = False,
         sync_directory(destination.parent)
         return previous
     finally:
-        remove_snapshot(stage)
-        for lock in reversed(acquired):
-            lock.release()
+        try:
+            if stage_owned:
+                remove_snapshot(stage)
+        finally:
+            for lock in reversed(acquired):
+                lock.release()
 
 
 def main() -> None:

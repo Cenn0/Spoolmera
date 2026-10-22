@@ -168,6 +168,65 @@ docker compose exec -T spoolmera python scripts/backup.py \
 
 Choose a new filename for each backup, then copy the `.sqlite3` and `.manifest.json` files to independent storage. Files in the same Docker volume do not protect against losing that volume. The CLI defaults to a 300-second time limit and supports `--timeout-seconds` up to 3600.
 
+### Verify a backup and rehearse its upgrade
+
+Use the application version you intend to restore into to check a completed,
+standalone backup before changing your installation:
+
+```bash
+docker compose run --rm --no-deps --entrypoint python spoolmera \
+  scripts/verify_backup.py /data/backups/before-upgrade.sqlite3 \
+  --work-dir /data --json
+```
+
+The host equivalent is `python scripts/verify_backup.py BACKUP --json`.
+Verification does not take an active database as its input, start the API or
+poller, contact a printer, or replace an installation. A separate, completed
+backup can be checked while the application continues to use its live database.
+Do not point the verifier at that live database, even if it currently has no
+visible WAL file.
+
+The verifier checks any adjacent checksum manifest, application identity,
+supported schema, SQLite integrity and foreign keys. It runs the real database
+initializer and forward migrations on a private temporary copy, then checks all
+required current tables and columns. A backup already claiming the current
+schema is checked before initialization as well, so missing tables cannot be
+silently recreated as empty data. The candidate is checkpointed into a complete
+single SQLite file before it is accepted. This validates database initialization
+and structure, not every possible SQL constraint, hardware state or host setup.
+
+The original backup and manifest stay unchanged. Legacy backups and UI downloads
+without a manifest remain accepted if their database checks pass; the report
+explicitly says `manifest_status: "absent"`. A matching checksum proves consistency
+with that manifest, not who created the backup. Keep backups in trusted storage.
+
+Each check uses a temporary directory with mode 0700 and removes its candidate
+on success or failure. `--work-dir` must name an existing writable directory
+with enough space for the candidate, migration work and a 64 MiB reserve. Use
+`--work-dir /data` in the standard container: its 64 MiB `/tmp` cannot also hold
+the reserve and a database. `--snapshot-timeout-seconds` accepts 1–3600 seconds
+(default 300) and limits the SQLite snapshot operation; it is **not a total time
+limit** for source hashing or the subsequent migration.
+
+`--json` writes one report suitable for backup automation:
+
+| Field | Meaning |
+| --- | --- |
+| `report_version`, `status` | Report contract version `1`; `ok` or `error` |
+| `application`, `application_version` | Application used to perform the check |
+| `source_schema`, `target_schema`, `migration_required` | Original schema and tested upgrade destination |
+| `manifest_status` | `verified` or `absent` |
+| `source_size_bytes`, `source_sha256` | Size and SHA-256 of the unchanged original file |
+| `error.code`, `error.message` | Failure classification and sanitized explanation on error |
+
+Exit status is `0` for success, `1` for a failed check or unavailable workspace,
+and `2` for invalid command arguments. Error reports omit the success-only fields.
+Neither report form includes inventory records, account data, credentials or
+file paths. Verify the copied backup on its independent storage as well as the
+local snapshot, and keep a full restore rehearsal in your upgrade procedure.
+
+### Restore a verified backup
+
 To restore, fully stop the application and optional notifier. Use the same Compose overlays that started your installation when stopping those services. For the default installation and a backup already present in its data volume:
 
 ```bash
@@ -178,7 +237,7 @@ docker compose run --rm --no-deps --entrypoint python spoolmera \
 docker compose up -d
 ```
 
-The equivalent host command is `python scripts/restore.py BACKUP DATABASE --confirm`; the user must be able to preserve the existing database's UID/GID and permissions. The container command avoids the usual mismatch between a host administrator and runtime UID 10001. An administrator's root-run restore also preserves the operation-lock owners; recovery of a missing database inherits the data directory's UID/GID. The utility verifies the application identity, recognized schema, SQLite integrity, foreign keys and any adjacent checksum manifest. The source must be a standalone snapshot without WAL/SHM/journal files. A healthy unrelated SQLite file is rejected. It preserves the previous file as raw bytes even if it is corrupt, along with a quarantine manifest, before replacing the validated staging file atomically.
+The equivalent host command is `python scripts/restore.py BACKUP DATABASE --confirm`; the user must be able to preserve the existing database's UID/GID and permissions. The container command avoids the usual mismatch between a host administrator and runtime UID 10001. An administrator's root-run restore also preserves the operation-lock owners; recovery of a missing database inherits the data directory's UID/GID. The utility repeats the same verification and real migration rehearsal as the backup verifier on its staging copy. The source must be a standalone snapshot without WAL/SHM/journal files. A healthy unrelated SQLite file is rejected. Only after the candidate reaches the current schema and required structure does restore revoke its recovered credentials and preserve the previous target as raw bytes, even if it is corrupt, along with a quarantine manifest. It then replaces the completed single-file candidate atomically. A rejected candidate leaves the target database and its sidecars unchanged.
 
 A clean shutdown should leave no WAL/SHM sidecars. If a stopped crashed instance still has sidecars, `--quarantine-sidecars` explicitly preserves their raw bytes before replacement. Never remove a live WAL file or use this option while the application is running. The kernel operation locks reject an active application or another recovery operation. Prior-state quarantine files make no claim of database integrity.
 

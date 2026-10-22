@@ -27,7 +27,7 @@ RUN pip install --no-cache-dir --require-hashes -r requirements.txt \
     && mkdir -p /data \
     && chown spoolmera:spoolmera /data
 COPY --chown=spoolmera:spoolmera app ./app
-COPY --chown=spoolmera:spoolmera scripts/backup.py scripts/restore.py ./scripts/
+COPY --chown=spoolmera:spoolmera scripts/backup.py scripts/restore.py scripts/verify_backup.py ./scripts/
 COPY --from=frontend-build --chown=spoolmera:spoolmera /work/frontend/dist/spoolmera/browser ./app/ui
 COPY --from=frontend-build /work/frontend/third-party-licenses.txt /usr/share/doc/spoolmera/npm-licenses.txt
 USER 10001:10001

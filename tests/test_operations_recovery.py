@@ -122,6 +122,11 @@ def test_wrong_application_and_modified_manifest_leave_destination_untouched(tmp
         restore(wrong, active, confirm=True)
     assert active.read_bytes() == before
     create_backup(active, backup)
+    # Reading a WAL-mode database for backup can leave WAL/SHM files behind.
+    # Restore requires a stopped, checkpointed destination before source checks.
+    with closing(sqlite3.connect(active)) as db:
+        assert db.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()[0] == 0
+    before = active.read_bytes()
     with closing(sqlite3.connect(backup)) as db:
         db.execute("CREATE TABLE changed(value TEXT)")
         db.commit()
@@ -134,6 +139,8 @@ def test_restore_rejects_backup_sidecars_even_with_a_matching_main_file_manifest
     active, backup = tmp_path / "active.sqlite3", tmp_path / "backup.sqlite3"
     initialize_database(active)
     create_backup(active, backup)
+    with closing(sqlite3.connect(active)) as db:
+        assert db.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()[0] == 0
     before = active.read_bytes()
     Path(str(backup) + "-wal").write_bytes(b"This WAL is not covered by the standalone snapshot manifest")
     with pytest.raises(RuntimeError, match="standalone backup"):

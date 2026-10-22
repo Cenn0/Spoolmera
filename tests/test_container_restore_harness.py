@@ -3,6 +3,7 @@
 These checks validate the harness, not SQLite recovery or real container ownership;
 the Docker job must still execute the full recovery smoke against the built image.
 """
+import json
 import subprocess
 
 import pytest
@@ -88,8 +89,17 @@ class DisposableDocker:
                 output += "\n" + self.clients[0].password + "\n" + self.clients[0].csrf
         elif "scripts/backup.py" in args:
             self.backup_balance = self.balance
+        elif "scripts/verify_backup.py" in args:
+            if "/data/ci-incomplete.sqlite3" in args:
+                returncode = 1
+                output = json.dumps({"status": "error", "error": {"code": "schema"}})
+            else:
+                legacy = "/data/ci-legacy.sqlite3" in args
+                output = json.dumps({"status": "ok", "source_schema": 5 if legacy else 12,
+                                     "target_schema": 12, "migration_required": legacy,
+                                     "manifest_status": "absent" if legacy else "verified"})
         elif "scripts/restore.py" in args:
-            if "/data/unrelated.sqlite3" in args:
+            if "/data/unrelated.sqlite3" in args or "/data/ci-incomplete.sqlite3" in args:
                 returncode = 1
             else:
                 self.balance = self.backup_balance
@@ -102,9 +112,12 @@ class DisposableDocker:
 def test_recovery_smoke_refreshes_dynamic_port_on_every_restart(monkeypatch):
     docker = DisposableDocker(monkeypatch)
     smoke.run("spoolmera:synthetic-ci")
-    assert docker.targets == [f"http://127.0.0.1:{port}" for port in range(43001, 43005)]
+    assert docker.targets == [f"http://127.0.0.1:{port}" for port in range(43001, 43006)]
     assert len(docker.clients) == 1
     assert any("st_uid" in command[-1] for command in docker.commands)
+    verification = [command for command in docker.commands if "scripts/verify_backup.py" in command]
+    assert len(verification) == 3 and all("--work-dir" in command for command in verification)
+    assert any("/data/ci-legacy.sqlite3" in command for command in verification)
     assert docker.commands[-2][0] == "rm" and docker.commands[-1][:2] == ["volume", "rm"]
 
 

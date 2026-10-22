@@ -32,6 +32,7 @@ Moonraker and OctoPrint HTTP adapters validate exact private IP allowlists befor
 | `app/services/inventory_query_service.py` | Paged history/archive, batch registration and restock calculations |
 | `app/services/polling_runtime.py` | Polling ownership, heartbeat, supervision and shutdown |
 | `app/services/backup_service.py` | Bounded SQLite snapshot creation, validation and operational metadata |
+| `app/services/recovery_service.py` | Shared offline candidate verification, real migration rehearsal and current table/column checks |
 | `app/infrastructure/` | Additive database migrations and normalized controller adapters |
 | `frontend/src/app/features/` | Lazily loaded pages with their own templates and focused tests |
 | `scripts/` | Recovery commands, contract generation, optional notifier and integration smoke tests |
@@ -97,7 +98,9 @@ Version-gated migrations retain numeric IDs, UUIDs and ledger history. A legacy 
 
 Backups use SQLite's online backup API. Logical page count, WAL growth, free-space reserve, copy duration, output size and concurrent ownership are bounded. A failed or cancelled download removes its temporary snapshot and releases ownership.
 
-Offline restore validates application identity, supported schema, integrity, foreign keys and any supplied manifest before replacement. It tests migration on the candidate, preserves corrupt target bytes and sidecars, and retains runtime owner/mode. A running API blocks restore even with a dead poller. The final replacement is atomic; a failed candidate never becomes the active target.
+Offline restore and `scripts/verify_backup.py` share the same candidate preparation service. It validates application identity, supported schema, integrity, foreign keys and any supplied manifest, then runs the real database initializer and migrations on an isolated copy. Required tables and columns are derived from that same initializer in memory; a claimed current schema is also checked before initialization to avoid silently recreating missing tables. This checks structural requirements, not equivalence of every SQL constraint or custom trigger. The source is checked for external changes; its original hash is reported. Candidate WAL contents are checkpointed and the journal mode is returned to DELETE before accepting a standalone file.
+
+Restore invokes this preflight before preserving and replacing the target. It preserves corrupt target bytes and sidecars and retains runtime owner/mode. A running API blocks restore even with a dead poller. The final replacement is atomic; a rejected candidate never becomes the active target. The verifier discards its private copy and never replaces a database or starts workers. The snapshot timeout does not claim to bound the subsequent migration or source hashing.
 
 Restore rotates the instance epoch and revokes restored browser sessions and machine tokens. Operators log in again and reissue machine credentials. Printer-operation uncertainty is retained. The notifier detects the epoch change, reports recovery and rebuilds its condition baseline, so an old cursor cannot suppress future notifications. See the supported commands in [Operations](operations.md).
 

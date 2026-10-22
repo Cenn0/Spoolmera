@@ -25,8 +25,8 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def read_only_uri(path: Path) -> str:
-    return path.resolve().as_uri() + "?mode=ro"
+def read_only_uri(path: Path, *, immutable: bool = False) -> str:
+    return path.resolve().as_uri() + "?mode=ro" + ("&immutable=1" if immutable else "")
 
 
 def logical_size(db: sqlite3.Connection) -> int:
@@ -106,8 +106,14 @@ def remove_snapshot(path: Path) -> None:
 
 def create_snapshot(source: Path, destination: Path, *, max_bytes: int | None = None,
                     timeout_seconds: float = 30, reserve_bytes: int = 64 * 1024 * 1024,
-                    progress_hook: Callable[[int, int, int], None] | None = None) -> dict:
-    """Create exclusively; include WAL pages and check time, growth and free space."""
+                    progress_hook: Callable[[int, int, int], None] | None = None,
+                    immutable_source: bool = False) -> dict:
+    """Create exclusively; include WAL pages and check time, growth and free space.
+
+    Only recovery may use ``immutable_source`` after checking that its input is
+    a standalone, unchanged backup. It avoids creating source-side WAL files.
+    Live online snapshots must retain SQLite's normal locking and WAL handling.
+    """
     source, destination = Path(source), Path(destination)
     if not source.is_file():
         raise FileNotFoundError("Source database does not exist.")
@@ -120,7 +126,7 @@ def create_snapshot(source: Path, destination: Path, *, max_bytes: int | None = 
     os.close(fd)
     deadline = time.monotonic() + timeout_seconds
     try:
-        with closing(sqlite3.connect(read_only_uri(source), uri=True, timeout=1)) as original:
+        with closing(sqlite3.connect(read_only_uri(source, immutable=immutable_source), uri=True, timeout=1)) as original:
             page_size = original.execute("PRAGMA page_size").fetchone()[0]
             size = logical_size(original)
             if max_bytes is not None and size > max_bytes:

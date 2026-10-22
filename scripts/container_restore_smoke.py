@@ -90,6 +90,10 @@ def run(image: str) -> None:
         spool = client.call("/api/spools", "POST", {"product_id": product, "initial_g": 1000}, expected=201)["id"]
         client.call(f"/api/spools/{spool}/movements", "POST", {"kind": "consume", "grams": 100}, expected=201)
         docker("exec", container, "python", "scripts/backup.py", "/data/ci-backup.sqlite3", "--database", "/data/spoolmera.sqlite3")
+        verified = json.loads(offline("scripts/verify_backup.py", "/data/ci-backup.sqlite3",
+                                      "--work-dir", "/data", "--json").stdout)
+        assert verified["status"] == "ok" and verified["manifest_status"] == "verified"
+        assert verified["source_schema"] == verified["target_schema"] and not verified["migration_required"]
         client.call(f"/api/spools/{spool}/movements", "POST", {"kind": "consume", "grams": 50}, expected=201)
         docker("stop", "--time", "10", container)
         offline("scripts/restore.py", "/data/ci-backup.sqlite3", "/data/spoolmera.sqlite3", "--confirm")
@@ -103,6 +107,28 @@ def run(image: str) -> None:
         assert client.call("/api/spools")[0]["remaining_g"] == 875
         assert client.call("/api/admin/backup.sqlite3").startswith(b"SQLite format 3"), "Restored lock ownership prevents online backup"
         docker("stop", "--time", "10", container)
+        # A SQLite-valid file can still claim a current schema while missing a
+        # required table. It must be rejected before the active file is touched.
+        offline("-c", """
+from contextlib import closing
+import hashlib
+from pathlib import Path
+import shutil
+import sqlite3
+active = Path('/data/spoolmera.sqlite3')
+Path('/data/ci-active.sha256').write_text(hashlib.sha256(active.read_bytes()).hexdigest())
+shutil.copyfile('/data/ci-backup.sqlite3', '/data/ci-incomplete.sqlite3')
+with closing(sqlite3.connect('/data/ci-incomplete.sqlite3')) as db:
+    db.execute('DROP TABLE printer_operations')
+    db.commit()
+""")
+        incomplete = offline("scripts/verify_backup.py", "/data/ci-incomplete.sqlite3",
+                             "--work-dir", "/data", "--json", check=False)
+        assert incomplete.returncode == 1 and json.loads(incomplete.stdout)["error"]["code"] == "schema"
+        refused = offline("scripts/restore.py", "/data/ci-incomplete.sqlite3",
+                          "/data/spoolmera.sqlite3", "--confirm", check=False)
+        assert refused.returncode != 0, "Restore accepted an incomplete current-schema database"
+        offline("-c", "from pathlib import Path; import hashlib; assert hashlib.sha256(Path('/data/spoolmera.sqlite3').read_bytes()).hexdigest() == Path('/data/ci-active.sha256').read_text()")
         offline("-c", "from pathlib import Path; Path('/data/spoolmera.sqlite3').write_bytes(b'corrupt-recovery-fixture')")
         offline("scripts/restore.py", "/data/ci-backup.sqlite3", "/data/spoolmera.sqlite3", "--confirm")
         offline("-c", "from pathlib import Path; assert any(p.read_bytes()==b'corrupt-recovery-fixture' for p in Path('/data').glob('spoolmera.sqlite3.pre-restore-*') if not p.name.endswith('.json'))")
@@ -121,7 +147,52 @@ def run(image: str) -> None:
         assert client.call("/api/spools")[0]["remaining_g"] == 900
         assert client.call("/api/admin/backup.sqlite3").startswith(b"SQLite format 3")
         client.call(f"/api/spools/{spool}/movements", "POST", {"kind": "consume", "grams": 1}, expected=201)
-        print("Docker recovery passed: corrupt and missing destinations recover, prior bytes survive, foreign schema is rejected, sessions are revoked, UID and backup locks remain usable, new ledger writes succeed.")
+        docker("stop", "--time", "10", container)
+        # Send a real historical fixture's source into this disposable image;
+        # test fixtures remain outside the shipped application filesystem.
+        fixture = Path(__file__).resolve().parent.parent / "tests" / "recovery_fixtures.py"
+        offline("-c", fixture.read_text(encoding="utf-8") + """
+from contextlib import closing
+import hashlib
+legacy = create_legacy_database('/data/ci-legacy.sqlite3', version=5)
+with closing(sqlite3.connect('/data/ci-backup.sqlite3')) as saved:
+    user = saved.execute('SELECT username,password_hash,role,enabled,created_at FROM users WHERE id=1').fetchone()
+with closing(sqlite3.connect(legacy)) as db:
+    db.execute('UPDATE users SET username=?,password_hash=?,role=?,enabled=?,created_at=? WHERE id=1', user)
+    db.commit()
+Path('/data/ci-legacy.sha256').write_text(hashlib.sha256(legacy.read_bytes()).hexdigest())
+""")
+        legacy_report = json.loads(offline("scripts/verify_backup.py", "/data/ci-legacy.sqlite3",
+                                           "--work-dir", "/data", "--json").stdout)
+        assert legacy_report["status"] == "ok" and legacy_report["source_schema"] == 5
+        assert legacy_report["target_schema"] == verified["target_schema"]
+        assert legacy_report["migration_required"] and legacy_report["manifest_status"] == "absent"
+        offline("scripts/restore.py", "/data/ci-legacy.sqlite3", "/data/spoolmera.sqlite3", "--confirm")
+        # Check migration and the standalone result before any API startup can
+        # perform work. Then prove authentication, ledger reads and writes.
+        offline("-c", """
+from contextlib import closing
+import hashlib
+from pathlib import Path
+import sqlite3
+from app.infrastructure.database.migrations import CURRENT_SCHEMA_VERSION
+with closing(sqlite3.connect('/data/spoolmera.sqlite3')) as db:
+    assert db.execute('PRAGMA user_version').fetchone()[0] == CURRENT_SCHEMA_VERSION
+    assert db.execute('PRAGMA journal_mode').fetchone()[0] == 'delete'
+    assert db.execute('SELECT remaining_g FROM spools WHERE id=1').fetchone()[0] == 900
+    assert db.execute('SELECT count(*) FROM movements').fetchone()[0] == 2
+    assert db.execute('PRAGMA foreign_key_check').fetchall() == []
+assert hashlib.sha256(Path('/data/ci-legacy.sqlite3').read_bytes()).hexdigest() == Path('/data/ci-legacy.sha256').read_text()
+assert not list(Path('/data').glob('spoolmera-verify-*'))
+""")
+        restart()
+        client.call("/api/auth/me", expected=401)
+        client.login()
+        assert client.call("/api/spools")[0]["remaining_g"] == 900
+        client.call("/api/spools/1/movements", "POST", {"kind": "consume", "grams": 1}, expected=201)
+        assert client.call("/api/spools")[0]["remaining_g"] == 899
+        assert client.call("/api/admin/backup.sqlite3").startswith(b"SQLite format 3")
+        print("Docker recovery passed: packaged backup verification, historical-schema upgrade before startup, rejected incomplete candidates, corrupt and missing targets, retained prior bytes, revoked sessions, runtime ownership, and new ledger writes.")
     except BaseException:
         diagnostics()
         raise

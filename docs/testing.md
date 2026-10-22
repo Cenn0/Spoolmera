@@ -213,7 +213,7 @@ optional PrusaSlicer worker and real hardware remain outside this gate.
 
 ## Architecture regression checks
 
-The test suite additionally checks legacy migrations through schema v10, online SQLite backups, durable printer command replay protection, worker token isolation, polling leases, role-restricted API routes, backend/Angular API contracts and stable cursor pagination. CI compiles Python, runs Angular unit tests, builds Angular, verifies generated API models and exercises browser and Docker persistence tests. The opt-in slicer image is built independently from the default runtime.
+The test suite additionally checks legacy migrations through the current schema, online SQLite backups, durable printer command replay protection, worker token isolation, polling leases, role-restricted API routes, backend/Angular API contracts and stable cursor pagination. CI compiles Python, runs Angular unit tests, builds Angular, verifies generated API models and exercises browser and Docker persistence tests. The opt-in slicer image is built independently from the default runtime.
 
 No automated tests certify a printer model, its firmware or safe physical G-code. Test a real machine while supervised before enabling write controls. The application is free/open source experimental software without a warranty.
 
@@ -231,6 +231,17 @@ Device tests are mocked: they are **not** evidence of physical NFC/ESP32 compati
 
 `tests/test_operations_recovery.py` exercises committed WAL growth, logical backup limits, growth while copying, deadline/storage bounds, exclusive backup slots, disconnect cleanup, invalid application backups, altered manifests, corrupt previous bytes, crash sidecars and restored credential/notification-identity reset. An API with a stopped poller must still block offline restore. `tests/test_polling_runtime.py` kills a disposable child process to verify prompt ownership recovery and checks that cancelling an asyncio task does not release a still-running thread's lock. A second application lifespan must fail before migrating an active database. Invalid operator settings must prevent startup.
 
+`tests/test_recovery_preflight.py` uses actual historical table layouts for
+schemas 1, 5, 10 and 11 rather than lowering the version number of a current
+database. It checks real upgrades, preserved balances/identities/history,
+credential handling, uncertain operations, malformed current structures,
+manifest errors, source changes and candidate cleanup. `tests/recovery_fixtures.py`
+provides the same historical source for the disposable container gate.
+`tests/test_verify_backup_cli.py` executes the command in subprocesses and checks
+its versioned JSON contract, exit statuses, resource arguments and sanitized
+output. These tests prove application/database behavior; they do not certify a
+downloaded release package, arbitrary SQL modifications or physical hardware.
+
 `tests/test_notification_bridge.py` verifies quiet initialization, condition-based deduplication, partial-delivery retry, recurrence after recovery, category filtering, ntfy authentication, rejected redirects and notification-identity reset. `tests/test_diagnostics_operations.py` distinguishes an offline printer from an unhealthy poller and checks the machine alert scope.
 
 The following integration commands create their own disposable containers, volumes and internal test network. They never accept an existing installation's volume:
@@ -243,6 +254,6 @@ python scripts/notifier_container_smoke.py \
   --image spoolmera:notifier-ci --api-image spoolmera:ci
 ```
 
-The recovery gate exercises a root-run offline restore onto a UID-10001 database, validates database and lock-file ownership, starts the normal non-root app, downloads another online backup and records new material movements. It also restores over corruption and a missing database, verifies the preserved prior bytes and rejects an unrelated SQLite file. Unit tests that require actual UID changes are skipped when the host does not map UID 10001; the Docker gate must still pass. The notifier gate resolves the actual Compose files against synthetic secret sentinels and sends one authenticated message to a disposable local HTTP stub across three separate container runs. A configured gate is not evidence that it passed; consult the CI run for the commit being installed.
+The recovery gate exercises a root-run offline restore onto a UID-10001 database, validates database and lock-file ownership, starts the normal non-root app, downloads another online backup and records new material movements. It also runs the packaged verifier with a writable workspace, verifies and restores a historical-schema backup, checks that incomplete current-schema candidates cannot replace the database, restores over corruption and a missing database, verifies the preserved prior bytes and rejects an unrelated SQLite file. Unit tests that require actual UID changes are skipped when the host does not map UID 10001; the Docker gate must still pass. The notifier gate resolves the actual Compose files against synthetic secret sentinels and sends one authenticated message to a disposable local HTTP stub across three separate container runs. A configured gate is not evidence that it passed; consult the CI run for the commit being installed.
 
 For the isolated-slicer CI job, copy `tests/fixtures/slicer/ci.ini` into `slicer-profiles/ci.ini`, start the slicer Compose overlay with a fresh application database and export its generated `SPOOLMERA_BOOTSTRAP_TOKEN`. Then run `python scripts/slicer_smoke.py`. The test bootstraps only that fresh loopback instance and sends the closed 5 mm cube fixture through the authenticated API to the real PrusaSlicer executable. It checks the returned G-code without uploading it to any printer. The fixture profile is test data, not a physical-printer recommendation.
