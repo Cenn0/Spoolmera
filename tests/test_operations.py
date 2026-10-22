@@ -247,6 +247,7 @@ def test_slicing_opt_in_profile_and_cli_argument_guards(workspace, monkeypatch, 
                        content=source, headers=headers).status_code == 422
     def fake_run(argv, **kwargs):
         assert "--load" in argv and "--output" in argv
+        assert argv[argv.index("--threads")+1] == "2"
         assert argv[argv.index("--load")+1] == str(directory/"approved.ini")
         assert kwargs["timeout"] == 60 and kwargs["env"].get("SPOOLMERA_BOOTSTRAP_TOKEN") is None
         assert kwargs["check"] is False and "shell" not in kwargs
@@ -281,6 +282,40 @@ def test_slicer_rejects_profile_postprocessing(workspace, monkeypatch, tmp_path)
                            headers={"Content-Type":"application/octet-stream"})
     assert response.status_code == 422
     assert "post-processing" in response.text
+
+
+def test_slicer_timeout_does_not_retry_and_releases_bounded_capacity(monkeypatch, tmp_path):
+    import subprocess
+    from app.slicing import slice_stl
+    from fastapi import HTTPException
+
+    profiles = tmp_path / "profiles"
+    profiles.mkdir()
+    (profiles / "approved.ini").write_text("nozzle_diameter = 0.4\nthreads = 64\n")
+    binary = tmp_path / "prusa-slicer"
+    binary.write_text("fake executable")
+    binary.chmod(0o755)
+    monkeypatch.setenv("SPOOLMERA_SLICER_ENABLED", "1")
+    monkeypatch.setenv("SPOOLMERA_SLICER_PROFILES_DIR", str(profiles))
+    monkeypatch.setenv("SPOOLMERA_SLICER_EXECUTABLE", str(binary))
+    calls = []
+
+    def execute(argv, **kwargs):
+        calls.append(argv)
+        assert argv.index("--threads") > argv.index("--load")
+        assert argv[argv.index("--threads") + 1] == "2"
+        assert kwargs["timeout"] == 60 and "shell" not in kwargs
+        if len(calls) == 1:
+            raise subprocess.TimeoutExpired(argv, 60)
+        Path(argv[argv.index("--output") + 1]).write_bytes(b"; filament used [g] = 1\nG1 E1\n")
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr("app.slicing.subprocess.run", execute)
+    with pytest.raises(HTTPException) as error:
+        slice_stl(b"solid fixture\nendsolid fixture\n", "approved")
+    assert error.value.status_code == 504 and len(calls) == 1
+    assert slice_stl(b"solid fixture\nendsolid fixture\n", "approved")[1] == 1
+    assert len(calls) == 2
 
 
 def test_upload_transport_revalidates_allowlist_and_rejects_redirect(workspace, monkeypatch):

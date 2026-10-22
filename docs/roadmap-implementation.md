@@ -19,6 +19,7 @@ This release remains fully free, Apache-2.0-licensed, Docker-self-hosted and bas
 | Community catalog | Optional Open Filament Database browser; fixed HTTPS origin and cache; user-review before saving | app/api/catalog.py |
 | Spoolman migration | Create-only JSON spool snapshots with import preview, rollback and external-source ID mapping | app/api/spoolman_import.py |
 | Print readiness | Per-tool availability, independent advisory reservations and explicit loaded spool slots | app/services/reservation_service.py |
+| Bounded optional slicing | Explicit two-thread PrusaSlicer ceiling matching the Compose CPU quota, existing single-operation/deadline/isolation guards, real CLI CI smoke with failure diagnostics | app/slicing.py, .github/workflows/ci.yml |
 | Slicer metadata | Limited read-only G-code and sliced 3MF per-tool usage metadata; no execution | app/services/gcode_metadata.py |
 | NFC identifiers | Register and resolve optional NFC/OpenPrintTag/custom tag IDs; Web NFC serial lookup on compatible browsers | app/api/identifiers.py |
 | Signed scale bridge | Pending HMAC-SHA256 device reports, deduplication, human approval and atomic stock movement | app/api/scale.py |
