@@ -249,11 +249,11 @@ jobs:
         with:
           node-version: '24'
           package-manager-cache: false
-      - name: Audit Angular runtime dependencies
+      - name: Audit Angular runtime and development dependencies
         working-directory: frontend
         run: |
           npm ci --no-audit --no-fund
-          npm audit --omit=dev --audit-level=high
+          npm audit --include=dev --audit-level=high
       - name: Produce production frontend CycloneDX SBOM
         working-directory: frontend
         run: npm sbom --omit=dev --sbom-format cyclonedx > "$RUNNER_TEMP/frontend-sbom.cdx.json"
