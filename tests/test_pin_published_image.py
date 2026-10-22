@@ -97,3 +97,42 @@ def test_double_application_is_idempotent(tmp_path: Path):
         result = run_cli("--digest", DIGEST, "--env-file", str(env), "--apply")
         assert result.returncode == 0
     assert env.read_text().count("SPOOLMERA_IMAGE=") == 1
+
+
+def test_multiline_values_are_rejected_without_modifying_other_configuration(tmp_path):
+    env = tmp_path / ".env"
+    original = "TEST_VALUE='first\nSPOOLMERA_IMAGE=literal-value\nlast'\n"
+    env.write_text(original)
+    result = run_cli("--digest", DIGEST, "--env-file", str(env), "--apply")
+    assert result.returncode != 0
+    assert env.read_text() == original
+    assert "literal-value" not in result.stdout + result.stderr
+
+
+def test_colon_and_unset_image_assignments_are_replaced_and_duplicates_rejected():
+    for original in ("SPOOLMERA_IMAGE: old\n", "export SPOOLMERA_IMAGE: old\n", "SPOOLMERA_IMAGE\n"):
+        assert pin_env(original, IMAGE) == f"SPOOLMERA_IMAGE={IMAGE}\n"
+    try:
+        pin_env("SPOOLMERA_IMAGE: old\nSPOOLMERA_IMAGE=new\n", IMAGE)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Mixed duplicate assignments must be rejected")
+
+
+def test_matching_digest_still_gets_private_file_permissions(tmp_path):
+    env = tmp_path / ".env"
+    env.write_text(f"SPOOLMERA_IMAGE={IMAGE}\n")
+    env.chmod(0o644)
+    result = run_cli("--digest", DIGEST, "--env-file", str(env), "--apply")
+    assert result.returncode == 0
+    assert stat.S_IMODE(env.stat().st_mode) == 0o600
+
+
+def test_other_value_bytes_and_crlf_are_preserved(tmp_path):
+    env = tmp_path / ".env"
+    original = b'TEST_VALUE="one \\"quoted\\" value"\r\nSPOOLMERA_IMAGE: old\r\nOTHER=unchanged\r\n'
+    env.write_bytes(original)
+    result = run_cli("--digest", DIGEST, "--env-file", str(env), "--apply")
+    assert result.returncode == 0, result.stderr
+    assert env.read_bytes() == original.replace(b"SPOOLMERA_IMAGE: old", f"SPOOLMERA_IMAGE={IMAGE}".encode())

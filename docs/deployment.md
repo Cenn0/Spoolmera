@@ -46,7 +46,7 @@ python3 scripts/pin_published_image.py --digest "$PROMOTED_DIGEST"
 python3 scripts/pin_published_image.py --digest "$PROMOTED_DIGEST" --apply
 ```
 
-The script refuses malformed digests, duplicate image assignments, missing files and symlinks; when it writes, it atomically replaces `.env` with owner-only permissions while preserving the other settings. The resulting value is `SPOOLMERA_IMAGE=ghcr.io/cenn0/spoolmera@sha256:...`. It does not fetch an image, contact a printer or restart the service.
+The script refuses malformed digests, duplicate image assignments (including colon or unset forms), multiline/unsupported dotenv syntax, missing files and symlinks; when it writes, it atomically replaces `.env` with owner-only permissions while preserving the other settings. A matching existing digest also receives owner-only permissions when `--apply` is used. Files with multiline quoted values require a manual image-setting update; they are rejected without modification. The resulting value is `SPOOLMERA_IMAGE=ghcr.io/cenn0/spoolmera@sha256:...`. It does not fetch an image, contact a printer or restart the service.
 
 Before a **live upgrade**, back up and verify the SQLite database **and rehearse the backup migration against the selected new image** as described in [Data, backups and upgrades](#data-backups-and-upgrades). For example, with the reviewed image pinned in `.env`:
 
