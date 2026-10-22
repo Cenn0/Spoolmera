@@ -196,7 +196,7 @@ jobs:
           done
           python scripts/browser_smoke.py
       - name: Capture every interface view in all four layouts
-        run: python scripts/ui_visual_audit.py --serve --strict --output "${{ runner.temp }}/ui-all-views-audit"
+        run: python scripts/ui_visual_audit.py --serve --strict --output "$RUNNER_TEMP/ui-all-views-audit"
       - name: Verify captured audit and previews without uploading
         if: success()
         shell: bash

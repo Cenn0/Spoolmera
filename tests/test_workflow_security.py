@@ -81,3 +81,7 @@ def test_browser_ci_uses_matching_digest_pinned_official_test_image():
     assert "python scripts/browser_smoke.py" in browser
     assert "scripts/ui_visual_audit.py --serve --strict" in browser
     assert "playwright install" not in browser
+
+    # runner.temp is a host context path; RUNNER_TEMP is translated for job containers.
+    assert "${{ runner.temp }}" not in browser
+    assert '--output "$RUNNER_TEMP/ui-all-views-audit"' in browser
