@@ -77,3 +77,23 @@ def test_release_image_scan_precedes_registry_and_release_publication():
     release = (ROOT / ".github/workflows/release-test.yml").read_text(encoding="utf-8")
     assert release.index("scripts/scan_container.py") < release.index("docker push")
     assert release.index("scripts/scan_container.py") < release.index("gh release create")
+
+
+
+def test_promotion_checks_both_tags_against_the_approved_digest():
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    promote = workflow.split("  promote:")[1]
+    assert 'expected_digest="${IMAGE#ghcr.io/cenn0/spoolmera@}"' in promote
+    assert 'for reference in "ghcr.io/cenn0/spoolmera:main" "ghcr.io/cenn0/spoolmera:sha-$SOURCE_COMMIT"' in promote
+    assert 'docker buildx imagetools inspect --raw "$reference"' in promote
+    assert '"$actual_digest" != "$expected_digest"' in promote
+    assert 'python3 scripts/pin_published_image.py --digest $expected_digest --apply' in promote
+    assert 'Digest: ' in promote
+
+
+def test_deployment_documentation_prefers_content_addressed_images():
+    guide = (ROOT / "docs/deployment.md").read_text(encoding="utf-8")
+    assert "ghcr.io/cenn0/spoolmera@sha256:" in guide
+    assert 'python3 scripts/pin_published_image.py --digest "$PROMOTED_DIGEST" --apply' in guide
+    assert "docker compose up -d --pull always --no-build" in guide
+    assert "rehearse" in guide.lower()

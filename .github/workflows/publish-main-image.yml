@@ -181,10 +181,26 @@ jobs:
           docker buildx imagetools create \
             --tag "ghcr.io/cenn0/spoolmera:sha-$SOURCE_COMMIT" \
             --tag ghcr.io/cenn0/spoolmera:main "$IMAGE"
+          # A promoted tag must resolve to the exact candidate manifest;
+          # pinning a tag alone would not protect subsequent deployments.
+          expected_digest="${IMAGE#ghcr.io/cenn0/spoolmera@}"
+          for reference in "ghcr.io/cenn0/spoolmera:main" "ghcr.io/cenn0/spoolmera:sha-$SOURCE_COMMIT"; do
+            actual_digest="sha256:$(docker buildx imagetools inspect --raw "$reference" | sha256sum | cut -d ' ' -f 1)"
+            if [[ "$actual_digest" != "$expected_digest" ]]; then
+              echo "Unexpected promoted manifest: $reference resolved to $actual_digest, expected $expected_digest" >&2
+              exit 1
+            fi
+          done
           {
             echo "### Promoted verified experimental main image"
             echo ""
-            echo "Digest: \`$IMAGE\`"
+            echo "Digest: \`$IMAGE\` (preferred immutable deployment reference)"
+            echo ""
+            echo "To pin it in an existing private Compose .env after reviewing the CI/security results:"
+            echo ""
+            echo "\`python3 scripts/pin_published_image.py --digest $expected_digest --apply\`"
+            echo ""
+            echo "Then verify a backup and migrations before running \`docker compose up -d --pull always --no-build\`."
             echo ""
             echo "Tags: \`ghcr.io/cenn0/spoolmera:main\`, \`ghcr.io/cenn0/spoolmera:sha-$SOURCE_COMMIT\`"
             echo ""

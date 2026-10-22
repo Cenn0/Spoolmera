@@ -66,7 +66,7 @@ python3 -c 'import secrets; print(secrets.token_urlsafe(32))'
 docker compose up -d --build
 ```
 
-For a prebuilt, CI-tested image instead of a local build, add `SPOOLMERA_IMAGE=ghcr.io/cenn0/spoolmera:main` to `.env` and run `docker compose up -d --pull always --no-build`. The experimental `main` tag is updated after successful main CI; use `:sha-<40-character-commit>` to select an exact image. Publication does **not** automatically update your running server. See [deployment](docs/deployment.md) and [releasing](docs/RELEASING.md).
+For a published container instead of a local build, use the **verified multi-platform digest** from a successful [main image promotion](https://github.com/Cenn0/Spoolmera/actions/workflows/publish-main-image.yml). Preview `python3 scripts/pin_published_image.py --digest sha256:<64-lowercase-hex-digits>`, then use `--apply` to update only `SPOOLMERA_IMAGE` in your existing private `.env`. After reviewing the backup and schema-upgrade requirements, run `docker compose up -d --pull always --no-build`. The floating `:main` tag is available for experimental tracking, but **digest pinning** is recommended for controlled deployments; a new merge never upgrades your server automatically. See [deployment](docs/deployment.md) and [releasing](docs/RELEASING.md).
 
 Open **http://127.0.0.1:8765** on the Docker host. Set up the first administrator with the bootstrap token and a password of **at least 14 characters**. There is **no default admin password**; initial setup is blocked if the token is absent.
 

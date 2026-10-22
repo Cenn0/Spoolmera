@@ -1,6 +1,6 @@
 # Releasing Spoolmera
 
-The current distributable is an **experimental Linux amd64 test bundle**, not a certified production printer controller. Full PR/main CI additionally tests the default app on native Linux arm64, but this release workflow publishes only a tested **amd64** image. Optional slicing/notifier images are **not** pushed.
+The versioned release workflow produces an **experimental Linux amd64 test bundle** only after its publication gates pass. No downloadable bundle exists merely because the source version was updated. It is not a certified production printer controller. Full PR/main CI additionally tests the default app on native Linux arm64, but this release workflow publishes only a tested **amd64** image. Optional slicing/notifier images are **not** pushed.
 
 ## Automatically published main images
 
@@ -11,6 +11,8 @@ Separate native AMD64 and ARM64 runners pull the **exact registry digest**, chec
 The scanner is upstream Trivy with a version and **release-archive SHA-256 pinned** in [scanner inputs](../scripts/container_scan_inputs.json); it does not execute an install script or a mutable scanner Action. [The scan harness](../scripts/scan_container.py) records every severity, rejects incomplete scans and blocks **all HIGH/CRITICAL findings, including unfixed ones**. It disables inherited Trivy environment settings and uses empty explicit config/ignore files. Download/database/scanner failures also block promotion. Reports and SBOM stay in the job's temporary directory; the job summary records totals. Review lower-severity findings separately. Scan success is not proof that an application is safe or independently audited.
 
 **Known release blocker (2026-10-22):** the previously published application image was scanned with this policy and reported HIGH Debian package findings without an available fix in that scan. Do not interpret earlier green dependency audits or the existing moving tag as evidence that this stricter image gate passed. Candidate images must remain unaccepted until the blocking package findings are resolved or separately reviewed through an explicit security-policy change; there are no automatic exceptions.
+
+The promotion job additionally verifies that both published tags resolve to the **exact approved manifest digest**, and records the digest-pinned deployment reference and opt-in `scripts/pin_published_image.py --digest ... --apply` command in the GitHub Actions summary. A digest (`ghcr.io/cenn0/spoolmera@sha256:...`) is content-addressed and is the recommended input for controlled self-hosted upgrades; even a commit-named Docker tag is not a registry-level immutability guarantee. Never pin a merely built candidate digest or a blocked/skipped publication. Review the release security gates, the selected image and the backup migration before switching an installation.
 
 The workflow does not deploy to a host, publish the optional slicer/notifier, create a version tag or create a GitHub release. This main channel remains experimental and never uses `latest`. The first GHCR package may require the owner to configure public visibility. See [deployment instructions](deployment.md#pull-the-ci-published-image-without-building-locally).
 
