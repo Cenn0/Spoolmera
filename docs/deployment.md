@@ -36,11 +36,14 @@ For **controlled self-hosted deployment**, use the promoted **multi-platform ima
 From your checkout, select the promoted digest (replace the placeholder with the 64 **lowercase** hex characters from the successful promotion):
 
 ```bash
+# Paste the promoted sha256 digest from the successful Actions summary:
+PROMOTED_DIGEST='sha256:REPLACE_WITH_64_LOWERCASE_HEX_DIGITS'
+
 # Does not modify files or start containers.
-python3 scripts/pin_published_image.py --digest sha256:<64-lowercase-hex-digits>
+python3 scripts/pin_published_image.py --digest "$PROMOTED_DIGEST"
 
 # Explicitly update only SPOOLMERA_IMAGE in the EXISTING private .env.
-python3 scripts/pin_published_image.py --digest sha256:<64-lowercase-hex-digits> --apply
+python3 scripts/pin_published_image.py --digest "$PROMOTED_DIGEST" --apply
 ```
 
 The script refuses malformed digests, duplicate image assignments, missing files and symlinks; when it writes, it atomically replaces `.env` with owner-only permissions while preserving the other settings. The resulting value is `SPOOLMERA_IMAGE=ghcr.io/cenn0/spoolmera@sha256:...`. It does not fetch an image, contact a printer or restart the service.
