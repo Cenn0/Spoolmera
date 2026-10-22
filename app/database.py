@@ -155,43 +155,52 @@ def session(path: str | Path, *, write: bool = False) -> Iterator[sqlite3.Connec
 def initialize_database(path: str | Path) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     with session(path) as connection:
-        connection.execute("PRAGMA journal_mode = WAL")
-        version = connection.execute("PRAGMA user_version").fetchone()[0]
-        if version > CURRENT_SCHEMA_VERSION:
-            raise RuntimeError("Database schema is newer than this Spoolmera version.")
-        connection.executescript(SCHEMA)
-        # Suspend FK triggers only for the v11 printer-table rebuild.
+        initialize_connection(connection)
+
+
+def initialize_connection(connection: sqlite3.Connection) -> None:
+    """Apply the startup migrations to a connection configured by ``connect``.
+
+    Recovery uses this same path on its private candidate and on an empty
+    in-memory reference, so it cannot silently diverge from application startup.
+    """
+    connection.execute("PRAGMA journal_mode = WAL")
+    version = connection.execute("PRAGMA user_version").fetchone()[0]
+    if version > CURRENT_SCHEMA_VERSION:
+        raise RuntimeError("Database schema is newer than this Spoolmera version.")
+    connection.executescript(SCHEMA)
+    # Suspend FK triggers only for the v11 printer-table rebuild.
+    if version < 11:
+        connection.execute("PRAGMA foreign_keys=OFF")
+    connection.execute("BEGIN IMMEDIATE")
+    try:
+        if version < 4:
+            migrate_v2_v4(connection)
+        if version < 5:
+            migrate_v5(connection)
+        if version < 6:
+            migrate_v6(connection)
+        if version < 7:
+            migrate_v7(connection)
+        if version < 8:
+            migrate_v8(connection)
+        if version < 9:
+            migrate_v9(connection)
+        if version < 10:
+            migrate_v10(connection)
         if version < 11:
-            connection.execute("PRAGMA foreign_keys=OFF")
-        connection.execute("BEGIN IMMEDIATE")
-        try:
-            if version < 4:
-                migrate_v2_v4(connection)
-            if version < 5:
-                migrate_v5(connection)
-            if version < 6:
-                migrate_v6(connection)
-            if version < 7:
-                migrate_v7(connection)
-            if version < 8:
-                migrate_v8(connection)
-            if version < 9:
-                migrate_v9(connection)
-            if version < 10:
-                migrate_v10(connection)
-            if version < 11:
-                migrate_v11(connection)
-            if version < 12:
-                migrate_v12(connection)
-            recover_interrupted_commands(connection)
-            if connection.execute("PRAGMA foreign_key_check").fetchone():
-                raise RuntimeError("Migration would leave invalid printer references.")
-            connection.execute(f"PRAGMA user_version = {CURRENT_SCHEMA_VERSION}")
-            connection.execute("COMMIT")
-        except BaseException:
-            if connection.in_transaction:
-                connection.execute("ROLLBACK")
-            raise
-        finally:
-            if version < 11:
-                connection.execute("PRAGMA foreign_keys=ON")
+            migrate_v11(connection)
+        if version < 12:
+            migrate_v12(connection)
+        recover_interrupted_commands(connection)
+        if connection.execute("PRAGMA foreign_key_check").fetchone():
+            raise RuntimeError("Migration would leave invalid printer references.")
+        connection.execute(f"PRAGMA user_version = {CURRENT_SCHEMA_VERSION}")
+        connection.execute("COMMIT")
+    except BaseException:
+        if connection.in_transaction:
+            connection.execute("ROLLBACK")
+        raise
+    finally:
+        if version < 11:
+            connection.execute("PRAGMA foreign_keys=ON")

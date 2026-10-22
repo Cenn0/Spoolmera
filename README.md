@@ -46,7 +46,7 @@ Screenshots use synthetic demonstration data, not connected physical hardware. S
 - **Labels, export and import:** Printable QR labels, versioned inventory CSV import/export, filterable full movement-history CSV export (including archived spools) and one-time Spoolman JSON snapshot import (not ongoing synchronization).
 - **Printing:** Print-job tracking, G-code/3MF metadata inspection, explicit mapping from tools to spools and review of estimated versus actual use.
 - **Connections:** Local Moonraker/Klipper, OctoPrint and an **experimental, unofficial Bambu Lab LAN MQTT adapter**.
-- **Operations:** Role-based access, first-run admin setup, diagnostics and guarded SQLite backup/restore. Optional isolated slicing worker and notification sidecar.
+- **Operations:** Role-based access, first-run admin setup, diagnostics and guarded SQLite backup/restore, with offline backup verification and a schema-upgrade rehearsal before replacement. Optional isolated slicing worker and notification sidecar.
 - **Interface:** Responsive Angular web app with English/German localization and light/dark modes.
 
 A print job, imported metadata or advisory reservation does **not** automatically start a physical print or deduct material. An explicitly enabled Bambu completion workflow can record **estimated** consumption after strict task correlation; uncertain outcomes require manual review.

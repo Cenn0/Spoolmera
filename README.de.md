@@ -46,7 +46,7 @@ Die Screenshots verwenden synthetische Beispieldaten, keine verbundenen physisch
 - **Etiketten, Export und Import:** Druckbare QR-Etiketten, versionierter CSV-Bestandsimport/-export, vollständig filterbarer CSV-Export der Buchungshistorie (auch archivierter Spulen) und einmaliger Spoolman-JSON-Snapshot-Import (keine laufende Synchronisierung).
 - **Druckaufträge:** Nachverfolgung, G-Code-/3MF-Metadaten, Zuordnung von Druckwerkzeugen zu Spulen und Abgleich von geschätztem und tatsächlichem Verbrauch.
 - **Druckeranbindung:** Lokales Moonraker/Klipper, OctoPrint und ein **experimenteller, nicht offizieller Bambu-Lab-LAN-MQTT-Adapter**.
-- **Betrieb:** Rollenbasierter Zugriff, Einrichtung des ersten Administrators, Diagnose, abgesicherte SQLite-Backups und -Wiederherstellung. Optional isolierter Slicing-Worker und Benachrichtigungsdienst.
+- **Betrieb:** Rollenbasierter Zugriff, Einrichtung des ersten Administrators, Diagnose, abgesicherte SQLite-Backups und -Wiederherstellung mit separater Backup-Prüfung und Probe des Schema-Upgrades vor dem Austausch. Optional isolierter Slicing-Worker und Benachrichtigungsdienst.
 - **Oberfläche:** Responsive Angular-Weboberfläche mit Deutsch/Englisch und hellem/dunklem Design.
 
 Ein erfasster Druckauftrag, importierte Metadaten oder eine unverbindliche Materialreservierung **starten keinen physischen Druck und buchen nicht automatisch Material ab**. Eine explizit aktivierte Bambu-Funktion kann bei eindeutig zugeordnetem Druckabschluss den **geschätzten** Verbrauch buchen. Unklare Vorgänge müssen manuell geprüft werden.

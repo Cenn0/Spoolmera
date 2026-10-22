@@ -79,7 +79,23 @@ docker compose exec -T spoolmera python scripts/backup.py \
 
 Copy **both** the `.sqlite3` and `.manifest.json` to a different storage device/host; a copy left inside the same Docker volume is not a disaster-recovery backup. Backups and UI downloads have time, size and available-space limits described in [Operations](operations.md).
 
-Before upgrading: take and verify a backup, test its restoration in the isolated stack, review changes and migration prerequisites, update to the chosen reviewed commit, then run `docker compose up -d --build`. Recheck users, recorded balances, movement history, pending job reviews and container health. Version-gated migrations support documented upgrades; **database downgrades are not guaranteed**.
+Before upgrading: take a backup and verify it using the intended target application version:
+
+```bash
+docker compose run --rm --no-deps --entrypoint python spoolmera \
+  scripts/verify_backup.py /data/backups/before-upgrade.sqlite3 \
+  --work-dir /data --json
+```
+
+This command tests actual database initialization and migration on a temporary
+copy without replacing the running installation. It reports the source/target
+schema, original checksum and whether a manifest was verified. Use the image
+built from the reviewed target revision for an upgrade rehearsal; the installed
+old image only verifies against its own schema. The host command is
+`python scripts/verify_backup.py BACKUP --json`. See the [verification contract
+and resource limits](operations.md#verify-a-backup-and-rehearse-its-upgrade).
+
+Test full restoration in the isolated stack, review changes and migration prerequisites, update to the chosen reviewed commit, then run `docker compose up -d --build`. Recheck users, recorded balances, movement history, pending job reviews and container health. Version-gated migrations support documented upgrades; **database downgrades are not guaranteed**.
 
 ### Offline restore
 
@@ -93,7 +109,7 @@ docker compose run --rm --no-deps --entrypoint python spoolmera \
 docker compose up -d
 ```
 
-Restore checks schema, identity, integrity and manifest where present; it rejects active database use and preserves existing bytes. Crash sidecars can require deliberate quarantine: **never remove a live WAL file**. Restoring revokes browser sessions and machine tokens; sign in and reissue tokens, then inspect any uncertain physical printer operations. Do not perform an untested restore directly against your only copy of inventory.
+Restore checks schema, identity, integrity and manifest where present, then performs the real upgrade and current table/column checks on its staging copy before replacement. It rejects active database use and preserves existing bytes. Crash sidecars can require deliberate quarantine: **never remove a live WAL file**. Restoring revokes browser sessions and machine tokens; sign in and reissue tokens, then inspect any uncertain physical printer operations. Do not perform an untested restore directly against your only copy of inventory.
 
 ## Isolated test instance
 
