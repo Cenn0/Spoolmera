@@ -31,21 +31,36 @@ The Docker service serves compiled Angular through FastAPI; the runtime does **n
 
 After a successful push/merge to `main`, the [main image workflow](../.github/workflows/publish-main-image.yml) publishes the default app to GitHub Container Registry for `linux/amd64` and `linux/arm64`. The **experimental** rolling tag is `ghcr.io/cenn0/spoolmera:main`; `ghcr.io/cenn0/spoolmera:sha-<full-40-character-commit-sha>` selects one particular revision. There is deliberately no moving `latest` tag.
 
-Continue using the repository's `compose.yaml` and your existing private `.env`, keeping the same named SQLite volume. Add this line to `.env`:
+For **controlled self-hosted deployment**, use the promoted **multi-platform image digest**, not a mutable tag. Find the exact `ghcr.io/cenn0/spoolmera@sha256:...` value in the successful [main image promotion run](https://github.com/Cenn0/Spoolmera/actions/workflows/publish-main-image.yml), which first checks the main CI result, native AMD64/ARM64 runtime and persistence, image SBOM and the blocking container vulnerability gate. Ignore candidate builds and failed/skipped promotion runs. Some older `:main` images predate this strict registry-image gate; do not assume they passed it.
 
-```dotenv
-SPOOLMERA_IMAGE=ghcr.io/cenn0/spoolmera:main
+From your checkout, select the promoted digest (replace the placeholder with the 64 **lowercase** hex characters from the successful promotion):
+
+```bash
+# Does not modify files or start containers.
+python3 scripts/pin_published_image.py --digest sha256:<64-lowercase-hex-digits>
+
+# Explicitly update only SPOOLMERA_IMAGE in the EXISTING private .env.
+python3 scripts/pin_published_image.py --digest sha256:<64-lowercase-hex-digits> --apply
 ```
 
-Then fetch and recreate with the published image instead of a local build:
+The script refuses malformed digests, duplicate image assignments, missing files and symlinks; when it writes, it atomically replaces `.env` with owner-only permissions while preserving the other settings. The resulting value is `SPOOLMERA_IMAGE=ghcr.io/cenn0/spoolmera@sha256:...`. It does not fetch an image, contact a printer or restart the service.
+
+Before a **live upgrade**, back up and verify the SQLite database **and rehearse the backup migration against the selected new image** as described in [Data, backups and upgrades](#data-backups-and-upgrades). For example, with the reviewed image pinned in `.env`:
 
 ```bash
 docker compose pull spoolmera
+# Rehearse backup verification against the selected target image BEFORE replacing the live app.
+docker compose run --rm --no-deps --entrypoint python spoolmera \\
+  scripts/verify_backup.py /data/backups/before-upgrade.sqlite3 \\
+  --work-dir /data --json
+# Only after a successful rehearsal and operator approval:
 docker compose up -d --pull always --no-build
 docker compose ps
 ```
 
-For a reproducible upgrade, prefer the commit-specific tag after reviewing the matching CI run. **Back up the database and rehearse migrations before upgrading**, as described below. GHCR publication neither deploys to your server nor restarts a running container; the operator controls upgrades. Public repository visibility does not guarantee that a newly created GHCR package is public: its owner may need to set the package visibility to **public**. Do not publish tokens or `.env` files. The default image contains only the app, not optional slicing or notifications services.
+The rehearsal requires the backup and matching manifest in the persistent volume; the backup must have been made **before** modifying live data. `docker compose run` creates a disposable container and must not connect to live printer commands. Do not apply a database downgrade as rollback; restore the matching backup when recovery is required.
+
+The moving `ghcr.io/cenn0/spoolmera:main` tag is only for experimenting with the newest accepted build. A `:sha-<full-commit-sha>` tag is easier to identify but may still be mutable at the registry; a digest reference is content-addressed. GHCR publication does **not** restart running installations. Repository visibility does not automatically make a new GHCR package public; the owner may need to enable **public** package visibility. Do not publish `.env` or credentials. The default image does not contain optional slicing or notifications services.
 
 ## Remote access, HTTPS and QR links
 
