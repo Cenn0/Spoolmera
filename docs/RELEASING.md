@@ -2,6 +2,12 @@
 
 The current distributable is an **experimental Linux amd64 test bundle**, not a certified production printer controller. Full PR/main CI additionally tests the default app on native Linux arm64, but this release workflow publishes only a tested **amd64** image. Optional slicing/notifier images are **not** pushed.
 
+## Automatically published main images
+
+The [publish-main-image workflow](../.github/workflows/publish-main-image.yml) listens for successful completion of the **push-to-main** CI run. It rejects PR/tag CI runs and stale commits, then builds and publishes the standard `app-runtime` image to GitHub Container Registry for `linux/amd64` and `linux/arm64`. Each successful publication updates the moving experimental tag `ghcr.io/cenn0/spoolmera:main` and a commit-specific `ghcr.io/cenn0/spoolmera:sha-<full-40-character-commit-sha>` tag. Builds publish OCI provenance and an image SBOM. The workflow does not publish the optional slicer or notifier, deploy to any host, tag a release, or create a GitHub release.
+
+This **main channel is experimental** and not a stable release or manufacturer certification. It never uses the moving `latest` tag. Main CI already builds and smoke-tests the app on native AMD64 and ARM64; the registry workflow depends on its successful conclusion and verifies the published multi-platform manifest. Verify an image's CI status, provenance, licenses and deployment impact before production use. The first GHCR package may require the owner to configure **public** visibility. See [deployment instructions](deployment.md#pull-the-ci-published-image-without-building-locally).
+
 ## Publish a reviewed version
 
 1. Update `app/__init__.py`, `frontend/package.json`, `frontend/package-lock.json` and release documentation to the **same** version. Merge through protected `main`.
