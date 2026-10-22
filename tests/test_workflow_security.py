@@ -65,3 +65,23 @@ def test_all_workflow_actions_are_pinned_to_commit_shas():
             else:
                 assert re.fullmatch(r"[\w.-]+/[\w.-]+(?:/[\w.-]+)?@[0-9a-f]{40}", ref), ref
         assert "persist-credentials: false" in workflow
+
+
+def test_browser_ci_uses_matching_digest_pinned_official_test_image():
+    import json
+    inputs = json.loads((ROOT / "docs/build-inputs.json").read_text())
+    image = inputs["browser_test_image"]
+    requirements = (ROOT / "requirements-e2e.in").read_text()
+    assert f"playwright=={image['playwright_version']}" in requirements
+    assert re.fullmatch(r"mcr\.microsoft\.com/playwright/python:v[0-9.]+-noble@sha256:[0-9a-f]{64}", image["reference"])
+    browser = CI.read_text().split("  browser-smoke:", 1)[1].split("  slicer-build:", 1)[0]
+    assert "image: " + image["reference"] in browser
+    assert "Verify the preinstalled Chromium executable" in browser
+    assert "playwright.chromium.launch" in browser
+    assert "python scripts/browser_smoke.py" in browser
+    assert "scripts/ui_visual_audit.py --serve --strict" in browser
+    assert "playwright install" not in browser
+
+    # runner.temp is a host context path; RUNNER_TEMP is translated for job containers.
+    assert "${{ runner.temp }}" not in browser
+    assert '--output "$RUNNER_TEMP/ui-all-views-audit"' in browser

@@ -44,7 +44,7 @@ Slicing is **not installed in the default API image**. The opt-in Compose overla
 
 4. As administrator, upload one STL (8 MiB maximum), select an approved profile and click **Slice and download G-code**. Output is limited to 16 MiB. The G-code is **not** transferred or started automatically.
 
-The worker uses a fixed executable path, no shell, an isolated temporary directory, a 60-second slicing timeout and a single-process semaphore. Profile post-processing commands are rejected. Slicing malicious geometry is not proven safe simply because the process is isolated; supervise first prints and review G-code. API requests fail closed when the worker token/network is not configured.
+The worker uses a fixed executable path, no shell, an isolated temporary directory, a 60-second slicing timeout and a single-process semaphore. PrusaSlicer is explicitly capped at two threads after loading the approved profile, matching the default Compose worker CPU allocation even when its host exposes more CPUs; the profile cannot raise that subprocess budget. The shipped CLI documents [the threads option](https://manpages.debian.org/trixie/prusa-slicer/prusa-slicer.1.en.html). Profile post-processing commands are rejected. Slicing malicious geometry is not proven safe simply because the process is isolated; supervise first prints and review G-code. API requests fail closed when the worker token/network is not configured.
 
 ## Multi-material job mapping
 

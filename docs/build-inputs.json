@@ -70,5 +70,10 @@
     "source": "https://deb.debian.org/debian/dists/trixie/main/binary-amd64/Packages.xz"
   },
   "python_lock_target": "CPython 3.12 on Linux",
-  "lock_generator": "uv 0.12.23"
+  "lock_generator": "uv 0.12.23",
+  "browser_test_image": {
+    "reference": "mcr.microsoft.com/playwright/python:v1.64.0-noble@sha256:684df257a1fa0ef3fa288239819984008f560e8f8db5b635ee9e2a50cbcd2e23",
+    "playwright_version": "1.64.0",
+    "source": "https://playwright.dev/python/docs/docker"
+  }
 }
