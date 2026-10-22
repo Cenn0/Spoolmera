@@ -12,6 +12,8 @@ The scanner is upstream Trivy with a version and **release-archive SHA-256 pinne
 
 **Known release blocker (2026-10-22):** the previously published application image was scanned with this policy and reported HIGH Debian package findings without an available fix in that scan. Do not interpret earlier green dependency audits or the existing moving tag as evidence that this stricter image gate passed. Candidate images must remain unaccepted until the blocking package findings are resolved or separately reviewed through an explicit security-policy change; there are no automatic exceptions.
 
+The promotion job additionally verifies that both published tags resolve to the **exact approved manifest digest**, and records the digest-pinned deployment reference and opt-in `scripts/pin_published_image.py --digest ... --apply` command in the GitHub Actions summary. A digest (`ghcr.io/cenn0/spoolmera@sha256:...`) is content-addressed and is the recommended input for controlled self-hosted upgrades; even a commit-named Docker tag is not a registry-level immutability guarantee. Never pin a merely built candidate digest or a blocked/skipped publication. Review the release security gates, the selected image and the backup migration before switching an installation.
+
 The workflow does not deploy to a host, publish the optional slicer/notifier, create a version tag or create a GitHub release. This main channel remains experimental and never uses `latest`. The first GHCR package may require the owner to configure public visibility. See [deployment instructions](deployment.md#pull-the-ci-published-image-without-building-locally).
 
 ## Publish a reviewed version
