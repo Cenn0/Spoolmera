@@ -27,6 +27,11 @@
     "typescript": "6.0.3",
     "vitest": "5.0.5"
   },
+  "overrides": {
+    "@angular/build@22.2.3": {
+      "vite": "8.3.5"
+    }
+  },
   "engines": {
     "node": "^22.22.3 || ^24.15.0 || >=26.0.0"
   }

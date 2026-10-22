@@ -78,6 +78,40 @@ Install in a clean Python 3.12 environment with `--require-hashes`. Review npm u
 
 Regenerate API declarations with `python scripts/generate_api_types.py`; CI uses `--check`. Run the Python suite, `npm run typecheck`, `npm test`, `npm run build`, browser smoke, default/recovery/notifier Docker smoke, optional slicer smoke and dependency audits. A version bump updates `app/__init__.py`, `frontend/package.json`, npm lock package metadata and release documentation together.
 
+## Temporary Vite development dependency override
+
+As checked on 2026-10-22, the latest stable `@angular/build` is 22.2.3 and its
+[published dependency metadata](https://registry.npmjs.org/@angular/build/22.2.3)
+pins Vite 8.3.0. The [Vite 8.3.3 security fixes](https://github.com/vitejs/vite/releases/tag/v8.3.3)
+address the reported development-server and bundled `launch-editor` issues;
+the reviewed [Vite 8.3.5 patch release](https://github.com/vitejs/vite/releases/tag/v8.3.5)
+also includes subsequent bug fixes. The frontend therefore uses an exact npm
+override scoped to `@angular/build@22.2.3`, selecting Vite 8.3.5. The generated
+lockfile also records its required PostCSS and nested Rolldown dependency updates.
+
+[npm officially supports version-scoped overrides](https://docs.npmjs.com/cli/v11/configuring-npm/package-json/#overrides)
+for replacing vulnerable transitive dependencies. This is a temporary,
+project-validated combination; it is **not** Angular's published Vite pin or a
+claim of upstream support for that exact combination. Keep the stable Angular
+packages in place rather than accepting `npm audit fix --force` or a prerelease
+toolchain. Before merging this override or changing it, require `npm ci`,
+typechecking, unit tests, the production build, browser CI and a full dependency
+audit to pass on the actual revision.
+
+Vite is development/build tooling. The final Docker application image contains
+Python and compiled browser assets, without the Node toolchain or a Vite server.
+That deployment boundary does not remove the risk to developer machines using
+`npm start`; retain the loopback-only development listener. The PR security gate
+now audits development dependencies as well as runtime dependencies with
+`npm audit --include=dev --audit-level=high`. The CycloneDX SBOM remains limited
+to production frontend packages.
+
+On the next Angular build-tool update, review its official Vite dependency and
+remove the old version-scoped override once that stable version uses a fixed
+Vite release. Regenerate the lockfile and rerun the full audit and frontend
+checks; a version-scoped override intentionally does not silently change a new
+Angular toolchain's dependencies.
+
 ## Browser screenshot provenance
 
 A successful `browser-smoke` job validates genuine German and UI/UX Chromium captures from a synthetic, disposable database without uploading them. Reviewed images are checked in under [`docs/screenshots/`](screenshots/README.md), referenced by the README and accompanied by a source commit and run identifier. The files are not a claim of physical printer certification; complete fresh captures can be regenerated locally.
