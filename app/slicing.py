@@ -21,6 +21,8 @@ from app.jobs import estimate_gcode
 PROFILE_NAME = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 MAX_STL = 8 * 1024 * 1024
 MAX_RESULT = 16 * 1024 * 1024
+# Match the optional Compose worker CPU quota instead of the host CPU count.
+SLICER_THREADS = 2
 SLICER_LOCK = threading.BoundedSemaphore(1)
 
 
@@ -79,7 +81,7 @@ def slice_stl(data: bytes, name: str) -> tuple[bytes, int | None]:
             try:
                 result = subprocess.run(
                     [str(binary), "--load", str(profile_root() / (name + ".ini")),
-                     "--export-gcode", "--output", str(output), str(source)],
+                     "--threads", str(SLICER_THREADS), "--export-gcode", "--output", str(output), str(source)],
                     cwd=work, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                     timeout=60, check=False,
                 )

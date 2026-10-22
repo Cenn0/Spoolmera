@@ -272,3 +272,5 @@ python3 scripts/scan_container.py --image ghcr.io/cenn0/spoolmera:main \
 ```
 
 The second command inventories what the moving tag resolves to at scan time; deploy by a separately verified digest. Unit tests for the scanner and registry harness simulate subprocesses and failure paths; only a completed registry workflow proves those integration checks ran. See [release gates and known blockers](RELEASING.md).
+
+The slicer bridge explicitly caps PrusaSlicer at two threads after loading its approved profile, matching the optional worker's two-CPU Compose quota even on larger hosts. The existing one-operation semaphore, 60-second subprocess deadline, PID/memory bounds and credential-minimal subprocess environment remain enforced. A failing slicer Compose smoke prints bounded service status/logs before removing its disposable containers, network and volume, while preserving the original failure exit status.
