@@ -29,7 +29,7 @@ The Docker service serves compiled Angular through FastAPI; the runtime does **n
 
 ## Pull the CI-published image (without building locally)
 
-After a successful push/merge to `main`, the [main image workflow](../.github/workflows/publish-main-image.yml) publishes the default app to GitHub Container Registry for `linux/amd64` and `linux/arm64`. The **experimental** rolling tag is `ghcr.io/cenn0/spoolmera:main`; `ghcr.io/cenn0/spoolmera:sha-<full-40-character-commit-sha>` selects one particular revision. There is deliberately no moving `latest` tag.
+After successful push-to-main CI, the [main image workflow](../.github/workflows/publish-main-image.yml) stages a default-app candidate in GitHub Container Registry for `linux/amd64` and `linux/arm64`. It promotes that exact digest only after both native registry-runtime/recovery checks and actual-image vulnerability gates pass. A failed or stale candidate leaves the previously accepted tags in place; do not deploy a `candidate-<commit>` tag as an accepted image. Consult [the release gates and known blockers](RELEASING.md) before choosing a revision. The **experimental** rolling tag is `ghcr.io/cenn0/spoolmera:main`; `ghcr.io/cenn0/spoolmera:sha-<full-40-character-commit-sha>` selects one particular revision. There is deliberately no moving `latest` tag.
 
 Continue using the repository's `compose.yaml` and your existing private `.env`, keeping the same named SQLite volume. Add this line to `.env`:
 
@@ -45,7 +45,7 @@ docker compose up -d --pull always --no-build
 docker compose ps
 ```
 
-For a reproducible upgrade, prefer the commit-specific tag after reviewing the matching CI run. **Back up the database and rehearse migrations before upgrading**, as described below. GHCR publication neither deploys to your server nor restarts a running container; the operator controls upgrades. Public repository visibility does not guarantee that a newly created GHCR package is public: its owner may need to set the package visibility to **public**. Do not publish tokens or `.env` files. The default image contains only the app, not optional slicing or notifications services.
+For a reproducible upgrade, prefer the accepted registry digest (`ghcr.io/cenn0/spoolmera@sha256:<verified-digest>`), and review both source CI and the matching successful image-publication run. Commit-specific tags identify a source revision, while the digest fixes the downloaded image contents. Existing images published before these gates were introduced are not retroactively accepted by the new scan policy. **Back up the database and rehearse migrations before upgrading**, as described below. GHCR publication neither deploys to your server nor restarts a running container; the operator controls upgrades. Public repository visibility does not guarantee that a newly created GHCR package is public: its owner may need to set the package visibility to **public**. Do not publish tokens or `.env` files. The default image contains only the app, not optional slicing or notifications services.
 
 ## Remote access, HTTPS and QR links
 
