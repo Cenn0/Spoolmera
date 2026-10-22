@@ -50,8 +50,8 @@ Before a **live upgrade**, back up and verify the SQLite database **and rehearse
 ```bash
 docker compose pull spoolmera
 # Rehearse backup verification against the selected target image BEFORE replacing the live app.
-docker compose run --rm --no-deps --entrypoint python spoolmera \\
-  scripts/verify_backup.py /data/backups/before-upgrade.sqlite3 \\
+docker compose run --rm --no-deps --entrypoint python spoolmera \
+  scripts/verify_backup.py /data/backups/before-upgrade.sqlite3 \
   --work-dir /data --json
 # Only after a successful rehearsal and operator approval:
 docker compose up -d --pull always --no-build
