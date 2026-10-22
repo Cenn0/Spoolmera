@@ -257,3 +257,18 @@ python scripts/notifier_container_smoke.py \
 The recovery gate exercises a root-run offline restore onto a UID-10001 database, validates database and lock-file ownership, starts the normal non-root app, downloads another online backup and records new material movements. It also runs the packaged verifier with a writable workspace, verifies and restores a historical-schema backup, checks that incomplete current-schema candidates cannot replace the database, restores over corruption and a missing database, verifies the preserved prior bytes and rejects an unrelated SQLite file. Unit tests that require actual UID changes are skipped when the host does not map UID 10001; the Docker gate must still pass. The notifier gate resolves the actual Compose files against synthetic secret sentinels and sends one authenticated message to a disposable local HTTP stub across three separate container runs. A configured gate is not evidence that it passed; consult the CI run for the commit being installed.
 
 For the isolated-slicer CI job, copy `tests/fixtures/slicer/ci.ini` into `slicer-profiles/ci.ini`, start the slicer Compose overlay with a fresh application database and export its generated `SPOOLMERA_BOOTSTRAP_TOKEN`. Then run `python scripts/slicer_smoke.py`. The test bootstraps only that fresh loopback instance and sends the closed 5 mm cube fixture through the authenticated API to the real PrusaSlicer executable. It checks the returned G-code without uploading it to any printer. The fixture profile is test data, not a physical-printer recommendation.
+
+## Registry acceptance and actual image vulnerability scanning
+
+After successful main CI, separate native AMD64/ARM64 runners download the candidate from GHCR by digest. `scripts/verify_published_image.py` refuses mutable tags and non-project registries, validates architecture/non-root user/source labels before executing its local image ID, and tests actual HTTP assets, authentication, stock, CSV and restart persistence with a fresh loopback-only volume. `scripts/container_restore_smoke.py` then exercises the downloaded image's offline recovery path. The main tag moves only after both architecture jobs pass, without rebuilding.
+
+`scripts/scan_container.py` installs a checksum-pinned upstream Trivy release in a temporary workspace and scans **actual image contents**, including Debian and Python packages. It emits full `vulnerabilities.json`, `sbom.cdx.json` and a versioned `scan-summary.json` in the specified directory. HIGH/CRITICAL findings block even when no fixed version exists; incomplete inventory, unavailable scanner/database and invalid SBOM also fail. A previous successful report cannot survive a failed retry as current evidence. These reports remain job-local rather than consuming artifact storage. The tagged-release job scans its built image before any image/release publication.
+
+```bash
+python3 scripts/scan_container.py --image spoolmera:ci --output /tmp/spoolmera-image-scan
+# To inspect an existing registry image without a local Docker daemon:
+python3 scripts/scan_container.py --image ghcr.io/cenn0/spoolmera:main \
+  --image-source remote --output /tmp/spoolmera-registry-scan
+```
+
+The second command inventories what the moving tag resolves to at scan time; deploy by a separately verified digest. Unit tests for the scanner and registry harness simulate subprocesses and failure paths; only a completed registry workflow proves those integration checks ran. See [release gates and known blockers](RELEASING.md).

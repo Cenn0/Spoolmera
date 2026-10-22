@@ -140,3 +140,5 @@ Beiträge sollten reproduzierbare Tests und passende Ergänzungen zur [Betriebsd
 [Dokumentationsindex](docs/README.md) · [Installation und Backups](docs/deployment.md) · [Funktionsumfang und Roadmap](docs/roadmap-implementation.md) · [Oberfläche](docs/interface-ux.md) · [Druckersicherheit](docs/security-and-printers.md) · [Mitwirken](CONTRIBUTING.md) · [Sicherheitsrichtlinie](SECURITY.md)
 
 Spoolmera steht unter [Apache-2.0](LICENSE). Drittanbieterbibliotheken behalten ihre eigenen Lizenzen. Insbesondere verwendet der **optionale** PrusaSlicer-Worker AGPL-3.0-Komponenten, die nicht Teil des Standard-Images sind. Siehe [Drittanbieterlizenzen](THIRD_PARTY_LICENSES.md) und [Lizenzkonformität](docs/license-compliance.md). Sicherheitslücken bitte vertraulich gemäß [SECURITY.md](SECURITY.md) melden.
+
+Container-Kandidaten müssen native AMD64-/ARM64-Registry-Tests, Wiederherstellung und einen Scan der tatsächlichen Image-Pakete bestehen, bevor der `main`-Tag aktualisiert wird. Siehe [Freigabekriterien und aktuelle Blocker](docs/RELEASING.md).

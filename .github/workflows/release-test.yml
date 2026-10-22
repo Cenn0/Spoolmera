@@ -113,6 +113,8 @@ jobs:
           done
           test "$ready" = 1 || { docker logs "$container"; exit 1; }
           python3 scripts/http_smoke.py --persistence
+      - name: Scan the actual release image before publication
+        run: python3 scripts/scan_container.py --image spoolmera:test --output "$RUNNER_TEMP/release-container-scan"
       - name: Assemble versioned bundle with checksums and notices
         shell: bash
         run: |

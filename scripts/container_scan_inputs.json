@@ -1,0 +1,14 @@
+{
+  "version": "0.75.0",
+  "source": "https://github.com/aquasecurity/trivy/releases/download/v0.75.0/trivy_0.75.0_checksums.txt",
+  "archives": {
+    "x86_64": {
+      "name": "trivy_0.75.0_Linux-64bit.tar.gz",
+      "sha256": "c6e65abddb348e25f10549df887045629cf28cc72453cd1c63acb717316b3f3f"
+    },
+    "aarch64": {
+      "name": "trivy_0.75.0_Linux-ARM64.tar.gz",
+      "sha256": "a1ee9f6ffb7d112b64ff726a2a0717c21175c1114361391f4a132956751a13b3"
+    }
+  }
+}

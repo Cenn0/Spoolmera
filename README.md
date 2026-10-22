@@ -140,3 +140,5 @@ Contributions should include a reproducible test and update the relevant [operat
 [Documentation index](docs/README.md) · [Deployment and backups](docs/deployment.md) · [Features and roadmap](docs/roadmap-implementation.md) · [Interface](docs/interface-ux.md) · [Security and printers](docs/security-and-printers.md) · [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md)
 
 Spoolmera is licensed under [Apache-2.0](LICENSE). Third-party dependencies retain their own licenses. In particular, the **optional** PrusaSlicer worker involves AGPL-3.0 components and is not part of the default app image; see [third-party notices](THIRD_PARTY_LICENSES.md) and [license compliance](docs/license-compliance.md). Report vulnerabilities privately through [SECURITY.md](SECURITY.md).
+
+Published container candidates must pass native AMD64/ARM64 registry, recovery and actual-image vulnerability checks before promotion to `main`. See [acceptance gates and current blockers](docs/RELEASING.md).
