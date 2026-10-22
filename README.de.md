@@ -66,7 +66,7 @@ python3 -c 'import secrets; print(secrets.token_urlsafe(32))'
 docker compose up -d --build
 ```
 
-Für ein fertig gebautes, von der CI geprüftes Image statt eines lokalen Builds `SPOOLMERA_IMAGE=ghcr.io/cenn0/spoolmera:main` in `.env` eintragen und `docker compose up -d --pull always --no-build` ausführen. Der experimentelle Tag `main` wird nach erfolgreicher CI auf `main` aktualisiert; `:sha-<40-stellige-Commit-SHA>` wählt einen bestimmten Build. Die Veröffentlichung aktualisiert **keine** laufende Installation automatisch. Siehe [Deployment](docs/deployment.md) und [Release-Prozess](docs/RELEASING.md).
+Für ein veröffentlichtes Image statt eines lokalen Builds den **verifizierten Multiarchitektur-Digest** aus einem erfolgreichen [Image-Promotion-Workflow](https://github.com/Cenn0/Spoolmera/actions/workflows/publish-main-image.yml) auswählen. Mit `python3 scripts/pin_published_image.py --digest sha256:<64-kleinbuchstabige-hexadezimale-Zeichen>` zunächst prüfen und mit `--apply` ausschließlich `SPOOLMERA_IMAGE` in der vorhandenen privaten `.env` anpassen. Erst nach Backup- und Migrationsprüfung `docker compose up -d --pull always --no-build` ausführen. Der bewegliche Tag `:main` bleibt für experimentelle Tests verfügbar; für kontrollierte Updates ist die **Digest-Pin**-Variante vorzuziehen. Ein Merge aktualisiert **keine** laufende Installation automatisch. Siehe [Deployment](docs/deployment.md) und [Release-Prozess](docs/RELEASING.md).
 
 Öffne **http://127.0.0.1:8765** auf dem Docker-Host. Lege mit dem Bootstrap-Token und einem Passwort von **mindestens 14 Zeichen** den ersten Administrator an. Es gibt **kein Standard-Adminpasswort**; ohne Bootstrap-Token ist die Ersteinrichtung blockiert.
 
