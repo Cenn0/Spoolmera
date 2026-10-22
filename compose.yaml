@@ -1,6 +1,8 @@
 name: spoolmera
 services:
   spoolmera:
+    # Local builds remain the default; set SPOOLMERA_IMAGE for a published GHCR image.
+    image: ${SPOOLMERA_IMAGE:-spoolmera:local}
     build: .
     restart: unless-stopped
     ports:

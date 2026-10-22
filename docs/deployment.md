@@ -27,6 +27,26 @@ Open **http://127.0.0.1:8765** on the Docker host and create the first administr
 
 The Docker service serves compiled Angular through FastAPI; the runtime does **not** need Node.js. Persistent SQLite data lives in the named volume `spoolmera_data`, at `/data/spoolmera.sqlite3` inside the container. Exactly **one API process per SQLite database** is the supported operating model. Do not share one SQLite volume across several application workers.
 
+## Pull the CI-published image (without building locally)
+
+After a successful push/merge to `main`, the [main image workflow](../.github/workflows/publish-main-image.yml) publishes the default app to GitHub Container Registry for `linux/amd64` and `linux/arm64`. The **experimental** rolling tag is `ghcr.io/cenn0/spoolmera:main`; `ghcr.io/cenn0/spoolmera:sha-<full-40-character-commit-sha>` selects one particular revision. There is deliberately no moving `latest` tag.
+
+Continue using the repository's `compose.yaml` and your existing private `.env`, keeping the same named SQLite volume. Add this line to `.env`:
+
+```dotenv
+SPOOLMERA_IMAGE=ghcr.io/cenn0/spoolmera:main
+```
+
+Then fetch and recreate with the published image instead of a local build:
+
+```bash
+docker compose pull spoolmera
+docker compose up -d --pull always --no-build
+docker compose ps
+```
+
+For a reproducible upgrade, prefer the commit-specific tag after reviewing the matching CI run. **Back up the database and rehearse migrations before upgrading**, as described below. GHCR publication neither deploys to your server nor restarts a running container; the operator controls upgrades. Public repository visibility does not guarantee that a newly created GHCR package is public: its owner may need to set the package visibility to **public**. Do not publish tokens or `.env` files. The default image contains only the app, not optional slicing or notifications services.
+
 ## Remote access, HTTPS and QR links
 
 The default Compose port binding is `127.0.0.1:8765:8765`. This deliberately restricts access to the Docker host. For LAN/mobile access, use an HTTPS reverse proxy **on that host** or a protected VPN. Route the public hostname to the loopback-bound service and configure the real client-visible origin in `.env`:
