@@ -66,6 +66,8 @@ python3 -c 'import secrets; print(secrets.token_urlsafe(32))'
 docker compose up -d --build
 ```
 
+For a prebuilt, CI-tested image instead of a local build, add `SPOOLMERA_IMAGE=ghcr.io/cenn0/spoolmera:main` to `.env` and run `docker compose up -d --pull always --no-build`. The experimental `main` tag is updated after successful main CI; use `:sha-<40-character-commit>` to select an exact image. Publication does **not** automatically update your running server. See [deployment](docs/deployment.md) and [releasing](docs/RELEASING.md).
+
 Open **http://127.0.0.1:8765** on the Docker host. Set up the first administrator with the bootstrap token and a password of **at least 14 characters**. There is **no default admin password**; initial setup is blocked if the token is absent.
 
 ```bash
