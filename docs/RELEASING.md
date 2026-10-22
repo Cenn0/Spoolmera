@@ -1,6 +1,6 @@
 # Releasing Spoolmera
 
-The current distributable is an **experimental Linux amd64 test bundle**, not a certified production printer controller. Full PR/main CI additionally tests the default app on native Linux arm64, but this release workflow publishes only a tested **amd64** image. Optional slicing/notifier images are **not** pushed.
+The versioned release workflow produces an **experimental Linux amd64 test bundle** only after its publication gates pass. No downloadable bundle exists merely because the source version was updated. It is not a certified production printer controller. Full PR/main CI additionally tests the default app on native Linux arm64, but this release workflow publishes only a tested **amd64** image. Optional slicing/notifier images are **not** pushed.
 
 ## Automatically published main images
 
