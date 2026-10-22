@@ -12,7 +12,7 @@ import urllib.request
 PASSWORD = "container-smoke-password-2026"
 
 
-def run(base: str, persistence: bool = False) -> None:
+def run(base: str, persistence: bool = False, *, bootstrap_token: str | None = None) -> None:
     jar = http.cookiejar.CookieJar()
     client = urllib.request.build_opener(urllib.request.ProxyHandler({}), urllib.request.HTTPCookieProcessor(jar))
     csrf = ""
@@ -42,7 +42,7 @@ def run(base: str, persistence: bool = False) -> None:
         print("HTTP persistence smoke passed after restart.")
         return
     result = call("/api/auth/setup", "POST", {"username": "container-admin", "password": PASSWORD},
-                  headers={"X-Bootstrap-Token": os.environ["SPOOLMERA_BOOTSTRAP_TOKEN"]})
+                  headers={"X-Bootstrap-Token": (bootstrap_token if bootstrap_token is not None else os.environ["SPOOLMERA_BOOTSTRAP_TOKEN"])})
     csrf = result["csrf_token"]
     product = call("/api/products", "POST", {"brand": "Smoke", "name": "PLA", "material": "PLA",
                    "color_name": "Blue", "color_hex": "#3377AA"}, expected=201)

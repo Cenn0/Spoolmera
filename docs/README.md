@@ -16,6 +16,7 @@
 | Verify a standalone backup and rehearse schema upgrades without replacing data | [Backup verification](operations.md#verify-a-backup-and-rehearse-its-upgrade) and [offline CLI](../scripts/verify_backup.py) |
 | Configure Moonraker, OctoPrint or community Bambu Lab LAN MQTT | [Security and printers](security-and-printers.md) |
 | Check actual physical printer/accessory validation and submit sanitized test evidence | [Hardware compatibility matrix](hardware-compatibility.md) |
+| Inspect digest-based registry acceptance, image vulnerability gates and release blockers | [Release procedure](RELEASING.md) and [registry testing](testing.md#registry-acceptance-and-actual-image-vulnerability-scanning) |
 | Determine actual feature coverage and limitations | [Feature/status matrix](roadmap-implementation.md) |
 | Test in an isolated environment, inspect every UI view in four layouts, interpret CI evidence | [Testing](testing.md) |
 | Examine/refresh real browser screenshots | [Screenshot provenance](screenshots/README.md) |

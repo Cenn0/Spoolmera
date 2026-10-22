@@ -33,6 +33,7 @@ This release remains fully free, Apache-2.0-licensed, Docker-self-hosted and bas
 | Restock | Product targets, active physical stock, zero-stock products and separately displayed reservations | app/services/inventory_query_service.py |
 | Operations | Supervised worker/lease state, device failures, unresolved commands/uploads, storage, backup and recovery diagnostics | app/api/diagnostics.py |
 | Bambu Lab LAN (experimental) | Community/non-official MQTT observations and AMS/status telemetry, opt-in pause/resume/stop, pinned TLS certificate; no upload, remote print start or vendor-cloud authentication | app/infrastructure/printers/bambu.py |
+| Registry image acceptance | Digest-pinned downloads on native AMD64/ARM64 runners, source/user/asset checks, authenticated HTTP/restart/offline recovery, actual-image vulnerability/SBOM gate and freshness recheck before main promotion; blocking upstream package findings remain open | scripts/verify_published_image.py, scripts/scan_container.py, .github/workflows/publish-main-image.yml |
 | Experimental release integrity | Release workflow packages the tested amd64 image with nested and outer SHA-256 manifests; an offline, extraction-free verifier rejects inconsistent archive paths, content and release source identity before GHCR/Release publication | scripts/verify_release_bundle.py, .github/workflows/release-test.yml |
 
 ## Operational invariants
@@ -54,6 +55,19 @@ This release remains fully free, Apache-2.0-licensed, Docker-self-hosted and bas
 - **Recommended operating model:** A single FastAPI runtime worker and SQLite volume, local HTTPS reverse proxy or VPN, no required cloud or paid services.
 - **Security recommendation:** Leave physical printer control and slicing disabled by default, use private-IP allowlists and restricted credentials, never trust unverified hardware events to modify inventory.
 - **Not delivered or verified:** Native Bambu/Prusa vendor-cloud login and control, universal Web NFC, OpenPrintTag NDEF payload parsing, arbitrary USB/ESPHome firmware drivers, OIDC/SSO, direct live Spoolman API emulation, and physical printer certification. These require tested vendor/provider infrastructure and cannot be honestly claimed via simulated responses.
+
+## Remaining roadmap and dependencies
+
+| Order | Remaining acceptance item | Implemented automation | Still required |
+| --- | --- | --- | --- |
+| 1 | Actual container-package vulnerability acceptance | Full image inventory and CycloneDX SBOM; fail-closed HIGH/CRITICAL gate, including unfixed findings, before main promotion/versioned release | Resolve currently reported upstream OS package findings; a candidate is not accepted merely because source CI passes |
+| 2 | Accepted registry image on both CPU architectures | Pull exact GHCR digest on native AMD64/ARM64; source/user/assets, HTTP, ledger/restart and offline recovery checks | Successful registry verification **after item 1 passes** on the revision being installed |
+| 3 | Independently downloaded versioned release / package upgrade | Existing tagged bundle build, checksums and offline verifier; actual release-image scan now gates publication | An unused reviewed version tag, completed release job, and download/upgrade verification on a separate host; no published GitHub release existed at this review |
+| 4 | Real printer/firmware, interruption and spool-change evidence | Simulated controller regression suite and public hardware report procedure | Authorized supervised physical test evidence and review |
+| 5 | Calibrated scales, NFC/tag readers and complete cost accuracy | Signed-event/identifier regression coverage | Physical devices, calibration/measurement uncertainty and recorded results |
+| 6 | Independent security acceptance | Source CI/CodeQL, dependency audits and new actual-image scan | An independent review; automated checks are not equivalent |
+
+The code-side registry/release gates are implemented. These acceptance items are **not all complete**, and hardware/provider capabilities listed as not delivered above are not silently promoted to supported features.
 
 ## Before stable 1.0
 
