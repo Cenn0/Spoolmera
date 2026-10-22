@@ -43,7 +43,7 @@ Screenshots use synthetic demonstration data, not connected physical hardware. S
 
 - **Filaments and spools:** Product catalog, material/color variants, individual physical spools, remaining/tare weight, locations, conditions and low-stock indications.
 - **Inventory workflow:** Search and filters, color-coded cards, storage board, drag-and-drop with alternatives, transactional movements, manual weighing and traceable corrections.
-- **Labels and import:** Printable QR labels, CSV import/export and one-time Spoolman JSON snapshot import (not ongoing synchronization).
+- **Labels, export and import:** Printable QR labels, versioned inventory CSV import/export, filterable full movement-history CSV export (including archived spools) and one-time Spoolman JSON snapshot import (not ongoing synchronization).
 - **Printing:** Print-job tracking, G-code/3MF metadata inspection, explicit mapping from tools to spools and review of estimated versus actual use.
 - **Connections:** Local Moonraker/Klipper, OctoPrint and an **experimental, unofficial Bambu Lab LAN MQTT adapter**.
 - **Operations:** Role-based access, first-run admin setup, diagnostics and guarded SQLite backup/restore. Optional isolated slicing worker and notification sidecar.

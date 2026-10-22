@@ -4,3 +4,5 @@
 .mobile-spool-head > a { min-width: 0; overflow-wrap: anywhere; }
 .mobile-spool-head > strong { flex: none; white-space: nowrap; }
 .mobile-spool-head + p { margin-top: 12px; }
+.history-export { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; margin: 10px 0 18px; }
+.history-export .helper { flex: 1 1 270px; min-width: 0; }
