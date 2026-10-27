@@ -141,7 +141,9 @@ jobs:
           python3 scripts/notifier_container_smoke.py --image spoolmera:notifier-ci --api-image spoolmera:ci
 
   browser-smoke:
-    runs-on: ubuntu-latest
+    # Freeze host runner while ubuntu-latest transitions to 26.04: host toolcache
+    # Python lacks working ssl inside the digest-pinned Playwright job container.
+    runs-on: ubuntu-24.04
     # Matching official browser/runtime image: no per-run apt/CDN browser install.
     container:
       image: mcr.microsoft.com/playwright/python:v1.64.0-noble@sha256:684df257a1fa0ef3fa288239819984008f560e8f8db5b635ee9e2a50cbcd2e23
