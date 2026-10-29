@@ -42,6 +42,25 @@ def test_public_guard_rejects_only_high_confidence_patterns():
     assert suspected_secret_lines(two_on_one_line) == [1]
 
 
+
+def test_public_guard_never_logs_sensitive_values_or_source_paths(tmp_path, monkeypatch, capsys):
+    import scripts.check_public_content as scanner
+
+    marker = "gh" + "p_" + "A" * 36
+    contact = "person" + "@" + "private-domain.test"
+    (tmp_path / "tracked.txt").write_text(marker + "\n" + contact + "\n", encoding="utf-8")
+    monkeypatch.setattr(scanner, "ROOT", tmp_path)
+    monkeypatch.setattr(scanner.subprocess, "check_output",
+                        lambda *args, **kwargs: b"tracked.txt\0")
+
+    assert scanner.main() == 1
+    output = capsys.readouterr().out
+    assert marker not in output
+    assert contact not in output
+    assert "tracked.txt" not in output
+    assert "credential" in output and "contact" in output
+
+
 def test_runtime_requirements_are_pinned():
     pins = parse_pins((ROOT / "requirements.txt").read_text(encoding="utf-8"))
     assert pins["fastapi"][1]
