@@ -52,7 +52,8 @@ def suspected_secret_lines(text: str) -> list[int]:
 
 def main() -> int:
     tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).split(b"\0")
-    issues: list[str] = []
+    email_found = False
+    secret_found = False
     checked = 0
     for entry in tracked:
         if not entry:
@@ -66,14 +67,16 @@ def main() -> int:
         except (UnicodeDecodeError, OSError):
             continue  # Checked-in binary assets are not text.
         checked += 1
-        for line in unapproved_email_lines(text):
-            issues.append(f"private/contact email in tracked file at {relative.as_posix()}:{line}")
-        for line in suspected_secret_lines(text):
-            issues.append(f"secret-like value in tracked file at {relative.as_posix()}:{line}")
-    if issues:
-        for location in issues:
-            print("ERROR: review " + location)
-        print("Matching values are intentionally withheld from CI logs.")
+        if unapproved_email_lines(text):
+            email_found = True
+        if suspected_secret_lines(text):
+            secret_found = True
+    if email_found:
+        print("ERROR: tracked source contains an unapproved contact email.")
+    if secret_found:
+        print("ERROR: tracked source contains a possible credential or private-key marker.")
+    if email_found or secret_found:
+        print("Values, paths and line numbers are withheld from CI logs; inspect locally.")
         return 1
     print(f"Public source content check OK: {checked} text files; Git commit metadata not scanned.")
     return 0
