@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import pytest
 
 from scripts.check_public_content import (is_unapproved_email, suspected_secret_lines,
                                          unapproved_email_lines)
@@ -59,6 +60,48 @@ def test_public_guard_never_logs_sensitive_values_or_source_paths(tmp_path, monk
     assert contact not in output
     assert "tracked.txt" not in output
     assert "credential" in output and "contact" in output
+
+
+def test_public_guard_never_reads_untracked_symlink_target(tmp_path, monkeypatch, capsys):
+    import scripts.check_public_content as scanner
+
+    marker = "gh" + "p_" + "Z" * 36
+    outside = tmp_path.parent / (tmp_path.name + "-outside-target")
+    outside.write_text(marker, encoding="utf-8")
+    try:
+        try:
+            (tmp_path / "tracked-link").symlink_to(outside)
+        except (OSError, NotImplementedError):
+            pytest.skip("Filesystem does not allow creating symlinks")
+        monkeypatch.setattr(scanner, "ROOT", tmp_path)
+        monkeypatch.setattr(scanner.subprocess, "check_output",
+                            lambda *args, **kwargs: b"tracked-link\\0")
+
+        assert scanner.main() == 0
+        output = capsys.readouterr().out
+        assert marker not in output
+        assert str(outside) not in output
+    finally:
+        outside.unlink(missing_ok=True)
+
+
+def test_public_guard_scans_link_text_without_leaking_it(tmp_path, monkeypatch, capsys):
+    import scripts.check_public_content as scanner
+
+    marker = "gh" + "s_" + "Q" * 36
+    try:
+        (tmp_path / "tracked-link").symlink_to(tmp_path / marker)
+    except (OSError, NotImplementedError):
+        pytest.skip("Filesystem does not allow creating symlinks")
+    monkeypatch.setattr(scanner, "ROOT", tmp_path)
+    monkeypatch.setattr(scanner.subprocess, "check_output",
+                        lambda *args, **kwargs: b"tracked-link\\0")
+
+    assert scanner.main() == 1
+    output = capsys.readouterr().out
+    assert "credential" in output
+    assert marker not in output
+    assert str(tmp_path) not in output
 
 
 def test_runtime_requirements_are_pinned():
