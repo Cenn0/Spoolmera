@@ -60,12 +60,17 @@ def main() -> int:
             continue
         relative = Path(entry.decode("utf-8", "surrogateescape"))
         path = ROOT / relative
-        if not path.is_file():
-            continue
         try:
-            text = path.read_text(encoding="utf-8")
+            if path.is_symlink():
+                # Git records a symlink's target path, not the target file's bytes.
+                # Inspect that recorded text without following external paths.
+                text = str(path.readlink())
+            elif path.is_file():
+                text = path.read_text(encoding="utf-8")
+            else:
+                continue
         except (UnicodeDecodeError, OSError):
-            continue  # Checked-in binary assets are not text.
+            continue  # Checked-in binary assets and broken paths are not text.
         checked += 1
         if unapproved_email_lines(text):
             email_found = True
