@@ -75,7 +75,7 @@ def test_public_guard_never_reads_untracked_symlink_target(tmp_path, monkeypatch
             pytest.skip("Filesystem does not allow creating symlinks")
         monkeypatch.setattr(scanner, "ROOT", tmp_path)
         monkeypatch.setattr(scanner.subprocess, "check_output",
-                            lambda *args, **kwargs: b"tracked-link\\0")
+                            lambda *args, **kwargs: b"tracked-link\0")
 
         assert scanner.main() == 0
         output = capsys.readouterr().out
@@ -95,7 +95,7 @@ def test_public_guard_scans_link_text_without_leaking_it(tmp_path, monkeypatch, 
         pytest.skip("Filesystem does not allow creating symlinks")
     monkeypatch.setattr(scanner, "ROOT", tmp_path)
     monkeypatch.setattr(scanner.subprocess, "check_output",
-                        lambda *args, **kwargs: b"tracked-link\\0")
+                        lambda *args, **kwargs: b"tracked-link\0")
 
     assert scanner.main() == 1
     output = capsys.readouterr().out
