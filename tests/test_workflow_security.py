@@ -78,7 +78,7 @@ def test_browser_ci_uses_matching_digest_pinned_official_test_image():
     assert "image: " + image["reference"] in browser
     # Use the Python shipped in the official container, not setup-python's
     # runner toolcache build (which can lack the SSL extension in a container).
-    assert not re.search(r"^\\s+- uses: actions/setup-python@", browser, re.MULTILINE)
+    assert not re.search(r"^\s+- uses: actions/setup-python@", browser, re.MULTILINE)
     assert "name: Verify container Python TLS support" in browser
     assert browser.index("Verify container Python TLS support") < browser.index("Install application and browser test dependencies")
     assert "Verify the preinstalled Chromium executable" in browser
