@@ -76,6 +76,11 @@ def test_browser_ci_uses_matching_digest_pinned_official_test_image():
     assert re.fullmatch(r"mcr\.microsoft\.com/playwright/python:v[0-9.]+-noble@sha256:[0-9a-f]{64}", image["reference"])
     browser = CI.read_text().split("  browser-smoke:", 1)[1].split("  slicer-build:", 1)[0]
     assert "image: " + image["reference"] in browser
+    # Use the Python shipped in the official container, not setup-python's
+    # runner toolcache build (which can lack the SSL extension in a container).
+    assert not re.search(r"^\\s+- uses: actions/setup-python@", browser, re.MULTILINE)
+    assert "name: Verify container Python TLS support" in browser
+    assert browser.index("Verify container Python TLS support") < browser.index("Install application and browser test dependencies")
     assert "Verify the preinstalled Chromium executable" in browser
     assert "playwright.chromium.launch" in browser
     assert "python scripts/browser_smoke.py" in browser
