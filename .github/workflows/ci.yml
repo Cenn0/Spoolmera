@@ -150,9 +150,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
-        with:
-          python-version: "3.12"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
@@ -162,6 +159,13 @@ jobs:
         run: npm ci --no-audit --no-fund && npm run build
       - name: Stage Angular application
         run: mkdir -p app/ui && cp -a frontend/dist/spoolmera/browser/. app/ui/
+      # The official Playwright Python container supplies a Python interpreter
+      # with working OpenSSL. setup-python's hosted toolcache interpreter can
+      # lack _ssl inside the container, preventing secure pip downloads.
+      - name: Verify container Python TLS support
+        run: |
+          python -c 'import ssl; print(ssl.OPENSSL_VERSION)'
+          python -m pip --version
       - name: Install application and browser test dependencies
         run: python -m pip install --require-hashes -r requirements-e2e.txt
       - name: Verify the preinstalled Chromium executable
