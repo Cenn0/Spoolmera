@@ -38,3 +38,8 @@ def test_version_mismatch_diagnostics_hide_untrusted_version(tmp_path: Path) -> 
     errors = check_locks(tmp_path)
     assert any("fastapi must equal" in problem for problem in errors)
     assert not any("2.0+local" in problem for problem in errors)
+
+def test_missing_input_files_do_not_expose_absolute_paths(tmp_path: Path) -> None:
+    errors = check_locks(tmp_path)
+    assert errors
+    assert str(tmp_path) not in "\n".join(errors)
