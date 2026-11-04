@@ -11,8 +11,9 @@ from pathlib import Path
 import re
 
 _NAME = r"[A-Za-z0-9][A-Za-z0-9._-]*"
-_PIN = re.compile(rf"^({_NAME})==([^\s;#]+)")
-_HASH = re.compile(r"--hash=sha256:[0-9a-f]{64}(?=\s|$)")
+_VERSION = r"[0-9][A-Za-z0-9.!+_-]*"
+_PIN = re.compile(rf"^({_NAME})==({_VERSION})$")
+_LOCK_PIN = re.compile(rf"^({_NAME})==({_VERSION})(?:\s+--hash=sha256:[0-9a-f]{{64}})+$")
 
 
 def normalize(name: str) -> str:
@@ -20,7 +21,10 @@ def normalize(name: str) -> str:
 
 
 def read_pins(path: Path, *, require_hashes: bool) -> dict[str, str]:
-    """Read pinned requirements, including multiline uv/pip hash continuations."""
+    """Read pinned requirements, including multiline uv/pip hash continuations.
+
+    Treat requirement text as untrusted: never include it in CI diagnostics.
+    """
     pins: dict[str, str] = {}
     pending: list[str] = []
     for number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
@@ -35,20 +39,20 @@ def read_pins(path: Path, *, require_hashes: bool) -> dict[str, str]:
         # Only the .in files may reference a common input manifest.
         if not require_hashes and re.fullmatch(r"-r\s+requirements\.in", record):
             continue
-        match = _PIN.match(record)
+        match = (_LOCK_PIN if require_hashes else _PIN).fullmatch(record)
         if not match:
-            raise ValueError(f"{path}:{number}: unsupported or unpinned requirement: {record[:100]}")
+            if require_hashes and _PIN.fullmatch(record):
+                raise ValueError(f"{path.name}:{number}: missing SHA256 hash for pinned requirement")
+            raise ValueError(f"{path.name}:{number}: unsupported or unpinned requirement (content withheld)")
         name, version = match.groups()
         normalized = normalize(name)
         if normalized in pins:
-            raise ValueError(f"{path}:{number}: duplicate dependency: {name}")
-        if require_hashes and not _HASH.search(record):
-            raise ValueError(f"{path}:{number}: missing SHA256 hash for {name}")
+            raise ValueError(f"{path.name}:{number}: duplicate dependency: {name}")
         pins[normalized] = version
     if pending:
-        raise ValueError(f"{path}: unterminated requirement continuation")
+        raise ValueError(f"{path.name}: unterminated requirement continuation")
     if not pins:
-        raise ValueError(f"{path}: no pinned dependencies")
+        raise ValueError(f"{path.name}: no pinned dependencies")
     return pins
 
 
@@ -61,7 +65,10 @@ def check_locks(root: Path) -> list[str]:
         try:
             direct = read_pins(source, require_hashes=False)
             pinned = read_pins(compiled, require_hashes=True)
-        except (OSError, ValueError) as exc:
+        except OSError:
+            problems.append(f"{stem}: cannot read requirements files")
+            continue
+        except ValueError as exc:
             problems.append(str(exc))
             continue
         locks[stem] = pinned
@@ -69,8 +76,7 @@ def check_locks(root: Path) -> list[str]:
             actual = pinned.get(name)
             if actual != version:
                 problems.append(
-                    f"{compiled}: {name} must equal {source.name} pin {version}; "
-                    f"found {actual or 'missing'}"
+                    f"{compiled.name}: {name} must equal {source.name} pin (version mismatch)"
                 )
 
     # The test sets deliberately include and constrain the production graph.
@@ -82,8 +88,7 @@ def check_locks(root: Path) -> list[str]:
         for name, version in runtime.items():
             if test_lock.get(name) != version:
                 problems.append(
-                    f"{stem}.txt: runtime dependency {name} must be {version}; "
-                    f"found {test_lock.get(name) or 'missing'}"
+                    f"{stem}.txt: runtime dependency {name} version mismatch"
                 )
     return problems
 
