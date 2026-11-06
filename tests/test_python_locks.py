@@ -31,14 +31,14 @@ def test_matching_hashed_locks(tmp_path: Path) -> None:
 def test_stale_direct_requirement_is_rejected(tmp_path: Path) -> None:
     setup_locks(tmp_path)
     (tmp_path / "requirements.in").write_text("fastapi==2\nqrcode==2\n")
-    assert any("fastapi must equal" in problem for problem in check_locks(tmp_path))
+    assert any("pinned dependency differs" in problem for problem in check_locks(tmp_path))
 
 
 def test_runtime_test_lock_drift_is_rejected(tmp_path: Path) -> None:
     setup_locks(tmp_path)
     write_set(tmp_path, "requirements-e2e", "-r requirements.in\nplaywright==3\n",
               [("fastapi", "1.1"), ("qrcode", "2"), ("playwright", "3")])
-    assert any("runtime dependency fastapi" in problem for problem in check_locks(tmp_path))
+    assert any("runtime dependency pin mismatch" in problem for problem in check_locks(tmp_path))
 
 
 def test_missing_distribution_hash_is_rejected(tmp_path: Path) -> None:
