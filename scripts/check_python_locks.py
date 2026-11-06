@@ -47,7 +47,7 @@ def read_pins(path: Path, *, require_hashes: bool) -> dict[str, str]:
         name, version = match.groups()
         normalized = normalize(name)
         if normalized in pins:
-            raise ValueError(f"{path.name}:{number}: duplicate dependency: {name}")
+            raise ValueError(f"{path.name}:{number}: duplicate dependency (name withheld)")
         pins[normalized] = version
     if pending:
         raise ValueError(f"{path.name}: unterminated requirement continuation")
@@ -76,7 +76,7 @@ def check_locks(root: Path) -> list[str]:
             actual = pinned.get(name)
             if actual != version:
                 problems.append(
-                    f"{compiled.name}: {name} must equal {source.name} pin (version mismatch)"
+                    f"{compiled.name}: pinned dependency differs from {source.name} (name/version withheld)"
                 )
 
     # The test sets deliberately include and constrain the production graph.
@@ -88,7 +88,7 @@ def check_locks(root: Path) -> list[str]:
         for name, version in runtime.items():
             if test_lock.get(name) != version:
                 problems.append(
-                    f"{stem}.txt: runtime dependency {name} version mismatch"
+                    f"{stem}.txt: runtime dependency pin mismatch (name/version withheld)"
                 )
     return problems
 
