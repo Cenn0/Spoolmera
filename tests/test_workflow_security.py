@@ -90,3 +90,12 @@ def test_browser_ci_uses_matching_digest_pinned_official_test_image():
     # runner.temp is a host context path; RUNNER_TEMP is translated for job containers.
     assert "${{ runner.temp }}" not in browser
     assert '--output "$RUNNER_TEMP/ui-all-views-audit"' in browser
+
+def test_public_ci_never_dumps_raw_service_logs():
+    """Runtime logs may contain request paths or environment-derived data."""
+    ci = CI.read_text(encoding="utf-8")
+    assert not re.search(r"^\s*docker logs(?:\s|$)", ci, flags=re.MULTILINE)
+    assert not re.search(r"^\s*docker compose[^\n]*\slogs(?:\s|$)", ci, flags=re.MULTILINE)
+    assert 'cat "$RUNNER_TEMP/browser-server.log"' not in ci
+    assert "raw logs withheld from public CI" in ci
+    assert "trap 'kill " in ci
