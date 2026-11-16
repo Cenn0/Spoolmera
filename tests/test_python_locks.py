@@ -67,3 +67,19 @@ def test_ambiguous_normalized_dependency_is_rejected(tmp_path: Path) -> None:
         assert "duplicate" in str(exc)
     else:
         raise AssertionError("Expected an error for a duplicate normalized package name")
+
+
+def test_opentelemetry_traceparent_security_patch_is_pinned_in_all_lockfiles() -> None:
+    """Prevent reintroducing the known ReDoS-affected 1.45.1 release.
+
+    CVE-2026-126360 is fixed in opentelemetry-api 1.45.2.
+    The CI pip hash installation and pip-audit independently validate artifacts.
+    """
+    root = Path(__file__).resolve().parents[1]
+    assert read_pins(root / "requirements.in", require_hashes=False)[
+        "opentelemetry-api"
+    ] == "1.45.2"
+    for stem in ("requirements", "requirements-dev", "requirements-e2e"):
+        pins = read_pins(root / f"{stem}.txt", require_hashes=True)
+        assert pins["opentelemetry-api"] == "1.45.2", stem
+
